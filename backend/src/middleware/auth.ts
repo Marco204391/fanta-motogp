@@ -52,32 +52,4 @@ export const authenticate = async (
   }
 };
 
-// Middleware opzionale per route che possono essere autenticate o meno
-export const optionalAuth = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const authHeader = req.headers.authorization;
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      
-      try {
-        const decoded = jwt.verify(
-          token,
-          process.env.JWT_SECRET || 'secret'
-        ) as { userId: string };
-        
-        req.userId = decoded.userId;
-      } catch (error) {
-        // Ignora errori token, procedi senza auth
-      }
-    }
-    
-    next();
-  } catch (error) {
-    next();
-  }
-};
+export { authenticate, optionalAuth, AuthRequest };

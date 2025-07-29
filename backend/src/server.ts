@@ -20,12 +20,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Fanta MotoGP API is running!' });
 });
 
+// Import routes
+import authRoutes from './routes/auth';
+import ridersRoutes from './routes/riders';
+import teamsRoutes from './routes/teams';
+import leaguesRoutes from './routes/leagues';
+// import racesRoutes from './routes/races';
+
 // Routes principali
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/riders', require('./routes/riders'));
-app.use('/api/teams', require('./routes/teams'));
-app.use('/api/leagues', require('./routes/leagues'));
-app.use('/api/races', require('./routes/races'));
+app.use('/api/auth', authRoutes);
+app.use('/api/riders', ridersRoutes);
+app.use('/api/teams', teamsRoutes);
+app.use('/api/leagues', leaguesRoutes);
+// app.use('/api/races', racesRoutes);
 
 // Error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
