@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  username        String    @unique
+  password        String
+  credits         Int       @default(100000000) // Crediti iniziali: 100M
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  teams           Team[]
+  leagues         LeagueMember[]
+  notifications   Notification[]
+}
+
+model Rider {
+  id              String    @id @default(uuid())
+  name            String
+  number          Int
+  team            String
+  category        Category
+  nationality     String
+  value           Int       // Valore in crediti
+  photoUrl        String?
+  isActive        Boolean   @default(true)
+  
+  statistics      RiderStats[]
+  teamRiders      TeamRider[]
+  raceResults     RaceResult[]
+}
+
+model Team {
+  id              String    @id @default(uuid())
+  name            String
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  leagueId        String
+  league          League    @relation(fields: [leagueId], references: [id])
+  budget          Int
+  
+  riders          TeamRider[]
+  scores          TeamScore[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([userId, leagueId])
+}
+
+model TeamRider {
+  id              String    @id @default(uuid())
+  teamId          String
+  team            Team      @relation(fields: [teamId], references: [id])
+  riderId         String
+  rider           Rider     @relation(fields: [riderId], references: [id])
+  purchasePrice   Int
+  purchaseDate    DateTime  @default(now())
+  isCaptain       Boolean   @default(false)
+  
+  @@unique([teamId, riderId])
+}
+
+model League {
+  id              String    @id @default(uuid())
+  name            String
+  code            String    @unique
+  isPrivate       Boolean   @default(true)
+  maxTeams        Int       @default(10)
+  budget          Int       @default(100000000)
+  scoringRules    Json      // Regole personalizzabili
+  
+  teams           Team[]
+  members         LeagueMember[]
+  races           Race[]
+  createdAt       DateTime  @default(now())
+  startDate       DateTime?
+  endDate         DateTime?
+}
+
+model LeagueMember {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  leagueId        String
+  league          League    @relation(fields: [leagueId], references: [id])
+  role            LeagueRole @default(MEMBER)
+  joinedAt        DateTime  @default(now())
+  
+  @@unique([userId, leagueId])
+}
+
+model Race {
+  id              String    @id @default(uuid())
+  name            String
+  circuit         String
+  country         String
+  date            DateTime
+  round           Int
+  season          Int
+  
+  results         RaceResult[]
+  teamScores      TeamScore[]
+  leagueRaces     League[]
+}
+
+model RaceResult {
+  id              String    @id @default(uuid())
+  raceId          String
+  race            Race      @relation(fields: [raceId], references: [id])
+  riderId         String
+  rider           Rider     @relation(fields: [riderId], references: [id])
+  
+  position        Int?
+  points          Int       @default(0)
+  fastestLap      Boolean   @default(false)
+  polePosition    Boolean   @default(false)
+  dnf             Boolean   @default(false)
+  
+  // Punteggi fantasy calcolati
+  fantasyPoints   Int       @default(0)
+}
+
+model TeamScore {
+  id              String    @id @default(uuid())
+  teamId          String
+  team            Team      @relation(fields: [teamId], references: [id])
+  raceId          String
+  race            Race      @relation(fields: [raceId], references: [id])
+  
+  totalPoints     Int
+  calculatedAt    DateTime  @default(now())
+  
+  @@unique([teamId, raceId])
+}
+
+model RiderStats {
+  id              String    @id @default(uuid())
+  riderId         String
+  rider           Rider     @relation(fields: [riderId], references: [id])
+  season          Int
+  
+  races           Int       @default(0)
+  wins            Int       @default(0)
+  podiums         Int       @default(0)
+  poles           Int       @default(0)
+  fastestLaps     Int       @default(0)
+  points          Int       @default(0)
+  avgPosition     Float     @default(0)
+  
+  @@unique([riderId, season])
+}
+
+model Notification {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  title           String
+  message         String
+  type            NotificationType
+  read            Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+}
+
+// ENUMS
+enum Category {
+  MOTOGP
+  MOTO2
+  MOTO3
+}
+
+enum LeagueRole {
+  ADMIN
+  MEMBER
+}
+
+enum NotificationType {
+  RACE_REMINDER
+  LEAGUE_INVITE
+  TRADE_OFFER
+  RACE_RESULTS
+  SYSTEM
+}
