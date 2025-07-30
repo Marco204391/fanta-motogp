@@ -23,10 +23,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { getUpcomingRaces, getMyStats, getMyTeams } from '../../services/api';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { MainStackParamList } from '../../../App';
 
 const { width } = Dimensions.get('window');
 
+type HomeScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Home'>;
+
 export default function HomeScreen() {
+  const navigation = useNavigation<HomeScreenNavigationProp>(); // Configura la navigazione
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -44,6 +50,7 @@ export default function HomeScreen() {
   const { data: myTeams, isLoading: loadingTeams } = useQuery({
     queryKey: ['myTeams'],
     queryFn: getMyTeams,
+    select: (data) => data.teams,
   });
 
   const onRefresh = React.useCallback(() => {
@@ -172,7 +179,7 @@ export default function HomeScreen() {
         </Card.Content>
         <Card.Actions>
           <Button mode="text">Vedi tutti</Button>
-          <Button mode="contained">Crea Team</Button>
+          <Button mode="contained" onPress={() => navigation.navigate('CreateTeam')}>Crea Team</Button>
         </Card.Actions>
       </Card>
 

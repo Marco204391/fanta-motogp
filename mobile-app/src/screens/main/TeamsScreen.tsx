@@ -1,37 +1,23 @@
+// mobile-app/src/screens/main/TeamsScreen.tsx
 import React, { useState } from 'react';
+import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import {
-  View,
-  ScrollView,
-  StyleSheet,
-  FlatList,
-  RefreshControl
-} from 'react-native';
-import {
-  Card,
-  Text,
-  Title,
-  Paragraph,
-  Button,
-  FAB,
-  Avatar,
-  List,
-  Chip,
-  ActivityIndicator,
-  Searchbar,
-  Menu,
-  IconButton
+  Card, Text, Title, Paragraph, Button, FAB, Avatar, List, ActivityIndicator, Searchbar, Menu, IconButton
 } from 'react-native-paper';
 import { useQuery } from '@tanstack/react-query';
 import { getMyTeams } from '../../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { MainStackParamList } from '../../../App';
 
 interface Team {
   id: string;
   name: string;
-  budget: number;
   league: {
     id: string;
     name: string;
+    budget: number; // Il budget ora è qui
   };
   riders: Array<{
     rider: {
@@ -41,12 +27,15 @@ interface Team {
       category: string;
       value: number;
     };
-    isCaptain: boolean;
+    // 'isCaptain' rimosso
   }>;
   totalPoints?: number;
 }
 
+type TeamsScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Tabs'>;
+
 export default function TeamsScreen() {
+  const navigation = useNavigation<TeamsScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
@@ -55,7 +44,6 @@ export default function TeamsScreen() {
   const { data: teams, isLoading, refetch } = useQuery({
     queryKey: ['myTeams'],
     queryFn: getMyTeams,
-  
     select: (data) => data.teams,
   });
 
@@ -67,7 +55,7 @@ export default function TeamsScreen() {
   const filteredTeams = teams?.filter((team: Team) =>
     team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     team.league.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )|| [];
+  ) || [];
 
   const calculateTeamValue = (team: Team) => {
     return team.riders.reduce((sum, r) => sum + r.rider.value, 0);
@@ -75,7 +63,8 @@ export default function TeamsScreen() {
 
   const renderTeamCard = ({ item: team }: { item: Team }) => {
     const teamValue = calculateTeamValue(team);
-    const remainingBudget = team.budget - teamValue;
+    // --- CORREZIONE: Usa il budget della lega ---
+    const remainingBudget = team.league.budget - teamValue;
 
     return (
       <Card 
@@ -85,48 +74,16 @@ export default function TeamsScreen() {
         <Card.Title
           title={team.name}
           subtitle={`Lega: ${team.league.name}`}
-          left={(props) => (
-            <Avatar.Text 
-              {...props} 
-              label={team.name.substring(0, 2).toUpperCase()}
-              style={{ backgroundColor: '#FF6B00' }}
-            />
-          )}
+          left={(props) => <Avatar.Text {...props} label={team.name.substring(0, 2).toUpperCase()} style={{ backgroundColor: '#FF6B00' }} />}
           right={(props) => (
             <Menu
               visible={menuVisible === team.id}
               onDismiss={() => setMenuVisible(null)}
-              anchor={
-                <IconButton
-                  icon="dots-vertical"
-                  onPress={() => setMenuVisible(team.id)}
-                />
-              }
+              anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(team.id)} />}
             >
-              <Menu.Item 
-                onPress={() => {
-                  setMenuVisible(null);
-                  // Naviga a modifica team
-                }} 
-                title="Modifica"
-                leadingIcon="pencil"
-              />
-              <Menu.Item 
-                onPress={() => {
-                  setMenuVisible(null);
-                  // Mostra statistiche
-                }} 
-                title="Statistiche"
-                leadingIcon="chart-line"
-              />
-              <Menu.Item 
-                onPress={() => {
-                  setMenuVisible(null);
-                  // Elimina team
-                }} 
-                title="Elimina"
-                leadingIcon="delete"
-              />
+              <Menu.Item onPress={() => {}} title="Modifica Mercato" leadingIcon="swap-horizontal" />
+              <Menu.Item onPress={() => {}} title="Statistiche" leadingIcon="chart-line" />
+              <Menu.Item onPress={() => {}} title="Elimina" leadingIcon="delete" />
             </Menu>
           )}
         />
@@ -134,11 +91,8 @@ export default function TeamsScreen() {
         <Card.Content>
           <View style={styles.budgetInfo}>
             <Text style={styles.budgetLabel}>Budget rimanente:</Text>
-            <Text style={[
-              styles.budgetValue,
-              { color: remainingBudget >= 0 ? '#4CAF50' : '#F44336' }
-            ]}>
-              €{remainingBudget.toLocaleString()}
+            <Text style={[styles.budgetValue, { color: remainingBudget >= 0 ? '#4CAF50' : '#F44336' }]}>
+              {remainingBudget.toLocaleString()} crediti
             </Text>
           </View>
 
@@ -149,7 +103,8 @@ export default function TeamsScreen() {
             </View>
             <View style={styles.stat}>
               <MaterialCommunityIcons name="account-group" size={20} color="#666" />
-              <Text style={styles.statValue}>{team.riders.length}/5 piloti</Text>
+              {/* --- CORREZIONE: Conteggio piloti aggiornato a 9 --- */}
+              <Text style={styles.statValue}>{team.riders.length}/9 piloti</Text>
             </View>
           </View>
 
@@ -160,32 +115,11 @@ export default function TeamsScreen() {
                 <List.Item
                   key={teamRider.rider.id}
                   title={`${teamRider.rider.number}. ${teamRider.rider.name}`}
-                  description={`${teamRider.rider.category} - €${teamRider.rider.value.toLocaleString()}`}
-                  left={(props) => (
-                    <Avatar.Text 
-                      {...props} 
-                      label={teamRider.rider.number.toString()}
-                      size={40}
-                      style={{ backgroundColor: '#1E1E1E' }}
-                    />
-                  )}
-                  right={() => teamRider.isCaptain && (
-                    <Chip 
-                      mode="flat" 
-                      style={styles.captainChip}
-                      textStyle={{ fontSize: 12 }}
-                    >
-                      C
-                    </Chip>
-                  )}
+                  description={`${teamRider.rider.category} - ${teamRider.rider.value} crediti`}
+                  left={(props) => <Avatar.Text {...props} label={teamRider.rider.number.toString()} size={40} style={{ backgroundColor: '#1E1E1E' }} />}
                 />
               ))}
-              
-              <Button 
-                mode="contained" 
-                style={styles.manageButton}
-                onPress={() => {/* Naviga a gestione team */}}
-              >
+              <Button mode="contained" style={styles.manageButton} onPress={() => { /* Naviga a gestione team */ }}>
                 Gestisci Team
               </Button>
             </View>
@@ -197,155 +131,60 @@ export default function TeamsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B00" />
-      </View>
+     <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#FF6B00" />
+    </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Searchbar
-        placeholder="Cerca team o lega"
-        onChangeText={setSearchQuery}
-        value={searchQuery}
-        style={styles.searchbar}
-      />
-
-      {filteredTeams?.length > 0 ? (
+      <Searchbar placeholder="Cerca team o lega" onChangeText={setSearchQuery} value={searchQuery} style={styles.searchbar} />
+      {filteredTeams.length > 0 ? (
         <FlatList
           data={filteredTeams}
           renderItem={renderTeamCard}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons 
-            name="account-group-outline" 
-            size={80} 
-            color="#ccc" 
-          />
+          <MaterialCommunityIcons name="account-group-outline" size={80} color="#ccc" />
           <Title style={styles.emptyTitle}>Nessun team trovato</Title>
           <Paragraph style={styles.emptyText}>
-            {searchQuery ? 
-              'Prova con una ricerca diversa' : 
-              'Crea il tuo primo team per iniziare!'
-            }
+            {searchQuery ? 'Prova con una ricerca diversa' : 'Crea il tuo primo team per iniziare!'}
           </Paragraph>
           {!searchQuery && (
-            <Button 
-              mode="contained" 
-              style={styles.createButton}
-              onPress={() => {/* Naviga a creazione team */}}
-            >
+            <Button mode="contained" style={styles.createButton} onPress={() => navigation.navigate('CreateTeam')}>
               Crea Team
             </Button>
           )}
         </View>
       )}
-
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => {/* Naviga a creazione team */}}
-      />
+      <FAB icon="plus" style={styles.fab} onPress={() => navigation.navigate('CreateTeam')} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchbar: {
-    margin: 16,
-    elevation: 2,
-  },
-  listContent: {
-    paddingBottom: 80,
-  },
-  teamCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  budgetInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  budgetLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  budgetValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 8,
-  },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  expandedContent: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: 12,
-  },
-  captainChip: {
-    backgroundColor: '#FFD700',
-    height: 24,
-  },
-  manageButton: {
-    marginTop: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyTitle: {
-    marginTop: 16,
-    fontSize: 20,
-    color: '#666',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#999',
-    marginTop: 8,
-  },
-  createButton: {
-    marginTop: 24,
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#FF6B00',
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  searchbar: { margin: 16, elevation: 2 },
+  listContent: { paddingBottom: 80 },
+  teamCard: { marginHorizontal: 16, marginBottom: 16 },
+  budgetInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  budgetLabel: { fontSize: 14, color: '#666' },
+  budgetValue: { fontSize: 16, fontWeight: 'bold' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 8 },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statValue: { fontSize: 14, fontWeight: '500' },
+  expandedContent: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e0e0e0' },
+  sectionTitle: { fontSize: 18, marginBottom: 12 },
+  manageButton: { marginTop: 16 },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  emptyTitle: { marginTop: 16, fontSize: 20, color: '#666' },
+  emptyText: { textAlign: 'center', color: '#999', marginTop: 8 },
+  createButton: { marginTop: 24 },
+  fab: { position: 'absolute', margin: 16, right: 0, bottom: 0, backgroundColor: '#FF6B00' },
 });

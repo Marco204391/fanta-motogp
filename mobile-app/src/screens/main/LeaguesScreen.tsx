@@ -26,6 +26,9 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { getMyLeagues, getPublicLeagues, joinLeague } from '../../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { MainStackParamList } from '../../../App';
 
 interface League {
   id: string;
@@ -39,7 +42,10 @@ interface League {
   userPoints?: number;
 }
 
+type LeaguesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Leagues'>;
+
 export default function LeaguesScreen() {
+  const navigation = useNavigation<LeaguesScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [joinCode, setJoinCode] = useState('');
@@ -49,12 +55,14 @@ export default function LeaguesScreen() {
   const { data: myLeagues, isLoading: loadingMy, refetch: refetchMy } = useQuery({
     queryKey: ['myLeagues'],
     queryFn: getMyLeagues,
+    select: (data) => data.leagues,
   });
 
   const { data: publicLeagues, isLoading: loadingPublic, refetch: refetchPublic } = useQuery({
     queryKey: ['publicLeagues'],
     queryFn: getPublicLeagues,
     enabled: viewType === 'public',
+    select: (data) => data.leagues,
   });
 
   const onRefresh = React.useCallback(() => {
@@ -230,7 +238,7 @@ export default function LeaguesScreen() {
               <Button 
                 mode="contained" 
                 style={styles.actionButton}
-                onPress={() => {/* Naviga a creazione lega */}}
+                onPress={() => navigation.navigate('CreateLeague')}
               >
                 Crea Lega
               </Button>
@@ -247,7 +255,7 @@ export default function LeaguesScreen() {
           {
             icon: 'plus',
             label: 'Crea Lega',
-            onPress: () => {/* Naviga a creazione lega */},
+            onPress={() => navigation.navigate('CreateLeague')},
           },
           {
             icon: 'key',
