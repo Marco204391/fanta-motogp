@@ -55,6 +55,8 @@ export default function TeamsScreen() {
   const { data: teams, isLoading, refetch } = useQuery({
     queryKey: ['myTeams'],
     queryFn: getMyTeams,
+  
+    select: (data) => data.teams,
   });
 
   const onRefresh = React.useCallback(() => {
@@ -65,7 +67,7 @@ export default function TeamsScreen() {
   const filteredTeams = teams?.filter((team: Team) =>
     team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     team.league.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  )|| [];
 
   const calculateTeamValue = (team: Team) => {
     return team.riders.reduce((sum, r) => sum + r.rider.value, 0);

@@ -56,6 +56,7 @@ export default function RidersScreen() {
       category: category === 'ALL' ? undefined : category,
       sortBy 
     }),
+    select: (data) => data.riders,
   });
 
   const onRefresh = React.useCallback(() => {

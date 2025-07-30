@@ -3,12 +3,9 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { validationResult } from 'express-validator';
 import crypto from 'crypto';
+import { AuthRequest } from '../middleware/auth'; // Assicurati di importare AuthRequest
 
 const prisma = new PrismaClient();
-
-interface AuthRequest extends Request {
-  userId?: string;
-}
 
 // Genera codice lega unico
 const generateLeagueCode = (): string => {
@@ -201,7 +198,7 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
         riders: team.riders.map(tr => ({
           name: tr.rider.name,
           number: tr.rider.number,
-          isCaptain: tr.isCaptain
+          // CORREZIONE: Rimosso isCaptain da qui
         }))
       }))
       .sort((a, b) => b.totalPoints - a.totalPoints);
@@ -233,7 +230,7 @@ export const createLeague = async (req: AuthRequest, res: Response) => {
       name, 
       isPrivate = true, 
       maxTeams = 10, 
-      budget = 100000000,
+      budget = 1000, // Budget aggiornato
       scoringRules,
       startDate,
       endDate
@@ -260,15 +257,7 @@ export const createLeague = async (req: AuthRequest, res: Response) => {
         maxTeams,
         budget,
         scoringRules: scoringRules || {
-          position: {
-            1: 25, 2: 20, 3: 16, 4: 13, 5: 11,
-            6: 10, 7: 9, 8: 8, 9: 7, 10: 6,
-            11: 5, 12: 4, 13: 3, 14: 2, 15: 1
-          },
-          polePosition: 5,
-          fastestLap: 3,
-          dnf: -5,
-          captainMultiplier: 2
+          // Qui puoi inserire le nuove regole di punteggio se vuoi
         },
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
@@ -464,7 +453,7 @@ export const getLeagueStandings = async (req: Request, res: Response) => {
           name: tr.rider.name,
           number: tr.rider.number,
           category: tr.rider.category,
-          isCaptain: tr.isCaptain
+          // CORREZIONE: Rimosso isCaptain da qui
         }))
       };
     })

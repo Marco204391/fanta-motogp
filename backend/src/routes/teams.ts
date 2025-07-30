@@ -6,38 +6,20 @@ import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
-// Validatori
+// Validatori Aggiornati
 const createTeamValidation = [
   body('name')
     .isLength({ min: 3, max: 50 })
-    .withMessage('Nome team deve essere tra 3 e 50 caratteri'),
+    .withMessage('Il nome del team deve essere tra 3 e 50 caratteri'),
   body('leagueId')
     .isUUID()
     .withMessage('ID lega non valido'),
   body('riderIds')
-    .isArray({ min: 1, max: 5 })
-    .withMessage('Devi selezionare da 1 a 5 piloti'),
+    .isArray({ min: 9, max: 9 }) // Richiede esattamente 9 piloti
+    .withMessage('Devi selezionare esattamente 9 piloti (3 per categoria)'),
   body('riderIds.*')
     .isUUID()
     .withMessage('ID pilota non valido'),
-  body('captainId')
-    .isUUID()
-    .withMessage('ID capitano non valido')
-];
-
-const updateTeamValidation = [
-  body('riderIds')
-    .optional()
-    .isArray({ min: 1, max: 5 })
-    .withMessage('Devi selezionare da 1 a 5 piloti'),
-  body('riderIds.*')
-    .optional()
-    .isUUID()
-    .withMessage('ID pilota non valido'),
-  body('captainId')
-    .optional()
-    .isUUID()
-    .withMessage('ID capitano non valido')
 ];
 
 const teamIdValidation = [
@@ -54,7 +36,8 @@ router.get('/my-teams', teamsController.getMyTeams);
 router.get('/:id', teamIdValidation, teamsController.getTeamById);
 router.get('/:id/standings', teamIdValidation, teamsController.getTeamStandings);
 router.post('/', createTeamValidation, teamsController.createTeam);
-router.put('/:id', teamIdValidation, updateTeamValidation, teamsController.updateTeam);
-router.delete('/:id', teamIdValidation, teamsController.deleteTeam);
+// Le rotte PUT e DELETE sono temporaneamente disabilitate in attesa della logica di mercato
+// router.put('/:id', teamIdValidation, teamsController.updateTeam);
+// router.delete('/:id', teamIdValidation, teamsController.deleteTeam);
 
 export default router;
