@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { validationResult } from 'express-validator';
 import crypto from 'crypto';
-import { AuthRequest } from '../middleware/auth'; // Assicurati di importare AuthRequest
+import { AuthRequest } from '../middleware/auth';
 
 const prisma = new PrismaClient();
 
@@ -179,7 +179,6 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Lega non trovata' });
     }
 
-    // Se è privata, verifica che l'utente sia membro
     if (league.isPrivate && userId) {
       const isMember = league.members.some(m => m.userId === userId);
       if (!isMember) {
@@ -187,7 +186,6 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Calcola classifica
     const standings = league.teams
       .map(team => ({
         teamId: team.id,
@@ -198,7 +196,6 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
         riders: team.riders.map(tr => ({
           name: tr.rider.name,
           number: tr.rider.number,
-          // CORREZIONE: Rimosso isCaptain da qui
         }))
       }))
       .sort((a, b) => b.totalPoints - a.totalPoints);
@@ -230,13 +227,12 @@ export const createLeague = async (req: AuthRequest, res: Response) => {
       name, 
       isPrivate = true, 
       maxTeams = 10, 
-      budget = 1000, // Budget aggiornato
+      budget = 1000,
       scoringRules,
       startDate,
       endDate
     } = req.body;
 
-    // Genera codice unico
     let code = generateLeagueCode();
     let codeExists = true;
     while (codeExists) {
@@ -248,7 +244,6 @@ export const createLeague = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Crea la lega
     const league = await prisma.league.create({
       data: {
         name,
@@ -256,9 +251,7 @@ export const createLeague = async (req: AuthRequest, res: Response) => {
         isPrivate,
         maxTeams,
         budget,
-        scoringRules: scoringRules || {
-          // Qui puoi inserire le nuove regole di punteggio se vuoi
-        },
+        scoringRules: scoringRules || {},
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         members: {
@@ -299,37 +292,27 @@ export const joinLeague = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Codice lega richiesto' });
     }
 
-    // Trova la lega
     const league = await prisma.league.findUnique({
       where: { code: code.toUpperCase() },
-      include: {
-        _count: {
-          select: { teams: true }
-        }
-      }
+      include: { _count: { select: { teams: true } } }
     });
 
     if (!league) {
       return res.status(404).json({ error: 'Lega non trovata' });
     }
 
-    // Verifica se già membro
     const existingMember = await prisma.leagueMember.findUnique({
-      where: {
-        userId_leagueId: { userId, leagueId: league.id }
-      }
+      where: { userId_leagueId: { userId, leagueId: league.id } }
     });
 
     if (existingMember) {
       return res.status(400).json({ error: 'Sei già membro di questa lega' });
     }
 
-    // Verifica se la lega è piena
     if (league._count.teams >= league.maxTeams) {
       return res.status(400).json({ error: 'La lega è piena' });
     }
 
-    // Aggiungi come membro
     await prisma.leagueMember.create({
       data: {
         userId,
@@ -356,9 +339,7 @@ export const leaveLeague = async (req: AuthRequest, res: Response) => {
     const userId = req.userId!;
 
     const member = await prisma.leagueMember.findUnique({
-      where: {
-        userId_leagueId: { userId, leagueId: id }
-      }
+      where: { userId_leagueId: { userId, leagueId: id } }
     });
 
     if (!member) {
@@ -366,38 +347,21 @@ export const leaveLeague = async (req: AuthRequest, res: Response) => {
     }
 
     if (member.role === 'ADMIN') {
-      // Verifica se ci sono altri admin
       const otherAdmins = await prisma.leagueMember.count({
-        where: {
-          leagueId: id,
-          role: 'ADMIN',
-          userId: { not: userId }
-        }
+        where: { leagueId: id, role: 'ADMIN', userId: { not: userId } }
       });
 
       if (otherAdmins === 0) {
-        return res.status(400).json({ 
-          error: 'Non puoi lasciare la lega come unico amministratore' 
-        });
+        return res.status(400).json({ error: 'Non puoi lasciare la lega come unico amministratore' });
       }
     }
 
-    // Rimuovi team e membership
     await prisma.$transaction([
-      prisma.team.deleteMany({
-        where: { userId, leagueId: id }
-      }),
-      prisma.leagueMember.delete({
-        where: {
-          userId_leagueId: { userId, leagueId: id }
-        }
-      })
+      prisma.team.deleteMany({ where: { userId, leagueId: id } }),
+      prisma.leagueMember.delete({ where: { userId_leagueId: { userId, leagueId: id } } })
     ]);
 
-    res.json({
-      success: true,
-      message: 'Hai lasciato la lega con successo'
-    });
+    res.json({ success: true, message: 'Hai lasciato la lega con successo' });
   } catch (error) {
     console.error('Errore uscita lega:', error);
     res.status(500).json({ error: 'Errore nell\'uscire dalla lega' });
@@ -408,36 +372,19 @@ export const leaveLeague = async (req: AuthRequest, res: Response) => {
 export const getLeagueStandings = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
     const teams = await prisma.team.findMany({
       where: { leagueId: id },
       include: {
-        user: {
-          select: { id: true, username: true }
-        },
-        riders: {
-          include: {
-            rider: true
-          }
-        },
-        scores: {
-          include: {
-            race: true
-          },
-          orderBy: {
-            race: { date: 'desc' }
-          }
-        }
+        user: { select: { id: true, username: true } },
+        riders: { include: { rider: true } },
+        scores: { include: { race: true }, orderBy: { race: { date: 'desc' } } }
       }
     });
 
-    // Calcola statistiche per ogni team
     const standings = teams.map(team => {
       const totalPoints = team.scores.reduce((sum, s) => sum + s.totalPoints, 0);
       const raceCount = team.scores.length;
       const avgPoints = raceCount > 0 ? totalPoints / raceCount : 0;
-      
-      // Ultime 5 gare per il form
       const recentForm = team.scores.slice(0, 5).map(s => s.totalPoints);
 
       return {
@@ -453,7 +400,6 @@ export const getLeagueStandings = async (req: Request, res: Response) => {
           name: tr.rider.name,
           number: tr.rider.number,
           category: tr.rider.category,
-          // CORREZIONE: Rimosso isCaptain da qui
         }))
       };
     })
@@ -461,7 +407,7 @@ export const getLeagueStandings = async (req: Request, res: Response) => {
     .map((team, index) => ({
       ...team,
       position: index + 1,
-      movement: 0 // TODO: Calcola movimento rispetto a classifica precedente
+      movement: 0
     }));
 
     res.json({ standings });
