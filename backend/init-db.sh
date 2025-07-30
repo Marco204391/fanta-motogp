@@ -60,4 +60,3 @@ echo -e "\n${GREEN}✅ Inizializzazione completata!${NC}"
 echo "========================================="
 echo -e "Puoi ora avviare il server con: ${YELLOW}npm run dev${NC}"
 echo -e "Per esplorare il database usa: ${YELLOW}npx prisma studio${NC}"
-EOF
