@@ -88,7 +88,7 @@ export default function LeaguesScreen() {
     return (
       <Card 
         style={styles.leagueCard}
-        onPress={() => {/* Naviga ai dettagli lega */}}
+        onPress={() => navigation.navigate('LeagueDetail', { leagueId: league.id })}
       >
         <Card.Title
           title={league.name}

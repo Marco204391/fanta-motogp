@@ -17,6 +17,8 @@ import RidersScreen from './src/screens/main/RidersScreen';
 import ProfileScreen from './src/screens/main/ProfileScreen';
 import CreateTeamScreen from './src/screens/main/CreateTeamScreen';
 import CreateLeagueScreen from './src/screens/main/CreateLeagueScreen';
+import LineupScreen from './src/screens/main/LineupScreen';
+import LeagueDetailScreen from './src/screens/main/LeagueDetailScreen';
 
 // Import contexts
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
@@ -36,6 +38,8 @@ export type MainStackParamList = {
   Tabs: undefined;
   CreateTeam: undefined;
   CreateLeague: undefined;
+  Lineup: { teamId: string, race: any };
+  LeagueDetail: { leagueId: string };
 };
 
 export type MainTabParamList = {
@@ -111,7 +115,6 @@ function TabNavigator() {
 }
 
 
-// --- NUOVO MAIN NAVIGATOR CON STACK ---
 function MainNavigator() {
   return (
     <MainStack.Navigator
@@ -134,6 +137,16 @@ function MainNavigator() {
         name="CreateLeague" 
         component={CreateLeagueScreen} 
         options={{ title: 'Crea Lega' }} 
+      />
+      <MainStack.Screen 
+        name="Lineup" 
+        component={LineupScreen} 
+        options={{ title: 'Schiera Formazione' }} 
+      />
+      <MainStack.Screen 
+        name="LeagueDetail" 
+        component={LeagueDetailScreen} 
+        options={{ title: 'Dettagli Lega' }} 
       />
     </MainStack.Navigator>
   );

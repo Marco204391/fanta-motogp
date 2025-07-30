@@ -77,3 +77,14 @@ export interface CreateLeagueDTO {
 export interface JoinLeagueDTO {
   code: string;
 }
+
+export interface RaceFromAPI {
+  id: string;
+  name: string;
+  circuit: string;
+  country: string;
+  date: Date;
+  season: number;
+  round: number;
+  sprintDate?: Date; // Data della gara sprint, se disponibile
+}

@@ -1,4 +1,3 @@
-typescript
 // mobile-app/src/screens/main/CreateTeamScreen.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';

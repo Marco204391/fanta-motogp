@@ -115,6 +115,7 @@ model Race {
   circuit       String
   country       String
   date          DateTime
+  sprintDate    DateTime? // Data della gara sprint per la deadline
   round         Int
   season        Int
   

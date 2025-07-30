@@ -121,6 +121,18 @@ export default function HomeScreen() {
             </Paragraph>
           </Card.Content>
           <Card.Actions>
+            <Button 
+                mode="contained" 
+                icon="racing-helmet"
+                onPress={() => navigation.navigate('Lineup', { 
+                    teamId: myTeams[0].id, // Esempio: usiamo il primo team
+                    race: upcomingRaces[0] 
+                })}
+            >
+              Schiera Team
+            </Button>
+          </Card.Actions>
+          <Card.Actions>
             <Button mode="contained" icon="timer">
               Countdown
             </Button>

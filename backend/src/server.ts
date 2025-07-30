@@ -25,14 +25,16 @@ import authRoutes from './routes/auth';
 import ridersRoutes from './routes/riders';
 import teamsRoutes from './routes/teams';
 import leaguesRoutes from './routes/leagues';
-// import racesRoutes from './routes/races';
+import racesRoutes from './routes/races';
+import lineupsRoutes from './routes/lineups';
 
 // Routes principali
 app.use('/api/auth', authRoutes);
 app.use('/api/riders', ridersRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/leagues', leaguesRoutes);
-// app.use('/api/races', racesRoutes);
+app.use('/api/races', racesRoutes);
+app.use('/api/lineups', lineupsRoutes);
 
 // Error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -125,6 +125,18 @@ export const getRaceResults = async (raceId: string) => {
   return response.data;
 };
 
+// Schieramenti
+export const getLineup = async (teamId: string, raceId: string) => {
+  const response = await api.get(`/lineups/${raceId}`, { params: { teamId } });
+  return response.data;
+};
+
+export const setLineup = async (raceId: string, lineupData: any) => {
+  const response = await api.post(`/lineups/${raceId}`, lineupData);
+  return response.data;
+};
+
+
 // Statistiche
 export const getMyStats = async () => {
   const response = await api.get('/stats/my-stats');
