@@ -9,10 +9,16 @@ const prisma = new PrismaClient();
 
 // Genera JWT Token
 const generateToken = (userId: string): string => {
+  const expiresInSeconds = process.env.JWT_EXPIRE_SECONDS || 604800; // 7 giorni
+
+  const options: jwt.SignOptions = {
+    expiresIn: Number(expiresInSeconds)
+  };
+
   return jwt.sign(
     { userId },
     process.env.JWT_SECRET || 'secret',
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    options
   );
 };
 

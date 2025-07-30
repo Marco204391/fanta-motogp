@@ -17,6 +17,9 @@
   "keywords": ["motogp", "fantasy", "api"],
   "author": "Marco Lecci",
   "license": "ISC",
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "dependencies": {
     "@prisma/client": "^5.0.0",
     "axios": "^1.6.0",

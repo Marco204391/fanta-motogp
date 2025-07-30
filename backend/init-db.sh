@@ -10,21 +10,14 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Check se PostgreSQL è in esecuzione
+# Controlla se PostgreSQL è in esecuzione
 echo -e "\n${YELLOW}Controllo PostgreSQL...${NC}"
-
-# Prima controlla se è in esecuzione tramite Docker
-if docker ps | grep -q "fantamotogp-db" 2>/dev/null; then
-    echo -e "${GREEN}✓ PostgreSQL è in esecuzione (Docker)${NC}"
-    PG_RUNNING=true
-elif pg_isready -h localhost -p 5432 > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ PostgreSQL è in esecuzione (locale)${NC}"
-    PG_RUNNING=true
-else
+if ! docker ps | grep -q "fantamotogp-db" 2>/dev/null && ! pg_isready -h localhost -p 5432 > /dev/null 2>&1; then
     echo -e "${RED}PostgreSQL non è in esecuzione!${NC}"
-    echo "Avvia PostgreSQL prima di continuare."
+    echo "Avvia PostgreSQL con ./start-db.sh prima di continuare."
     exit 1
 fi
+echo -e "${GREEN}✓ PostgreSQL è in esecuzione${NC}"
 
 # Crea .env se non esiste
 if [ ! -f .env ]; then
@@ -35,25 +28,30 @@ if [ ! -f .env ]; then
     echo -e "${GREEN}✓ File .env creato e configurato${NC}"
 fi
 
-# Reset database (opzionale)
-echo -e "\n${YELLOW}Vuoi resettare il database? (y/N)${NC}"
-read -r response
-if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-    echo "Reset database in corso..."
-    npx prisma migrate reset --force
-else
-    echo "Applicazione migrazioni..."
-    npx prisma migrate dev --name init --skip-seed
+# Applica le migrazioni del database
+# Questo comando creerà il database se non esiste e applicherà tutte le migrazioni.
+# È il modo più sicuro per assicurarsi che lo schema sia aggiornato.
+echo -e "\n${YELLOW}Applico le migrazioni del database...${NC}"
+npx prisma migrate dev --name init
+if [ $? -ne 0 ]; then
+    echo -e "${RED}✗ Errore durante l'applicazione delle migrazioni.${NC}"
+    exit 1
 fi
+echo -e "${GREEN}✓ Migrazioni applicate con successo${NC}"
+
 
 # Genera Prisma Client
 echo -e "\n${YELLOW}Generazione Prisma Client...${NC}"
 npx prisma generate
 echo -e "${GREEN}✓ Prisma Client generato${NC}"
 
-# Seed database
-echo -e "\n${YELLOW}Popolamento database con dati iniziali...${NC}"
-npx ts-node prisma/seed.ts
+# Popola il database con i dati iniziali
+echo -e "\n${YELLOW}Popolamento database con dati iniziali (seed)...${NC}"
+npx prisma db seed
+if [ $? -ne 0 ]; then
+    echo -e "${RED}✗ Errore durante il popolamento del database.${NC}"
+    exit 1
+fi
 echo -e "${GREEN}✓ Database popolato${NC}"
 
 echo -e "\n${GREEN}✅ Inizializzazione completata!${NC}"

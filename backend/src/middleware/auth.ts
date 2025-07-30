@@ -52,4 +52,25 @@ export const authenticate = async (
   }
 };
 
-export { authenticate, optionalAuth, AuthRequest };
+export const optionalAuth = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || 'secret'
+      ) as { userId: string };
+      req.userId = decoded.userId;
+    }
+  } catch (error) {
+    // Ignora errori di token per l'autenticazione opzionale,
+    // semplicemente non imposta req.userId
+  }
+  next();
+};
