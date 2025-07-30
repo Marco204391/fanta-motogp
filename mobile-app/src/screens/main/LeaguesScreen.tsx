@@ -100,59 +100,23 @@ export default function LeaguesScreen() {
               style={{ backgroundColor: league.isPrivate ? '#666' : '#4CAF50' }}
             />
           )}
-          right={() => (
-            <View style={styles.rightContent}>
-              {league.userPosition && (
-                <View style={styles.positionBadge}>
-                  <Text style={styles.positionText}>#{league.userPosition}</Text>
-                </View>
-              )}
-              {isFull && (
-                <Chip 
-                  mode="flat" 
-                  style={styles.fullChip}
-                  textStyle={{ fontSize: 12, color: '#fff' }}
-                >
-                  COMPLETA
-                </Chip>
-              )}
-            </View>
-          )}
         />
-        
         <Card.Content>
           <View style={styles.leagueInfo}>
-            <View style={styles.infoItem}>
-              <MaterialCommunityIcons name="cash" size={20} color="#666" />
-              <Text style={styles.infoText}>
-                Budget: €{league.budget.toLocaleString()}
-              </Text>
-            </View>
-            {league.userPoints !== undefined && (
-              <View style={styles.infoItem}>
-                <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
-                <Text style={styles.infoText}>{league.userPoints} pts</Text>
-              </View>
-            )}
+            <Chip icon="currency-eur" style={styles.chip}>{league.budget} crediti</Chip>
+            <Chip icon="key" style={styles.chip}>{league.code}</Chip>
           </View>
-
-          {league.code && viewType === 'my' && (
-            <View style={styles.codeContainer}>
-              <Text style={styles.codeLabel}>Codice invito:</Text>
-              <Text style={styles.codeValue}>{league.code}</Text>
+          {league.userPosition && (
+            <View style={styles.userStats}>
+              <Text variant="labelLarge">Posizione: {league.userPosition}°</Text>
+              <Text variant="labelLarge" style={styles.points}>{league.userPoints} pts</Text>
             </View>
           )}
         </Card.Content>
-
         <Card.Actions>
-          <Button mode="text" onPress={() => {/* Vedi classifica */}}>
-            Classifica
+          <Button disabled={isFull}>
+            {isFull ? 'Lega Piena' : 'Dettagli'}
           </Button>
-          {viewType === 'public' && !isFull && (
-            <Button mode="contained" onPress={() => {/* Unisciti */}}>
-              Unisciti
-            </Button>
-          )}
         </Card.Actions>
       </Card>
     );
@@ -160,9 +124,9 @@ export default function LeaguesScreen() {
 
   const isLoading = viewType === 'my' ? loadingMy : loadingPublic;
   const leagues = viewType === 'my' ? myLeagues : publicLeagues;
-
-  const filteredLeagues = leagues?.filter((league: League) =>
-    league.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredLeagues = leagues?.filter(league => 
+    league.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    league.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -171,22 +135,14 @@ export default function LeaguesScreen() {
         value={viewType}
         onValueChange={setViewType}
         buttons={[
-          {
-            value: 'my',
-            label: 'Le Mie Leghe',
-            icon: 'account-group',
-          },
-          {
-            value: 'public',
-            label: 'Leghe Pubbliche',
-            icon: 'earth',
-          },
+          { value: 'my', label: 'Le Mie Leghe' },
+          { value: 'public', label: 'Leghe Pubbliche' },
         ]}
         style={styles.segmentedButtons}
       />
 
       <Searchbar
-        placeholder="Cerca lega"
+        placeholder="Cerca lega..."
         onChangeText={setSearchQuery}
         value={searchQuery}
         style={styles.searchbar}
@@ -255,7 +211,7 @@ export default function LeaguesScreen() {
           {
             icon: 'plus',
             label: 'Crea Lega',
-            onPress={() => navigation.navigate('CreateLeague')},
+            onPress: () => navigation.navigate('CreateLeague'),
           },
           {
             icon: 'key',
@@ -277,16 +233,13 @@ export default function LeaguesScreen() {
               value={joinCode}
               onChangeText={setJoinCode}
               mode="outlined"
-              placeholder="Inserisci il codice della lega"
               autoCapitalize="characters"
+              placeholder="ES: ABC123"
             />
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setShowJoinDialog(false)}>Annulla</Button>
-            <Button 
-              onPress={handleJoinLeague}
-              disabled={!joinCode}
-            >
+            <Button onPress={handleJoinLeague} disabled={!joinCode}>
               Unisciti
             </Button>
           </Dialog.Actions>
@@ -303,12 +256,16 @@ const styles = StyleSheet.create({
   },
   segmentedButtons: {
     margin: 16,
-    marginBottom: 8,
   },
   searchbar: {
     marginHorizontal: 16,
     marginBottom: 16,
     elevation: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -316,65 +273,28 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 80,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   leagueCard: {
     marginHorizontal: 16,
     marginBottom: 16,
   },
-  rightContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  positionBadge: {
-    backgroundColor: '#FF6B00',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  positionText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  fullChip: {
-    backgroundColor: '#F44336',
-  },
   leagueInfo: {
     flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  chip: {
+    height: 28,
+  },
+  userStats: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
   },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  codeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    padding: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-  },
-  codeLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginRight: 8,
-  },
-  codeValue: {
-    fontSize: 16,
+  points: {
+    color: '#FF6B00',
     fontWeight: 'bold',
-    color: '#333',
   },
   emptyContainer: {
     flex: 1,
@@ -400,6 +320,10 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#FF6B00',
   },
 });
