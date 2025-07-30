@@ -6,11 +6,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLeagueDetails } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { MainStackParamList } from '../../../App';
+import { StackNavigationProp } from '@react-navigation/stack';
+
+type LeagueDetailNavigationProp = StackNavigationProp<MainStackParamList, 'LeagueDetail'>;
 
 export default function LeagueDetailScreen({ route }) {
   const { leagueId } = route.params;
   const { user } = useAuth();
-  const navigation = useNavigation();
+  const navigation = useNavigation<LeagueDetailNavigationProp>();
   const queryClient = useQueryClient();
 
   const { data: leagueData, isLoading, isError, refetch } = useQuery({
@@ -97,6 +101,6 @@ const styles = StyleSheet.create({
   card: { margin: 16, marginBottom: 0 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   userRow: {
-      backgroundColor: '#FFF3E0', // Un colore per evidenziare la riga dell'utente
+      backgroundColor: '#FFF3E0',
   }
 });

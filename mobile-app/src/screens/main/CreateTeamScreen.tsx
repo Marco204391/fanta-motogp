@@ -4,13 +4,11 @@ import { View, StyleSheet, SectionList, Alert } from 'react-native';
 import {
   TextInput,
   Button,
-  Title,
   Text,
   Card,
   List,
   Checkbox,
   ActivityIndicator,
-  Appbar,
   Chip,
   Divider,
 } from 'react-native-paper';
@@ -19,7 +17,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTeam, getRiders } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 
-// Definiamo i tipi per i dati che useremo
 interface Rider {
   id: string;
   name: string;
@@ -29,7 +26,6 @@ interface Rider {
   value: number;
 }
 
-// Tipo per i parametri passati alla rotta
 type CreateTeamScreenRouteProp = RouteProp<MainStackParamList, 'CreateTeam'>;
 
 export default function CreateTeamScreen() {
@@ -39,32 +35,29 @@ export default function CreateTeamScreen() {
 
   const { leagueId } = route.params;
 
-  // Stati del componente
   const [teamName, setTeamName] = useState('');
   const [selectedRiders, setSelectedRiders] = useState<Record<string, Rider>>({});
 
-  // Caricamento dei piloti dal backend
   const { data: riders, isLoading: isLoadingRiders } = useQuery({
     queryKey: ['allRiders'],
     queryFn: () => getRiders({ limit: 100 }),
     select: data => data.riders,
   });
 
-  // Logica per la creazione del team
   const mutation = useMutation({
     mutationFn: (newTeam: { name: string; leagueId: string; riderIds: string[] }) =>
       createTeam(newTeam),
     onSuccess: () => {
       Alert.alert('Successo', 'Il tuo team è stato creato!');
-      queryClient.invalidateQueries({ queryKey: ['myTeams'] }); // Aggiorna la lista dei team
+      queryClient.invalidateQueries({ queryKey: ['myTeams'] });
       navigation.goBack();
     },
     onError: (error: any) => {
-      Alert.alert('Errore', error.message || 'Impossibile creare il team.');
+        const errorMessage = error.response?.data?.error || 'Impossibile creare il team. Riprova più tardi.';
+        Alert.alert('Errore', errorMessage);
     },
   });
 
-  // Memoizzazione per ottimizzare i calcoli
   const { budgetLeft, ridersByCat, isTeamValid } = useMemo(() => {
     const totalCost = Object.values(selectedRiders).reduce((sum, rider) => sum + rider.value, 0);
     const budgetLeft = 1000 - totalCost;
@@ -85,13 +78,11 @@ export default function CreateTeamScreen() {
     return { budgetLeft, ridersByCat, isTeamValid };
   }, [selectedRiders, teamName]);
 
-  // Gestione della selezione di un pilota
   const handleSelectRider = (rider: Rider) => {
     const newSelection = { ...selectedRiders };
     if (newSelection[rider.id]) {
       delete newSelection[rider.id];
     } else {
-      // Controllo per non superare i 3 piloti per categoria
       if (ridersByCat[rider.category] < 3) {
         newSelection[rider.id] = rider;
       } else {
@@ -102,6 +93,10 @@ export default function CreateTeamScreen() {
   };
 
   const handleCreateTeam = () => {
+    if (!leagueId) {
+        Alert.alert('Errore', 'ID della lega non trovato. Torna indietro e riprova.');
+        return;
+    }
     mutation.mutate({
       name: teamName,
       leagueId: leagueId,
@@ -109,7 +104,6 @@ export default function CreateTeamScreen() {
     });
   };
   
-  // Raggruppiamo i piloti per categoria per la SectionList
   const sections = useMemo(() => {
     if (!riders) return [];
     return [
@@ -125,7 +119,6 @@ export default function CreateTeamScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Riepilogo Budget e Selezione */}
       <Card style={styles.summaryCard}>
         <Card.Content>
           <TextInput
@@ -146,7 +139,6 @@ export default function CreateTeamScreen() {
         </Card.Content>
       </Card>
       
-      {/* Lista Piloti */}
       <SectionList
         sections={sections}
         keyExtractor={item => item.id}
@@ -164,7 +156,6 @@ export default function CreateTeamScreen() {
         ItemSeparatorComponent={() => <Divider />}
       />
       
-      {/* Pulsante di Creazione */}
       <Button
         mode="contained"
         onPress={handleCreateTeam}

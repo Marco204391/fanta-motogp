@@ -36,10 +36,10 @@ export type AuthStackParamList = {
 
 export type MainStackParamList = {
   Tabs: undefined;
+  CreateTeam: { leagueId: string };
   CreateLeague: undefined;
   Lineup: { teamId: string, race: any };
   LeagueDetail: { leagueId: string };
-  CreateTeam: { leagueId: string }
 };
 
 export type MainTabParamList = {
@@ -52,8 +52,8 @@ export type MainTabParamList = {
 
 const RootStack = createStackNavigator<RootStackParamList>();
 const AuthStack = createStackNavigator<AuthStackParamList>();
-const MainStack = createStackNavigator<MainStackParamList>(); // Stack principale
-const Tab = createBottomTabNavigator<MainTabParamList>(); // Schede
+const MainStack = createStackNavigator<MainStackParamList>();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
 // Query Client
 const queryClient = new QueryClient({
@@ -75,7 +75,6 @@ const theme = {
   },
 };
 
-// Auth Navigator (invariato)
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -85,7 +84,6 @@ function AuthNavigator() {
   );
 }
 
-// Navigatore a Schede (ora è un componente separato)
 function TabNavigator() {
   return (
     <Tab.Navigator
@@ -114,7 +112,6 @@ function TabNavigator() {
   );
 }
 
-
 function MainNavigator() {
   return (
     <MainStack.Navigator
@@ -126,7 +123,7 @@ function MainNavigator() {
       <MainStack.Screen 
         name="Tabs" 
         component={TabNavigator} 
-        options={{ headerShown: false }} // Nasconde l'header doppio
+        options={{ headerShown: false }}
       />
       <MainStack.Screen 
         name="CreateTeam" 
@@ -152,8 +149,6 @@ function MainNavigator() {
   );
 }
 
-
-// Root Navigator (invariato)
 function RootNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) {
@@ -170,7 +165,6 @@ function RootNavigator() {
   );
 }
 
-// Main App (invariato)
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
