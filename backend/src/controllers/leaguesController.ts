@@ -12,7 +12,7 @@ const generateLeagueCode = (): string => {
   return crypto.randomBytes(3).toString('hex').toUpperCase();
 };
 
-// GET /api/leagues/my-leagues - Le mie leghe
+// GET /api/leagues/my-leagues - Le mie leghe (VERSIONE CORRETTA E SEMPLIFICATA)
 export const getMyLeagues = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!;
@@ -24,66 +24,44 @@ export const getMyLeagues = async (req: AuthRequest, res: Response) => {
         }
       },
       include: {
-        members: {
-          include: {
-            user: {
-              select: { id: true, username: true }
-            }
-          }
+        _count: {
+          select: { teams: true }
         },
         teams: {
-          where: { userId },
+          where: { userId }, // Includi solo il team dell'utente corrente
           include: {
             scores: true
           }
-        },
-        _count: {
-          select: { teams: true }
         }
       }
     });
 
-    // Aggiungi info sulla posizione dell'utente
-    const leaguesWithPosition = await Promise.all(
-      leagues.map(async (league) => {
-        const allTeams = await prisma.team.findMany({
-          where: { leagueId: league.id },
-          include: {
-            user: {
-              select: { id: true, username: true }
-            },
-            scores: true
-          }
-        });
+    // Mappiamo i dati per calcolare i punti solo per il team dell'utente
+    const formattedLeagues = leagues.map(league => {
+      const userTeam = league.teams[0]; // Ci sarà al massimo un team per utente per lega
+      const userPoints = userTeam ? userTeam.scores.reduce((sum, s) => sum + s.totalPoints, 0) : 0;
 
-        // Calcola classifica
-        const standings = allTeams
-          .map(team => ({
-            teamId: team.id,
-            userId: team.userId,
-            username: team.user.username,
-            totalPoints: team.scores.reduce((sum, s) => sum + s.totalPoints, 0)
-          }))
-          .sort((a, b) => b.totalPoints - a.totalPoints);
+      return {
+        id: league.id,
+        name: league.name,
+        code: league.code,
+        isPrivate: league.isPrivate,
+        maxTeams: league.maxTeams,
+        budget: league.budget,
+        currentTeams: league._count.teams,
+        userPoints: userPoints,
+        // La posizione verrà calcolata nella schermata di dettaglio
+        userPosition: null 
+      };
+    });
 
-        const userPosition = standings.findIndex(s => s.userId === userId) + 1;
-        const userPoints = standings.find(s => s.userId === userId)?.totalPoints || 0;
-
-        return {
-          ...league,
-          userPosition: userPosition || null,
-          userPoints,
-          currentTeams: league._count.teams
-        };
-      })
-    );
-
-    res.json({ leagues: leaguesWithPosition });
+    res.json({ leagues: formattedLeagues });
   } catch (error) {
     console.error('Errore recupero leghe:', error);
     res.status(500).json({ error: 'Errore nel recupero delle leghe' });
   }
 };
+
 
 // GET /api/leagues/public - Leghe pubbliche
 export const getPublicLeagues = async (req: Request, res: Response) => {
@@ -193,12 +171,8 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
         userId: team.userId,
         username: team.user.username,
         totalPoints: team.scores.reduce((sum, s) => sum + s.totalPoints, 0),
-        riders: team.riders.map(tr => ({
-          name: tr.rider.name,
-          number: tr.rider.number,
-        }))
       }))
-      .sort((a, b) => b.totalPoints - a.totalPoints);
+      .sort((a, b) => a.totalPoints - b.totalPoints); // Corretto per Fanta-MotoGP (meno punti è meglio)
 
     res.json({
       league: {
@@ -370,49 +344,35 @@ export const leaveLeague = async (req: AuthRequest, res: Response) => {
 
 // GET /api/leagues/:id/standings - Classifica completa lega
 export const getLeagueStandings = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const teams = await prisma.team.findMany({
-      where: { leagueId: id },
-      include: {
-        user: { select: { id: true, username: true } },
-        riders: { include: { rider: true } },
-        scores: { include: { race: true }, orderBy: { race: { date: 'desc' } } }
-      }
-    });
-
-    const standings = teams.map(team => {
-      const totalPoints = team.scores.reduce((sum, s) => sum + s.totalPoints, 0);
-      const raceCount = team.scores.length;
-      const avgPoints = raceCount > 0 ? totalPoints / raceCount : 0;
-      const recentForm = team.scores.slice(0, 5).map(s => s.totalPoints);
-
-      return {
-        teamId: team.id,
-        teamName: team.name,
-        userId: team.userId,
-        username: team.user.username,
-        totalPoints,
-        raceCount,
-        avgPoints,
-        recentForm,
-        riders: team.riders.map(tr => ({
-          name: tr.rider.name,
-          number: tr.rider.number,
-          category: tr.rider.category,
-        }))
-      };
-    })
-    .sort((a, b) => b.totalPoints - a.totalPoints)
-    .map((team, index) => ({
-      ...team,
-      position: index + 1,
-      movement: 0
-    }));
-
-    res.json({ standings });
-  } catch (error) {
-    console.error('Errore recupero classifica:', error);
-    res.status(500).json({ error: 'Errore nel recupero della classifica' });
-  }
-};
+    try {
+      const { id } = req.params;
+      const teams = await prisma.team.findMany({
+        where: { leagueId: id },
+        include: {
+          user: { select: { id: true, username: true } },
+          scores: { include: { race: true }, orderBy: { race: { date: 'desc' } } }
+        }
+      });
+  
+      const standings = teams.map(team => {
+        const totalPoints = team.scores.reduce((sum, s) => sum + s.totalPoints, 0);
+        return {
+          teamId: team.id,
+          teamName: team.name,
+          userId: team.userId,
+          username: team.user.username,
+          totalPoints,
+        };
+      })
+      .sort((a, b) => a.totalPoints - b.totalPoints) // Ordine corretto
+      .map((team, index) => ({
+        ...team,
+        position: index + 1,
+      }));
+  
+      res.json({ standings });
+    } catch (error) {
+      console.error('Errore recupero classifica:', error);
+      res.status(500).json({ error: 'Errore nel recupero della classifica' });
+    }
+  };

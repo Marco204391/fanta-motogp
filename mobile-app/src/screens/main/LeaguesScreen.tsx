@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+// mobile-app/src/screens/main/LeaguesScreen.tsx
+import React, { useState, useCallback } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
-  SectionList,
   RefreshControl
 } from 'react-native';
 import {
@@ -26,7 +26,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { getMyLeagues, getPublicLeagues, joinLeague } from '../../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainStackParamList } from '../../../App';
 
@@ -50,8 +50,7 @@ export default function LeaguesScreen() {
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [viewType, setViewType] = useState('my');
-  const [refreshing, setRefreshing] = useState(false);
-
+  
   const { data: myLeagues, isLoading: loadingMy, refetch: refetchMy } = useQuery({
     queryKey: ['myLeagues'],
     queryFn: getMyLeagues,
@@ -65,10 +64,22 @@ export default function LeaguesScreen() {
     select: (data) => data.leagues,
   });
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    const refetch = viewType === 'my' ? refetchMy : refetchPublic;
-    refetch().finally(() => setRefreshing(false));
+  // <-- AGGIUNTA LA LOGICA DI AGGIORNAMENTO AUTOMATICO
+  // Questo hook ricarica i dati ogni volta che la schermata viene visualizzata.
+  useFocusEffect(
+    useCallback(() => {
+      if (viewType === 'my') {
+        refetchMy();
+      }
+    }, [viewType, refetchMy])
+  );
+
+  const onRefresh = useCallback(() => {
+    if (viewType === 'my') {
+      refetchMy();
+    } else {
+      refetchPublic();
+    }
   }, [viewType, refetchMy, refetchPublic]);
 
   const handleJoinLeague = async () => {
@@ -76,9 +87,10 @@ export default function LeaguesScreen() {
       await joinLeague(joinCode);
       setShowJoinDialog(false);
       setJoinCode('');
-      refetchMy();
+      refetchMy(); // Ricarica le leghe dopo essersi unito
     } catch (error) {
       console.error('Errore nell\'unirsi alla lega:', error);
+      Alert.alert('Errore', 'Codice non valido o lega piena.');
     }
   };
 
@@ -106,15 +118,14 @@ export default function LeaguesScreen() {
             <Chip icon="currency-eur" style={styles.chip}>{league.budget} crediti</Chip>
             <Chip icon="key" style={styles.chip}>{league.code}</Chip>
           </View>
-          {league.userPosition && (
+          {league.userPoints != null && (
             <View style={styles.userStats}>
-              <Text variant="labelLarge">Posizione: {league.userPosition}°</Text>
-              <Text variant="labelLarge" style={styles.points}>{league.userPoints} pts</Text>
+              <Text variant="labelLarge">Punti: {league.userPoints}</Text>
             </View>
           )}
         </Card.Content>
         <Card.Actions>
-          <Button disabled={isFull}>
+          <Button onPress={() => navigation.navigate('LeagueDetail', { leagueId: league.id })}>
             {isFull ? 'Lega Piena' : 'Dettagli'}
           </Button>
         </Card.Actions>
@@ -157,7 +168,7 @@ export default function LeaguesScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
           }
         >
           {filteredLeagues.map((league: League) => (
@@ -174,12 +185,12 @@ export default function LeaguesScreen() {
             color="#ccc" 
           />
           <Title style={styles.emptyTitle}>
-            {viewType === 'my' ? 'Nessuna lega' : 'Nessuna lega pubblica'}
+            {viewType === 'my' ? 'Nessuna lega trovata' : 'Nessuna lega pubblica'}
           </Title>
           <Paragraph style={styles.emptyText}>
             {viewType === 'my' 
-              ? 'Unisciti a una lega o creane una tua!'
-              : 'Non ci sono leghe pubbliche disponibili al momento'
+              ? 'Unisciti a una lega o creane una tua per iniziare a giocare!'
+              : 'Non ci sono leghe pubbliche disponibili al momento.'
             }
           </Paragraph>
           {viewType === 'my' && (
@@ -203,27 +214,18 @@ export default function LeaguesScreen() {
         </View>
       )}
 
-      <FAB.Group
-        open={false}
-        visible={viewType === 'my'}
+      <FAB
         icon="plus"
-        actions={[
-          {
-            icon: 'plus',
-            label: 'Crea Lega',
-            onPress: () => navigation.navigate('CreateLeague'),
-          },
-          {
-            icon: 'key',
-            label: 'Unisciti con Codice',
-            onPress: () => setShowJoinDialog(true),
-          },
-        ]}
-        onStateChange={() => {}}
-        fabStyle={styles.fab}
+        style={styles.fab}
+        onPress={() => {
+            if (viewType === 'my') {
+                navigation.navigate('CreateLeague');
+            } else {
+                // Potresti voler fare qualcosa di diverso per le leghe pubbliche
+            }
+        }}
       />
-
-      {/* Dialog per unirsi con codice */}
+      
       <Portal>
         <Dialog visible={showJoinDialog} onDismiss={() => setShowJoinDialog(false)}>
           <Dialog.Title>Unisciti a una Lega</Dialog.Title>
@@ -281,13 +283,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 8,
+    flexWrap: 'wrap',
   },
   chip: {
     height: 28,
   },
   userStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
@@ -301,6 +302,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
+    marginTop: -50, // Sposta un po' in su
   },
   emptyTitle: {
     marginTop: 16,
@@ -315,9 +317,10 @@ const styles = StyleSheet.create({
   emptyActions: {
     marginTop: 24,
     gap: 12,
+    flexDirection: 'row',
   },
   actionButton: {
-    minWidth: 200,
+    flex: 1,
   },
   fab: {
     position: 'absolute',

@@ -21,8 +21,8 @@ const createLeagueValidation = [
     .withMessage('Numero massimo team deve essere tra 2 e 20'),
   body('budget')
     .optional()
-    .isInt({ min: 1000000 })
-    .withMessage('Budget minimo 1.000.000'),
+    .isInt({ min: 500 })
+    .withMessage('Budget minimo 500'),
   body('startDate')
     .optional()
     .isISO8601()
