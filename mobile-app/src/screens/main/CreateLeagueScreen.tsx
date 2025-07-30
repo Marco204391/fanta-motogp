@@ -1,21 +1,144 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Title } from 'react-native-paper';
+// mobile-app/src/screens/main/CreateLeagueScreen.tsx
+import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import {
+  TextInput,
+  Button,
+  Title,
+  Switch,
+  Text,
+  HelperText,
+  Card,
+  List,
+} from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createLeague } from '../../services/api';
 
 export default function CreateLeagueScreen() {
+  const navigation = useNavigation();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState('');
+  const [isPrivate, setIsPrivate] = useState(true);
+  const [maxTeams, setMaxTeams] = useState('10');
+  const [budget, setBudget] = useState('1000');
+
+  const mutation = useMutation({
+    mutationFn: createLeague,
+    onSuccess: () => {
+      Alert.alert('Successo', 'La tua lega è stata creata!');
+      queryClient.invalidateQueries({ queryKey: ['myLeagues'] });
+      navigation.goBack();
+    },
+    onError: (error) => {
+      Alert.alert('Errore', 'Impossibile creare la lega. Riprova più tardi.');
+      console.error(error);
+    },
+  });
+
+  const handleCreateLeague = () => {
+    const parsedMaxTeams = parseInt(maxTeams, 10);
+    const parsedBudget = parseInt(budget, 10);
+
+    if (!name || name.length < 3) {
+      Alert.alert('Errore', 'Il nome della lega deve essere di almeno 3 caratteri.');
+      return;
+    }
+    if (isNaN(parsedMaxTeams) || parsedMaxTeams < 2 || parsedMaxTeams > 20) {
+      Alert.alert('Errore', 'Il numero di team deve essere tra 2 e 20.');
+      return;
+    }
+    if (isNaN(parsedBudget) || parsedBudget < 500) {
+        Alert.alert('Errore', 'Il budget minimo è 500 crediti.');
+        return;
+    }
+
+    mutation.mutate({
+      name,
+      isPrivate,
+      maxTeams: parsedMaxTeams,
+      budget: parsedBudget,
+    });
+  };
+
   return (
-    <View style={styles.container}>
-      <Title>Crea una Nuova Lega</Title>
-      <Text>Qui potrai impostare il nome e le regole della tua lega.</Text>
-    </View>
+    <ScrollView style={styles.container}>
+      <Card style={styles.card}>
+        <Card.Content>
+          <Title style={styles.title}>Impostazioni della Lega</Title>
+
+          <TextInput
+            label="Nome Lega"
+            value={name}
+            onChangeText={setName}
+            mode="outlined"
+            style={styles.input}
+          />
+          <HelperText type="info">Il nome che identificherà la tua competizione.</HelperText>
+
+          <List.Item
+            title="Lega Privata"
+            description="Solo gli utenti con il codice potranno partecipare."
+            right={() => <Switch value={isPrivate} onValueChange={setIsPrivate} />}
+          />
+
+          <TextInput
+            label="Numero Massimo Team"
+            value={maxTeams}
+            onChangeText={setMaxTeams}
+            mode="outlined"
+            keyboardType="numeric"
+            style={styles.input}
+          />
+          <HelperText type="info">Da 2 a 10 partecipanti.</HelperText>
+
+          <TextInput
+            label="Budget Iniziale"
+            value={budget}
+            onChangeText={setBudget}
+            mode="outlined"
+            keyboardType="numeric"
+            style={styles.input}
+            right={<TextInput.Affix text="Crediti" />}
+          />
+           <HelperText type="info">Crediti a disposizione per costruire il team.</HelperText>
+
+        </Card.Content>
+      </Card>
+
+      <Button
+        mode="contained"
+        onPress={handleCreateLeague}
+        loading={mutation.isPending}
+        disabled={mutation.isPending}
+        style={styles.button}
+        contentStyle={styles.buttonContent}
+      >
+        Crea Lega
+      </Button>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: '#f5f5f5',
+  },
+  card: {
+    margin: 16,
+  },
+  title: {
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    marginTop: 12,
+  },
+  button: {
+    margin: 16,
+  },
+  buttonContent: {
+    paddingVertical: 8,
   },
 });
