@@ -1,14 +1,180 @@
 // mobile-app/src/screens/main/CreateTeamScreen.tsx
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Title } from 'react-native-paper';
+import React, { useState, useMemo } from 'react';
+import { View, StyleSheet, SectionList, Alert } from 'react-native';
+import {
+  TextInput,
+  Button,
+  Title,
+  Text,
+  Card,
+  List,
+  Checkbox,
+  ActivityIndicator,
+  Appbar,
+  Chip,
+  Divider,
+} from 'react-native-paper';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createTeam, getRiders } from '../../services/api';
+import { MainStackParamList } from '../../../App';
+
+// Definiamo i tipi per i dati che useremo
+interface Rider {
+  id: string;
+  name: string;
+  number: number;
+  team: string;
+  category: 'MOTOGP' | 'MOTO2' | 'MOTO3';
+  value: number;
+}
+
+// Tipo per i parametri passati alla rotta
+type CreateTeamScreenRouteProp = RouteProp<MainStackParamList, 'CreateTeam'>;
 
 export default function CreateTeamScreen() {
+  const navigation = useNavigation();
+  const route = useRoute<CreateTeamScreenRouteProp>();
+  const queryClient = useQueryClient();
+
+  const { leagueId } = route.params;
+
+  // Stati del componente
+  const [teamName, setTeamName] = useState('');
+  const [selectedRiders, setSelectedRiders] = useState<Record<string, Rider>>({});
+
+  // Caricamento dei piloti dal backend
+  const { data: riders, isLoading: isLoadingRiders } = useQuery({
+    queryKey: ['allRiders'],
+    queryFn: () => getRiders({ limit: 100 }),
+    select: data => data.riders,
+  });
+
+  // Logica per la creazione del team
+  const mutation = useMutation({
+    mutationFn: (newTeam: { name: string; leagueId: string; riderIds: string[] }) =>
+      createTeam(newTeam),
+    onSuccess: () => {
+      Alert.alert('Successo', 'Il tuo team è stato creato!');
+      queryClient.invalidateQueries({ queryKey: ['myTeams'] }); // Aggiorna la lista dei team
+      navigation.goBack();
+    },
+    onError: (error: any) => {
+      Alert.alert('Errore', error.message || 'Impossibile creare il team.');
+    },
+  });
+
+  // Memoizzazione per ottimizzare i calcoli
+  const { budgetLeft, ridersByCat, isTeamValid } = useMemo(() => {
+    const totalCost = Object.values(selectedRiders).reduce((sum, rider) => sum + rider.value, 0);
+    const budgetLeft = 1000 - totalCost;
+
+    const ridersByCat = {
+      MOTOGP: Object.values(selectedRiders).filter(r => r.category === 'MOTOGP').length,
+      MOTO2: Object.values(selectedRiders).filter(r => r.category === 'MOTO2').length,
+      MOTO3: Object.values(selectedRiders).filter(r => r.category === 'MOTO3').length,
+    };
+
+    const isTeamValid =
+      teamName.length >= 3 &&
+      ridersByCat.MOTOGP === 3 &&
+      ridersByCat.MOTO2 === 3 &&
+      ridersByCat.MOTO3 === 3 &&
+      budgetLeft >= 0;
+
+    return { budgetLeft, ridersByCat, isTeamValid };
+  }, [selectedRiders, teamName]);
+
+  // Gestione della selezione di un pilota
+  const handleSelectRider = (rider: Rider) => {
+    const newSelection = { ...selectedRiders };
+    if (newSelection[rider.id]) {
+      delete newSelection[rider.id];
+    } else {
+      // Controllo per non superare i 3 piloti per categoria
+      if (ridersByCat[rider.category] < 3) {
+        newSelection[rider.id] = rider;
+      } else {
+        Alert.alert('Limite Raggiunto', `Puoi selezionare solo 3 piloti per la categoria ${rider.category}.`);
+      }
+    }
+    setSelectedRiders(newSelection);
+  };
+
+  const handleCreateTeam = () => {
+    mutation.mutate({
+      name: teamName,
+      leagueId: leagueId,
+      riderIds: Object.keys(selectedRiders),
+    });
+  };
+  
+  // Raggruppiamo i piloti per categoria per la SectionList
+  const sections = useMemo(() => {
+    if (!riders) return [];
+    return [
+      { title: 'MotoGP', data: riders.filter((r: Rider) => r.category === 'MOTOGP') },
+      { title: 'Moto2', data: riders.filter((r: Rider) => r.category === 'MOTO2') },
+      { title: 'Moto3', data: riders.filter((r: Rider) => r.category === 'MOTO3') },
+    ];
+  }, [riders]);
+
+  if (isLoadingRiders) {
+    return <ActivityIndicator style={styles.loader} />;
+  }
+
   return (
     <View style={styles.container}>
-      <Title>Crea il tuo Team</Title>
-      <Text>Qui potrai selezionare i tuoi 9 piloti (3 per categoria).</Text>
-      <Text style={styles.info}>Budget: 1000 crediti</Text>
+      {/* Riepilogo Budget e Selezione */}
+      <Card style={styles.summaryCard}>
+        <Card.Content>
+          <TextInput
+            label="Nome del Team"
+            value={teamName}
+            onChangeText={setTeamName}
+            mode="outlined"
+            style={{ marginBottom: 12 }}
+          />
+          <View style={styles.summaryDetails}>
+            <Chip icon="cash" selected={budgetLeft < 0}>
+              Budget: {budgetLeft}
+            </Chip>
+            <Text>MotoGP: {ridersByCat.MOTOGP}/3</Text>
+            <Text>Moto2: {ridersByCat.MOTO2}/3</Text>
+            <Text>Moto3: {ridersByCat.MOTO3}/3</Text>
+          </View>
+        </Card.Content>
+      </Card>
+      
+      {/* Lista Piloti */}
+      <SectionList
+        sections={sections}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <List.Item
+            title={`${item.number}. ${item.name}`}
+            description={`Valore: ${item.value} crediti - Team: ${item.team}`}
+            onPress={() => handleSelectRider(item)}
+            right={() => <Checkbox status={selectedRiders[item.id] ? 'checked' : 'unchecked'} />}
+          />
+        )}
+        renderSectionHeader={({ section: { title } }) => (
+          <List.Subheader style={styles.sectionHeader}>{title}</List.Subheader>
+        )}
+        ItemSeparatorComponent={() => <Divider />}
+      />
+      
+      {/* Pulsante di Creazione */}
+      <Button
+        mode="contained"
+        onPress={handleCreateTeam}
+        loading={mutation.isPending}
+        disabled={!isTeamValid || mutation.isPending}
+        style={styles.button}
+        contentStyle={styles.buttonContent}
+      >
+        Crea Team
+      </Button>
     </View>
   );
 }
@@ -16,13 +182,30 @@ export default function CreateTeamScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loader: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
   },
-  info: {
-    marginTop: 20,
+  summaryCard: {
+    margin: 8,
+  },
+  summaryDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  sectionHeader: {
+    backgroundColor: '#f5f5f5',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  button: {
+    margin: 16,
+  },
+  buttonContent: {
+    paddingVertical: 8,
   },
 });

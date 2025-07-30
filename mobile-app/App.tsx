@@ -36,10 +36,10 @@ export type AuthStackParamList = {
 
 export type MainStackParamList = {
   Tabs: undefined;
-  CreateTeam: undefined;
   CreateLeague: undefined;
   Lineup: { teamId: string, race: any };
   LeagueDetail: { leagueId: string };
+  CreateTeam: { leagueId: string }
 };
 
 export type MainTabParamList = {
