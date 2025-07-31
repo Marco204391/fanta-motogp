@@ -107,7 +107,7 @@ export const getTeamById = async (req: AuthRequest, res: Response) => {
 export const createTeam = async (req: AuthRequest, res: Response) => {
   const userId = req.userId!;
   const errors = validationResult(req);
-  
+
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
@@ -137,14 +137,14 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
       // 2.1 Verifica il numero massimo di team
       const league = await tx.league.findUnique({
         where: { id: leagueId },
-        include: { teams: true }
+        include: { _count: { select: { teams: true } } }
       });
 
       if (!league) {
         throw new Error('Lega non trovata');
       }
 
-      if (league.teams.length >= league.maxTeams) {
+      if (league._count.teams >= league.maxTeams) {
         throw new Error(`La lega ha raggiunto il numero massimo di team (${league.maxTeams})`);
       }
 
@@ -153,7 +153,7 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
         throw new Error('Il team deve contenere esattamente 9 piloti (3 per categoria)');
       }
 
-      // 3. Recupera info sui piloti e verifica disponibilità
+      // 3. Recupera info sui piloti
       const riders = await tx.rider.findMany({
         where: { id: { in: riderIds } }
       });
@@ -168,24 +168,30 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
         return acc;
       }, {} as Record<Category, number>);
 
-      if (ridersByCategory.MOTOGP !== 3 || 
-          ridersByCategory.MOTO2 !== 3 || 
+      if (ridersByCategory.MOTOGP !== 3 ||
+          ridersByCategory.MOTO2 !== 3 ||
           ridersByCategory.MOTO3 !== 3) {
         throw new Error('Devi selezionare esattamente 3 piloti per ogni categoria (MotoGP, Moto2, Moto3)');
       }
 
-      // 3.2 Verifica esclusività nella lega
-      const alreadyTaken = await tx.leagueRider.findMany({
-        where: {
-          leagueId,
-          riderId: { in: riderIds }
-        },
-        include: { rider: true }
+      // 3.2 NUOVA VERIFICA: Controlla se i piloti sono già stati presi in questa lega
+      const alreadyTaken = await tx.teamRider.findMany({
+          where: {
+              team: {
+                  leagueId: leagueId
+              },
+              riderId: {
+                  in: riderIds
+              }
+          },
+          include: {
+              rider: true
+          }
       });
 
       if (alreadyTaken.length > 0) {
-        const takenNames = alreadyTaken.map(lr => lr.rider.name).join(', ');
-        throw new Error(`I seguenti piloti sono già presi in questa lega: ${takenNames}`);
+        const takenNames = alreadyTaken.map(tr => tr.rider.name).join(', ');
+        throw new Error(`I seguenti piloti sono già stati presi in questa lega: ${takenNames}`);
       }
 
       // 4. Verifica budget
@@ -208,14 +214,8 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
           },
         },
       });
-
-      // 6. "Blocca" i piloti scelti per questa lega
-      await tx.leagueRider.createMany({
-        data: riderIds.map((riderId: string) => ({
-          leagueId,
-          riderId,
-        })),
-      });
+      
+      // 6. Non è più necessario usare LeagueRider, la logica al punto 3.2 è sufficiente
 
       return tx.team.findUnique({
         where: { id: team.id },

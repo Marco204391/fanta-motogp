@@ -278,7 +278,7 @@ export class MotoGPApiService {
   }
 
   private async calculateTeamScores(raceId: string) {
-    // Ottieni tutti gli schieramenti per questa gara
+    // Ottieni tutti gli schieramenti per questa gara (potrebbero essere vuoti)
     const lineups = await prisma.raceLineup.findMany({
       where: { raceId },
       include: {
@@ -299,10 +299,10 @@ export class MotoGPApiService {
     // Mappa riderId -> posizione reale (99 se non ha finito)
     const resultMap = new Map<string, number>();
     raceResults.forEach(result => {
+      // Assegna 99 se lo status non è 'FINISHED' o la posizione è null
       if (result.status === 'FINISHED' && result.position) {
         resultMap.set(result.riderId, result.position);
       } else {
-        // DNF, DNS, DSQ = massimo punteggio (99)
         resultMap.set(result.riderId, 99);
       }
     });
@@ -311,15 +311,16 @@ export class MotoGPApiService {
     for (const lineup of lineups) {
       let totalPoints = 0;
       const riderScores: any[] = [];
+      let lineupToUse = lineup;
 
-      // Se non c'è schieramento per questa gara, usa l'ultimo valido
-      let actualLineup = lineup;
+      // Se lo schieramento per QUESTA gara è vuoto, cerca l'ultimo valido
       if (lineup.lineupRiders.length === 0) {
+        const currentRace = await prisma.race.findUnique({ where: { id: raceId } });
         const lastValidLineup = await prisma.raceLineup.findFirst({
           where: {
             teamId: lineup.teamId,
-            lineupRiders: { some: {} },
-            race: { date: { lt: (await prisma.race.findUnique({ where: { id: raceId } }))!.date } }
+            lineupRiders: { some: {} }, // Assicura che ci sia almeno un pilota schierato
+            race: { date: { lt: currentRace!.date } }
           },
           orderBy: { race: { date: 'desc' } },
           include: {
@@ -328,37 +329,45 @@ export class MotoGPApiService {
             }
           }
         });
-
-        if (!lastValidLineup) {
-          console.log(`Team ${lineup.team.name} non ha schieramenti validi, skip`);
-          continue;
+        
+        if (lastValidLineup) {
+            console.log(`Team ${lineup.team.name}: usa l'ultimo schieramento valido.`);
+            lineupToUse = lastValidLineup;
+        } else {
+            // NESSUNO SCHIERAMENTO PRECEDENTE TROVATO
+            console.log(`Team ${lineup.team.name}: nessuno schieramento valido trovato. Assegnazione penalità.`);
+            // Penalità massima: 99 punti per ognuno dei 6 piloti richiesti
+            totalPoints = 6 * 99;
+            
+            await prisma.teamScore.upsert({
+                where: { teamId_raceId: { teamId: lineup.teamId, raceId } },
+                update: { totalPoints, riderScores: [], calculatedAt: new Date() },
+                create: { teamId: lineup.teamId, raceId, totalPoints, riderScores: [] },
+            });
+            continue; // Passa al team successivo
         }
-        actualLineup = lastValidLineup;
       }
 
-      // Calcola punti per ogni pilota schierato
-      for (const lineupRider of actualLineup.lineupRiders) {
+      // Calcola i punti per ogni pilota nello schieramento da usare
+      for (const lineupRider of lineupToUse.lineupRiders) {
         const actualPosition = resultMap.get(lineupRider.riderId);
         const predictedPosition = lineupRider.predictedPosition;
 
-        if (!actualPosition) {
-          console.warn(`Nessun risultato trovato per il pilota ${lineupRider.rider.name}`);
+        if (actualPosition === undefined) {
+          console.warn(`Nessun risultato trovato per il pilota ${lineupRider.rider.name}. Assegnata penalità di 99 punti.`);
+          totalPoints += 99;
           continue;
         }
 
-        // CALCOLO PUNTI SECONDO REGOLAMENTO CORRETTO:
-        // Se il pilota non finisce (posizione 99) = 99 punti
-        // Altrimenti: punti = posizione arrivo + differenza assoluta tra previsto e reale
-        
         let points: number;
         if (actualPosition === 99) {
           // Non ha finito la gara (DNF, DNS, DSQ)
           points = 99;
         } else {
-          // Ha finito la gara
-          const basePoints = actualPosition; // Posizione di arrivo
-          const differenza = Math.abs(predictedPosition - actualPosition);
-          points = basePoints + differenza;
+          // Ha finito la gara: punti = posizione arrivo + differenza assoluta tra previsto e reale
+          const basePoints = actualPosition;
+          const difference = Math.abs(predictedPosition - actualPosition);
+          points = basePoints + difference;
         }
 
         riderScores.push({
@@ -371,11 +380,6 @@ export class MotoGPApiService {
         });
 
         totalPoints += points;
-      }
-
-      // Verifica di aver calcolato punti per 6 piloti
-      if (riderScores.length !== 6) {
-        console.warn(`Team ${lineup.team.name} ha solo ${riderScores.length} piloti schierati`);
       }
 
       // Salva o aggiorna il punteggio del team
@@ -399,7 +403,7 @@ export class MotoGPApiService {
         }
       });
 
-      console.log(`Team ${lineup.team.name}: ${totalPoints} punti totali`);
+      console.log(`Team ${lineup.team.name}: ${totalPoints} punti totali per la gara ${raceId}`);
     }
   }
 
