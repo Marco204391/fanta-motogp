@@ -1,6 +1,6 @@
 // mobile-app/src/screens/main/CreateTeamScreen.tsx
 import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, SectionList, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import {
   TextInput,
   Button,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Chip,
   Divider,
+  Title,
 } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -29,10 +30,47 @@ interface Rider {
 type CreateTeamScreenRouteProp = RouteProp<MainStackParamList, 'CreateTeam'>;
 
 export default function CreateTeamScreen() {
+  const navigation = useNavigation();
+  const route = useRoute<CreateTeamScreenRouteProp>();
+  const queryClient = useQueryClient();
+  const { leagueId } = route.params;
+
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
   const [teamName, setTeamName] = useState('');
-  
-  // Calcola statistiche di selezione
+
+  const { data: ridersData, isLoading: isLoadingRiders } = useQuery({
+    queryKey: ['riders'],
+    queryFn: () => getRiders(),
+  });
+  const riders = ridersData?.riders || [];
+
+  // TODO: Get budget from league details
+  const budget = 1000;
+
+  const createTeamMutation = useMutation({
+    mutationFn: createTeam,
+    onSuccess: () => {
+      Alert.alert('Successo', 'Team creato con successo!');
+      queryClient.invalidateQueries({ queryKey: ['myTeams'] });
+      navigation.goBack();
+    },
+    onError: (error: any) => {
+      Alert.alert('Errore', error.message || 'Impossibile creare il team.');
+    },
+  });
+
+  const handleCreateTeam = () => {
+    if (selectionStats.isValid) {
+      createTeamMutation.mutate({
+        name: teamName,
+        leagueId,
+        riderIds: selectedRiders,
+        // TODO: Add captain selection
+        captainId: selectedRiders[0],
+      });
+    }
+  };
+
   const selectionStats = useMemo(() => {
     const stats = {
       totalCost: 0,
@@ -40,40 +78,52 @@ export default function CreateTeamScreen() {
       ridersByCategory: {
         MOTOGP: 0,
         MOTO2: 0,
-        MOTO3: 0
+        MOTO3: 0,
       },
       isValid: false,
-      validationErrors: [] as string[]
+      validationErrors: [] as string[],
     };
 
-    // Calcola costo totale e conta per categoria
-    selectedRiders.forEach(riderId => {
-      const rider = riders.find(r => r.id === riderId);
+    if (!riders || riders.length === 0) {
+      return stats;
+    }
+
+    selectedRiders.forEach((riderId) => {
+      const rider = riders.find((r: Rider) => r.id === riderId);
       if (rider) {
         stats.totalCost += rider.value;
         stats.ridersByCategory[rider.category]++;
       }
     });
 
-    // Validazioni
     if (stats.totalRiders !== 9) {
-      stats.validationErrors.push(`Seleziona 9 piloti (attualmente: ${stats.totalRiders})`);
+      stats.validationErrors.push(
+        `Seleziona 9 piloti (attualmente: ${stats.totalRiders})`
+      );
     }
 
     if (stats.ridersByCategory.MOTOGP !== 3) {
-      stats.validationErrors.push(`MotoGP: ${stats.ridersByCategory.MOTOGP}/3 piloti`);
+      stats.validationErrors.push(
+        `MotoGP: ${stats.ridersByCategory.MOTOGP}/3 piloti`
+      );
     }
 
     if (stats.ridersByCategory.MOTO2 !== 3) {
-      stats.validationErrors.push(`Moto2: ${stats.ridersByCategory.MOTO2}/3 piloti`);
+      stats.validationErrors.push(
+        `Moto2: ${stats.ridersByCategory.MOTO2}/3 piloti`
+      );
     }
 
     if (stats.ridersByCategory.MOTO3 !== 3) {
-      stats.validationErrors.push(`Moto3: ${stats.ridersByCategory.MOTO3}/3 piloti`);
+      stats.validationErrors.push(
+        `Moto3: ${stats.ridersByCategory.MOTO3}/3 piloti`
+      );
     }
 
     if (stats.totalCost > budget) {
-      stats.validationErrors.push(`Budget superato: ${stats.totalCost}/${budget} crediti`);
+      stats.validationErrors.push(
+        `Budget superato: ${stats.totalCost}/${budget} crediti`
+      );
     }
 
     if (!teamName.trim()) {
@@ -84,20 +134,17 @@ export default function CreateTeamScreen() {
     return stats;
   }, [selectedRiders, teamName, riders, budget]);
 
-  // Handler per toggle pilota
   const handleRiderToggle = (riderId: string) => {
-    const rider = riders.find(r => r.id === riderId);
+    const rider = riders.find((r: Rider) => r.id === riderId);
     if (!rider) return;
 
     const isSelected = selectedRiders.includes(riderId);
-    
+
     if (isSelected) {
-      // Rimuovi
-      setSelectedRiders(prev => prev.filter(id => id !== riderId));
+      setSelectedRiders((prev) => prev.filter((id) => id !== riderId));
     } else {
-      // Controlla se può aggiungere
-      const currentInCategory = selectedRiders.filter(id => {
-        const r = riders.find(r => r.id === id);
+      const currentInCategory = selectedRiders.filter((id) => {
+        const r = riders.find((r: Rider) => r.id === id);
         return r?.category === rider.category;
       }).length;
 
@@ -109,7 +156,6 @@ export default function CreateTeamScreen() {
         return;
       }
 
-      // Controlla budget
       const newTotalCost = selectionStats.totalCost + rider.value;
       if (newTotalCost > budget) {
         Alert.alert(
@@ -119,30 +165,31 @@ export default function CreateTeamScreen() {
         return;
       }
 
-      setSelectedRiders(prev => [...prev, riderId]);
+      setSelectedRiders((prev) => [...prev, riderId]);
     }
   };
 
-  // Render delle categorie con contatori
   const renderCategory = (category: 'MOTOGP' | 'MOTO2' | 'MOTO3') => {
-    const categoryRiders = riders.filter(r => r.category === category);
+    const categoryRiders = riders.filter((r: Rider) => r.category === category);
     const selectedCount = selectionStats.ridersByCategory[category];
-    
+
     return (
       <Card style={styles.categoryCard}>
-        <Card.Title 
+        <Card.Title
           title={`${category} (${selectedCount}/3)`}
           titleStyle={[
             styles.categoryTitle,
-            selectedCount === 3 && styles.categoryComplete
+            selectedCount === 3 && styles.categoryComplete,
           ]}
         />
         <Card.Content>
-          {categoryRiders.map(rider => {
+          {categoryRiders.map((rider: Rider) => {
             const isSelected = selectedRiders.includes(rider.id);
-            const canSelect = !isSelected && selectedCount < 3 && 
-                            selectionStats.totalCost + rider.value <= budget;
-            
+            const canSelect =
+              !isSelected &&
+              selectedCount < 3 &&
+              selectionStats.totalCost + rider.value <= budget;
+
             return (
               <List.Item
                 key={rider.id}
@@ -158,7 +205,7 @@ export default function CreateTeamScreen() {
                 style={[
                   styles.riderItem,
                   isSelected && styles.selectedRider,
-                  !canSelect && !isSelected && styles.disabledRider
+                  !canSelect && !isSelected && styles.disabledRider,
                 ]}
               />
             );
@@ -168,35 +215,52 @@ export default function CreateTeamScreen() {
     );
   };
 
-  // Render del riepilogo
   const renderSummary = () => (
-    <Card style={[styles.summaryCard, selectionStats.isValid && styles.validSummary]}>
+    <Card
+      style={[
+        styles.summaryCard,
+        selectionStats.isValid && styles.validSummary,
+      ]}
+    >
       <Card.Content>
         <Title>Riepilogo Team</Title>
         <View style={styles.statsRow}>
           <Text>Piloti selezionati: {selectionStats.totalRiders}/9</Text>
-          <Text>Budget utilizzato: {selectionStats.totalCost}/{budget}</Text>
+          <Text>
+            Budget utilizzato: {selectionStats.totalCost}/{budget}
+          </Text>
         </View>
-        
+
         {selectionStats.validationErrors.length > 0 && (
           <View style={styles.errorsContainer}>
             {selectionStats.validationErrors.map((error, index) => (
-              <Text key={index} style={styles.errorText}>• {error}</Text>
+              <Text key={index} style={styles.errorText}>
+                • {error}
+              </Text>
             ))}
           </View>
         )}
-        
+
         <Button
           mode="contained"
           onPress={handleCreateTeam}
           disabled={!selectionStats.isValid}
           style={styles.createButton}
+          loading={createTeamMutation.isPending}
         >
           Crea Team
         </Button>
       </Card.Content>
     </Card>
   );
+
+  if (isLoadingRiders) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -207,9 +271,9 @@ export default function CreateTeamScreen() {
         style={styles.teamNameInput}
         mode="outlined"
       />
-      
+
       {renderSummary()}
-      
+
       {renderCategory('MOTOGP')}
       {renderCategory('MOTO2')}
       {renderCategory('MOTO3')}
@@ -226,24 +290,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  summaryCard: {
+  teamNameInput: {
     margin: 8,
   },
-  summaryDetails: {
+  summaryCard: {
+    margin: 8,
+    backgroundColor: '#fff0f0',
+  },
+  validSummary: {
+    backgroundColor: '#f0fff0',
+  },
+  statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  sectionHeader: {
-    backgroundColor: '#f5f5f5',
-    fontSize: 16,
-    fontWeight: 'bold',
+  errorsContainer: {
+    marginVertical: 8,
   },
-  button: {
-    margin: 16,
+  errorText: {
+    color: 'red',
   },
-  buttonContent: {
-    paddingVertical: 8,
+  createButton: {
+    marginTop: 8,
+  },
+  categoryCard: {
+    margin: 8,
+  },
+  categoryTitle: {
+    color: 'grey',
+  },
+  categoryComplete: {
+    color: 'green',
+  },
+  riderItem: {
+    padding: 2,
+  },
+  selectedRider: {
+    backgroundColor: '#e0f0ff',
+  },
+  disabledRider: {
+    opacity: 0.5,
   },
 });
