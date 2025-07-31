@@ -56,15 +56,17 @@ const publicLeaguesValidation = [
     .withMessage('Limite deve essere tra 1 e 50')
 ];
 
-// Routes pubbliche
-router.get('/public', publicLeaguesValidation, leaguesController.getPublicLeagues);
-router.get('/:id', leagueIdValidation, optionalAuth, leaguesController.getLeagueById);
-router.get('/:id/standings', leagueIdValidation, leaguesController.getLeagueStandings);
-
 // Routes protette (richiedono autenticazione)
 router.get('/my-leagues', authenticate, leaguesController.getMyLeagues);
 router.post('/', authenticate, createLeagueValidation, leaguesController.createLeague);
 router.post('/join', authenticate, joinLeagueValidation, leaguesController.joinLeague);
 router.post('/:id/leave', authenticate, leagueIdValidation, leaguesController.leaveLeague);
+
+// Routes pubbliche
+router.get('/public', publicLeaguesValidation, leaguesController.getPublicLeagues);
+
+// Le rotte con parametri :id ora sono alla fine
+router.get('/:id', leagueIdValidation, optionalAuth, leaguesController.getLeagueById);
+router.get('/:id/standings', leagueIdValidation, leaguesController.getLeagueStandings);
 
 export default router;

@@ -39,8 +39,8 @@ export default function CreateTeamScreen() {
   const [teamName, setTeamName] = useState('');
 
   const { data: ridersData, isLoading: isLoadingRiders } = useQuery({
-    queryKey: ['riders'],
-    queryFn: () => getRiders(),
+    queryKey: ['riders', 'all'], 
+    queryFn: () => getRiders({ limit: 100 }),
   });
   const riders = ridersData?.riders || [];
 

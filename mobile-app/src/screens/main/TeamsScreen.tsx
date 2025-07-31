@@ -166,7 +166,7 @@ export default function TeamsScreen() {
                 navigation.navigate('Lineup', { teamId: team.id, race: null });
               }} 
               title="Schiera Formazione" 
-              leadingIcon="formation" 
+              leadingIcon="rocket-launch-outline"
             />
             <Menu.Item 
               onPress={() => {

@@ -12,7 +12,7 @@ const generateLeagueCode = (): string => {
   return crypto.randomBytes(3).toString('hex').toUpperCase();
 };
 
-// GET /api/leagues/my-leagues - Le mie leghe (VERSIONE CORRETTA E SEMPLIFICATA)
+// GET /api/leagues/my-leagues - Le mie leghe
 export const getMyLeagues = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!;
@@ -28,7 +28,7 @@ export const getMyLeagues = async (req: AuthRequest, res: Response) => {
           select: { teams: true }
         },
         teams: {
-          where: { userId }, // Includi solo il team dell'utente corrente
+          where: { userId },
           include: {
             scores: true
           }
@@ -36,9 +36,8 @@ export const getMyLeagues = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // Mappiamo i dati per calcolare i punti solo per il team dell'utente
     const formattedLeagues = leagues.map(league => {
-      const userTeam = league.teams[0]; // Ci sarà al massimo un team per utente per lega
+      const userTeam = league.teams[0];
       const userPoints = userTeam ? userTeam.scores.reduce((sum, s) => sum + s.totalPoints, 0) : 0;
 
       return {
@@ -50,8 +49,7 @@ export const getMyLeagues = async (req: AuthRequest, res: Response) => {
         budget: league.budget,
         currentTeams: league._count.teams,
         userPoints: userPoints,
-        // La posizione verrà calcolata nella schermata di dettaglio
-        userPosition: null 
+        userPosition: null
       };
     });
 
