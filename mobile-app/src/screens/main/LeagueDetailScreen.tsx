@@ -63,7 +63,7 @@ export default function LeagueDetailScreen({ route }: any) {
   const isFull = league.teams.length >= league.maxTeams;
 
   // Ordiniamo la classifica: meno punti = migliore posizione
-  const sortedStandings = [...league.standings].sort((a, b) => a.totalPoints - b.totalPoints);
+  const sortedStandings = standings.sort((a, b) => a.totalPoints - b.totalPoints);
 
   const handleCreateTeam = () => {
     if (!isMember) {

@@ -34,7 +34,6 @@ model Rider {
   isActive      Boolean   @default(true)
   apiLegacyId   Int?      @unique // legacy_id dall'API MotoGP
   apiRiderId    String?   @unique // UUID dall'API MotoGP
-  photoUrl      String?   // URL foto profilo
   
   statistics      RiderStats[]
   teamRiders      TeamRider[]
@@ -177,9 +176,6 @@ model RaceResult {
   fantasyPoints Int       @default(0)
 
   status        RaceStatus @default(FINISHED)
-  fastestLap    Boolean    @default(false)
-
-
 }
 
 model TeamScore {

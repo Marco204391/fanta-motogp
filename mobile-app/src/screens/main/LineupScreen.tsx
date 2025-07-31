@@ -20,182 +20,223 @@ interface RiderSelection {
 }
 
 export default function LineupScreen() {
-  const navigation = useNavigation();
-  const route = useRoute<LineupScreenRouteProp>();
-  const queryClient = useQueryClient();
-  const { teamId, race } = route.params;
-
-  const [lineup, setLineup] = useState<RiderSelection>({});
-
-  // Carica i dati del team (per avere la lista dei piloti)
-  const { data: team, isLoading: isLoadingTeam } = useQuery({
-    queryKey: ['teamDetails', teamId],
-    queryFn: () => getTeamById(teamId),
-    select: data => data.team,
-  });
-
-  // Carica uno schieramento esistente per questa gara
-  const { data: existingLineup, isLoading: isLoadingLineup } = useQuery({
-    queryKey: ['lineup', teamId, race.id],
-    queryFn: () => getLineup(teamId, race.id),
-    enabled: !!team, // Esegui solo dopo aver caricato il team
-  });
+  const [lineup, setLineup] = useState<Record<string, { selected: boolean; predictedPosition: string }>>({});
   
-  // Imposta lo stato iniziale quando lo schieramento esistente viene caricato
-  useEffect(() => {
-    if (existingLineup?.lineup?.lineupRiders) {
-      const initialLineup: RiderSelection = {};
-      existingLineup.lineup.lineupRiders.forEach((lr: any) => {
-        initialLineup[lr.riderId] = {
-          selected: true,
-          predictedPosition: lr.predictedPosition.toString(),
-        };
-      });
-      setLineup(initialLineup);
-    }
-  }, [existingLineup]);
+  // Calcola statistiche dello schieramento
+  const lineupStats = useMemo(() => {
+    const stats = {
+      categoryCounts: { MOTOGP: 0, MOTO2: 0, MOTO3: 0 },
+      isValid: false,
+      validationErrors: [] as string[],
+      selectedRiders: [] as any[]
+    };
 
-
-  const mutation = useMutation({
-    mutationFn: (lineupData: any) => setLineup(race.id, lineupData),
-    onSuccess: () => {
-      Alert.alert('Successo', 'Schieramento salvato!');
-      queryClient.invalidateQueries({ queryKey: ['lineup', teamId, race.id] });
-      navigation.goBack();
-    },
-    onError: (error: any) => {
-      Alert.alert('Errore', error.response?.data?.error || 'Impossibile salvare lo schieramento.');
-    },
-  });
-
-  // Logica per selezionare/deselezionare un pilota
-  const handleRiderToggle = (riderId: string, category: string) => {
-    const ridersInCategory = team.riders.filter((r: any) => r.rider.category === category);
-    const selectedInCategory = Object.keys(lineup).filter(id => lineup[id].selected && ridersInCategory.some((r: any) => r.rider.id === id));
-
-    setLineup(prev => {
-      const newLinup = { ...prev };
-      const isCurrentlySelected = !!newLinup[riderId]?.selected;
-
-      if (isCurrentlySelected) {
-        delete newLinup[riderId];
-      } else if (selectedInCategory.length < 2) {
-        newLinup[riderId] = { selected: true, predictedPosition: '' };
-      } else {
-        Alert.alert('Limite Raggiunto', `Puoi schierare solo 2 piloti per la ${category}.`);
-      }
-      return newLinup;
-    });
-  };
-
-  const handlePredictionChange = (riderId: string, position: string) => {
-    if (/^\d*$/.test(position)) { // Permette solo numeri
-        setLineup(prev => ({
-            ...prev,
-            [riderId]: { ...prev[riderId], predictedPosition: position },
-        }));
-    }
-  };
-  
-  const { isLineupValid, categoryCounts } = useMemo(() => {
-    const selectedRiders = Object.keys(lineup).filter(id => lineup[id].selected);
-    const categoryCounts = { MOTOGP: 0, MOTO2: 0, MOTO3: 0 };
-    let allPositionsFilled = true;
-
-    selectedRiders.forEach(riderId => {
+    // Conta piloti selezionati per categoria
+    Object.keys(lineup).forEach(riderId => {
+      if (lineup[riderId].selected) {
         const riderData = team?.riders.find((r: any) => r.rider.id === riderId)?.rider;
         if (riderData) {
-            categoryCounts[riderData.category]++;
+          stats.categoryCounts[riderData.category]++;
+          stats.selectedRiders.push({
+            ...riderData,
+            predictedPosition: lineup[riderId].predictedPosition
+          });
         }
-        if (!lineup[riderId].predictedPosition) {
-            allPositionsFilled = false;
-        }
+      }
     });
 
-    const isValid = categoryCounts.MOTOGP === 2 &&
-                    categoryCounts.MOTO2 === 2 &&
-                    categoryCounts.MOTO3 === 2 &&
-                    allPositionsFilled;
-                    
-    return { isLineupValid: isValid, categoryCounts };
+    // Validazioni
+    if (stats.categoryCounts.MOTOGP !== 2) {
+      stats.validationErrors.push(`MotoGP: ${stats.categoryCounts.MOTOGP}/2 piloti`);
+    }
+
+    if (stats.categoryCounts.MOTO2 !== 2) {
+      stats.validationErrors.push(`Moto2: ${stats.categoryCounts.MOTO2}/2 piloti`);
+    }
+
+    if (stats.categoryCounts.MOTO3 !== 2) {
+      stats.validationErrors.push(`Moto3: ${stats.categoryCounts.MOTO3}/2 piloti`);
+    }
+
+    // Verifica posizioni previste
+    stats.selectedRiders.forEach(rider => {
+      const pos = parseInt(rider.predictedPosition);
+      if (!rider.predictedPosition || isNaN(pos) || pos < 1 || pos > 30) {
+        stats.validationErrors.push(`Posizione non valida per ${rider.name}`);
+      }
+    });
+
+    stats.isValid = stats.validationErrors.length === 0 && 
+                   stats.selectedRiders.length === 6;
+
+    return stats;
   }, [lineup, team]);
 
+  // Handler per toggle pilota
+  const handleRiderToggle = (riderId: string, category: string) => {
+    const ridersInCategory = team.riders.filter((r: any) => r.rider.category === category);
+    const selectedInCategory = Object.keys(lineup).filter(id => 
+      lineup[id].selected && ridersInCategory.some((r: any) => r.rider.id === id)
+    );
 
-  const deadline = new Date(race.sprintDate || race.date);
-  const isDeadlinePassed = new Date() > deadline;
+    setLineup(prev => {
+      const newLineup = { ...prev };
+      const isCurrentlySelected = !!newLineup[riderId]?.selected;
 
+      if (isCurrentlySelected) {
+        // Deseleziona
+        delete newLineup[riderId];
+      } else if (selectedInCategory.length < 2) {
+        // Seleziona
+        newLineup[riderId] = { selected: true, predictedPosition: '' };
+      } else {
+        Alert.alert(
+          'Limite Raggiunto', 
+          `Puoi schierare solo 2 piloti per la categoria ${category}.`
+        );
+      }
+      return newLineup;
+    });
+  };
+
+  // Handler per cambiare posizione prevista
+  const handlePredictionChange = (riderId: string, position: string) => {
+    // Permetti solo numeri
+    if (/^\d*$/.test(position)) {
+      const posNum = parseInt(position);
+      // Limita a 1-30
+      if (position === '' || (posNum >= 1 && posNum <= 30)) {
+        setLineup(prev => ({
+          ...prev,
+          [riderId]: { ...prev[riderId], predictedPosition: position },
+        }));
+      }
+    }
+  };
+
+  // Render categoria con validazioni
   const renderCategory = (category: 'MOTOGP' | 'MOTO2' | 'MOTO3') => {
     const riders = team?.riders.filter((r: any) => r.rider.category === category) || [];
+    const selectedCount = lineupStats.categoryCounts[category];
+    
     return (
-        <Card style={styles.card} key={category}>
-            <Card.Content>
-                <Title>{category} ({categoryCounts[category]}/2)</Title>
-                <Divider style={{ marginVertical: 8 }}/>
-                {riders.map((teamRider: any) => {
-                    const rider = teamRider.rider;
-                    const isSelected = !!lineup[rider.id]?.selected;
-                    return (
-                        <View key={rider.id}>
-                            <List.Item
-                                title={`${rider.number}. ${rider.name}`}
-                                description={rider.team}
-                                onPress={() => handleRiderToggle(rider.id, category)}
-                                left={props => <Checkbox.Android {...props} status={isSelected ? 'checked' : 'unchecked'} />}
-                            />
-                            {isSelected && (
-                                <TextInput
-                                    label="Posizione Prevista"
-                                    value={lineup[rider.id].predictedPosition}
-                                    onChangeText={text => handlePredictionChange(rider.id, text)}
-                                    keyboardType="number-pad"
-                                    mode="outlined"
-                                    style={styles.predictionInput}
-                                />
-                            )}
-                        </View>
-                    );
-                })}
-            </Card.Content>
-        </Card>
+      <Card style={styles.card} key={category}>
+        <Card.Content>
+          <Title style={[
+            styles.categoryTitle,
+            selectedCount === 2 && styles.categoryComplete
+          ]}>
+            {category} ({selectedCount}/2)
+          </Title>
+          <Divider style={{ marginVertical: 8 }}/>
+          
+          {riders.map((teamRider: any) => {
+            const rider = teamRider.rider;
+            const isSelected = !!lineup[rider.id]?.selected;
+            const canSelect = selectedCount < 2 || isSelected;
+            
+            return (
+              <View key={rider.id} style={styles.riderRow}>
+                <List.Item
+                  title={`${rider.number}. ${rider.name}`}
+                  description={rider.team}
+                  left={() => (
+                    <Checkbox
+                      status={isSelected ? 'checked' : 'unchecked'}
+                      disabled={!canSelect}
+                      onPress={() => handleRiderToggle(rider.id, rider.category)}
+                    />
+                  )}
+                  style={[
+                    styles.riderItem,
+                    isSelected && styles.selectedRider,
+                    !canSelect && styles.disabledRider
+                  ]}
+                />
+                
+                {isSelected && (
+                  <TextInput
+                    label="Pos."
+                    value={lineup[rider.id]?.predictedPosition || ''}
+                    onChangeText={(text) => handlePredictionChange(rider.id, text)}
+                    keyboardType="numeric"
+                    mode="outlined"
+                    style={styles.positionInput}
+                    placeholder="1-30"
+                    maxLength={2}
+                    error={
+                      lineup[rider.id]?.predictedPosition && 
+                      (parseInt(lineup[rider.id].predictedPosition) < 1 || 
+                       parseInt(lineup[rider.id].predictedPosition) > 30)
+                    }
+                  />
+                )}
+              </View>
+            );
+          })}
+        </Card.Content>
+      </Card>
     );
   };
-  
-  if (isLoadingTeam || isLoadingLineup) {
-      return <ActivityIndicator style={styles.loader} />;
-  }
-  
-  return (
-    <ScrollView style={styles.container}>
-        <Card style={styles.card}>
-            <Card.Title 
-                title={race.name} 
-                subtitle={`Scadenza: ${deadline.toLocaleString('it-IT')}`} 
-            />
-            {isDeadlinePassed && <Chip icon="alert-circle" style={styles.deadlineChip}>Deadline Superata</Chip>}
-        </Card>
 
-        {renderCategory('MOTOGP')}
-        {renderCategory('MOTO2')}
-        {renderCategory('MOTO3')}
+  // Render riepilogo con validazioni
+  const renderSummary = () => (
+    <Card style={[styles.summaryCard, lineupStats.isValid && styles.validSummary]}>
+      <Card.Content>
+        <Title>Riepilogo Schieramento</Title>
+        
+        <View style={styles.deadlineRow}>
+          <Icon name="clock-outline" size={20} />
+          <Text>Deadline: {formatDate(deadline)}</Text>
+          {isDeadlinePassed && (
+            <Chip style={styles.expiredChip}>Scaduta</Chip>
+          )}
+        </View>
+
+        {lineupStats.validationErrors.length > 0 && (
+          <View style={styles.errorsContainer}>
+            {lineupStats.validationErrors.map((error, index) => (
+              <Text key={index} style={styles.errorText}>• {error}</Text>
+            ))}
+          </View>
+        )}
+
+        {lineupStats.selectedRiders.length === 6 && lineupStats.isValid && (
+          <View style={styles.lineupPreview}>
+            <Subheading>Schieramento completo:</Subheading>
+            {['MOTOGP', 'MOTO2', 'MOTO3'].map(category => (
+              <View key={category} style={styles.categoryPreview}>
+                <Text style={styles.categoryLabel}>{category}:</Text>
+                {lineupStats.selectedRiders
+                  .filter(r => r.category === category)
+                  .map(r => (
+                    <Text key={r.id} style={styles.previewRider}>
+                      {r.name} → {r.predictedPosition}°
+                    </Text>
+                  ))}
+              </View>
+            ))}
+          </View>
+        )}
 
         <Button
           mode="contained"
+          onPress={handleSaveLineup}
+          disabled={!lineupStats.isValid || isDeadlinePassed}
           style={styles.saveButton}
-          disabled={isDeadlinePassed || !isLineupValid || mutation.isPending}
-          onPress={() => {
-              const lineupData = {
-                  teamId,
-                  riders: Object.keys(lineup).map(riderId => ({
-                      riderId,
-                      predictedPosition: parseInt(lineup[riderId].predictedPosition, 10),
-                  }))
-              };
-              mutation.mutate(lineupData);
-          }}
-          loading={mutation.isPending}
         >
-          {isDeadlinePassed ? 'Scadenza Superata' : 'Salva Schieramento'}
+          {isDeadlinePassed ? 'Deadline Scaduta' : 'Salva Schieramento'}
         </Button>
+      </Card.Content>
+    </Card>
+  );
+
+  return (
+    <ScrollView style={styles.container}>
+      {renderSummary()}
+      {renderCategory('MOTOGP')}
+      {renderCategory('MOTO2')}
+      {renderCategory('MOTO3')}
     </ScrollView>
   );
 }

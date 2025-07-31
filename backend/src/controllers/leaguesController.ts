@@ -344,35 +344,36 @@ export const leaveLeague = async (req: AuthRequest, res: Response) => {
 
 // GET /api/leagues/:id/standings - Classifica completa lega
 export const getLeagueStandings = async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const teams = await prisma.team.findMany({
-        where: { leagueId: id },
-        include: {
-          user: { select: { id: true, username: true } },
-          scores: { include: { race: true }, orderBy: { race: { date: 'desc' } } }
-        }
-      });
-  
-      const standings = teams.map(team => {
-        const totalPoints = team.scores.reduce((sum, s) => sum + s.totalPoints, 0);
-        return {
-          teamId: team.id,
-          teamName: team.name,
-          userId: team.userId,
-          username: team.user.username,
-          totalPoints,
-        };
-      })
-      .sort((a, b) => a.totalPoints - b.totalPoints) // Ordine corretto
-      .map((team, index) => ({
-        ...team,
-        position: index + 1,
-      }));
-  
-      res.json({ standings });
-    } catch (error) {
-      console.error('Errore recupero classifica:', error);
-      res.status(500).json({ error: 'Errore nel recupero della classifica' });
-    }
-  };
+  try {
+    const { id } = req.params;
+    const teams = await prisma.team.findMany({
+      where: { leagueId: id },
+      include: {
+        user: { select: { id: true, username: true } },
+        scores: { include: { race: true }, orderBy: { race: { date: 'desc' } } }
+      }
+    });
+
+    const standings = teams.map(team => {
+      const totalPoints = team.scores.reduce((sum, s) => sum + s.totalPoints, 0);
+      return {
+        teamId: team.id,
+        teamName: team.name,
+        userId: team.userId,
+        username: team.user.username,
+        totalPoints,
+        gamesPlayed: team.scores.length
+      };
+    })
+    .sort((a, b) => a.totalPoints - b.totalPoints) // CORRETTO: Ordine crescente (vince chi ha meno punti)
+    .map((team, index) => ({
+      ...team,
+      position: index + 1,
+    }));
+
+    res.json({ standings });
+  } catch (error) {
+    console.error('Errore recupero classifica:', error);
+    res.status(500).json({ error: 'Errore nel recupero della classifica' });
+  }
+};

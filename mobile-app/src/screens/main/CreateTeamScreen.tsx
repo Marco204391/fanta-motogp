@@ -29,144 +29,191 @@ interface Rider {
 type CreateTeamScreenRouteProp = RouteProp<MainStackParamList, 'CreateTeam'>;
 
 export default function CreateTeamScreen() {
-  const navigation = useNavigation();
-  const route = useRoute<CreateTeamScreenRouteProp>();
-  const queryClient = useQueryClient();
-
-  const { leagueId } = route.params;
-
+  const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
   const [teamName, setTeamName] = useState('');
-  const [selectedRiders, setSelectedRiders] = useState<Record<string, Rider>>({});
-
-  const { data: riders, isLoading: isLoadingRiders } = useQuery({
-    queryKey: ['allRiders'],
-    queryFn: () => getRiders({ limit: 100 }),
-    select: data => data.riders,
-  });
-
-  const mutation = useMutation({
-    mutationFn: (newTeam: { name: string; leagueId: string; riderIds: string[] }) =>
-      createTeam(newTeam),
-    onSuccess: () => {
-      Alert.alert('Successo', 'Il tuo team è stato creato!');
-      queryClient.invalidateQueries({ queryKey: ['myTeams'] });
-      navigation.goBack();
-    },
-    onError: (error: any) => {
-        const errorMessage = error.response?.data?.error || 'Impossibile creare il team. Riprova più tardi.';
-        Alert.alert('Errore', errorMessage);
-    },
-  });
-
-  const { budgetLeft, ridersByCat, isTeamValid } = useMemo(() => {
-    const totalCost = Object.values(selectedRiders).reduce((sum, rider) => sum + rider.value, 0);
-    const budgetLeft = 1000 - totalCost;
-
-    const ridersByCat = {
-      MOTOGP: Object.values(selectedRiders).filter(r => r.category === 'MOTOGP').length,
-      MOTO2: Object.values(selectedRiders).filter(r => r.category === 'MOTO2').length,
-      MOTO3: Object.values(selectedRiders).filter(r => r.category === 'MOTO3').length,
+  
+  // Calcola statistiche di selezione
+  const selectionStats = useMemo(() => {
+    const stats = {
+      totalCost: 0,
+      totalRiders: selectedRiders.length,
+      ridersByCategory: {
+        MOTOGP: 0,
+        MOTO2: 0,
+        MOTO3: 0
+      },
+      isValid: false,
+      validationErrors: [] as string[]
     };
 
-    const isTeamValid =
-      teamName.length >= 3 &&
-      ridersByCat.MOTOGP === 3 &&
-      ridersByCat.MOTO2 === 3 &&
-      ridersByCat.MOTO3 === 3 &&
-      budgetLeft >= 0;
-
-    return { budgetLeft, ridersByCat, isTeamValid };
-  }, [selectedRiders, teamName]);
-
-  const handleSelectRider = (rider: Rider) => {
-    const newSelection = { ...selectedRiders };
-    if (newSelection[rider.id]) {
-      delete newSelection[rider.id];
-    } else {
-      if (ridersByCat[rider.category] < 3) {
-        newSelection[rider.id] = rider;
-      } else {
-        Alert.alert('Limite Raggiunto', `Puoi selezionare solo 3 piloti per la categoria ${rider.category}.`);
+    // Calcola costo totale e conta per categoria
+    selectedRiders.forEach(riderId => {
+      const rider = riders.find(r => r.id === riderId);
+      if (rider) {
+        stats.totalCost += rider.value;
+        stats.ridersByCategory[rider.category]++;
       }
-    }
-    setSelectedRiders(newSelection);
-  };
-
-  const handleCreateTeam = () => {
-    if (!leagueId) {
-        Alert.alert('Errore', 'ID della lega non trovato. Torna indietro e riprova.');
-        return;
-    }
-    mutation.mutate({
-      name: teamName,
-      leagueId: leagueId,
-      riderIds: Object.keys(selectedRiders),
     });
+
+    // Validazioni
+    if (stats.totalRiders !== 9) {
+      stats.validationErrors.push(`Seleziona 9 piloti (attualmente: ${stats.totalRiders})`);
+    }
+
+    if (stats.ridersByCategory.MOTOGP !== 3) {
+      stats.validationErrors.push(`MotoGP: ${stats.ridersByCategory.MOTOGP}/3 piloti`);
+    }
+
+    if (stats.ridersByCategory.MOTO2 !== 3) {
+      stats.validationErrors.push(`Moto2: ${stats.ridersByCategory.MOTO2}/3 piloti`);
+    }
+
+    if (stats.ridersByCategory.MOTO3 !== 3) {
+      stats.validationErrors.push(`Moto3: ${stats.ridersByCategory.MOTO3}/3 piloti`);
+    }
+
+    if (stats.totalCost > budget) {
+      stats.validationErrors.push(`Budget superato: ${stats.totalCost}/${budget} crediti`);
+    }
+
+    if (!teamName.trim()) {
+      stats.validationErrors.push('Inserisci un nome per il team');
+    }
+
+    stats.isValid = stats.validationErrors.length === 0;
+    return stats;
+  }, [selectedRiders, teamName, riders, budget]);
+
+  // Handler per toggle pilota
+  const handleRiderToggle = (riderId: string) => {
+    const rider = riders.find(r => r.id === riderId);
+    if (!rider) return;
+
+    const isSelected = selectedRiders.includes(riderId);
+    
+    if (isSelected) {
+      // Rimuovi
+      setSelectedRiders(prev => prev.filter(id => id !== riderId));
+    } else {
+      // Controlla se può aggiungere
+      const currentInCategory = selectedRiders.filter(id => {
+        const r = riders.find(r => r.id === id);
+        return r?.category === rider.category;
+      }).length;
+
+      if (currentInCategory >= 3) {
+        Alert.alert(
+          'Limite raggiunto',
+          `Hai già selezionato 3 piloti per la categoria ${rider.category}`
+        );
+        return;
+      }
+
+      // Controlla budget
+      const newTotalCost = selectionStats.totalCost + rider.value;
+      if (newTotalCost > budget) {
+        Alert.alert(
+          'Budget insufficiente',
+          `Aggiungendo ${rider.name} supereresti il budget di ${budget} crediti`
+        );
+        return;
+      }
+
+      setSelectedRiders(prev => [...prev, riderId]);
+    }
   };
-  
-  const sections = useMemo(() => {
-    if (!riders) return [];
-    return [
-      { title: 'MotoGP', data: riders.filter((r: Rider) => r.category === 'MOTOGP') },
-      { title: 'Moto2', data: riders.filter((r: Rider) => r.category === 'MOTO2') },
-      { title: 'Moto3', data: riders.filter((r: Rider) => r.category === 'MOTO3') },
-    ];
-  }, [riders]);
 
-  if (isLoadingRiders) {
-    return <ActivityIndicator style={styles.loader} />;
-  }
-
-  return (
-    <View style={styles.container}>
-      <Card style={styles.summaryCard}>
+  // Render delle categorie con contatori
+  const renderCategory = (category: 'MOTOGP' | 'MOTO2' | 'MOTO3') => {
+    const categoryRiders = riders.filter(r => r.category === category);
+    const selectedCount = selectionStats.ridersByCategory[category];
+    
+    return (
+      <Card style={styles.categoryCard}>
+        <Card.Title 
+          title={`${category} (${selectedCount}/3)`}
+          titleStyle={[
+            styles.categoryTitle,
+            selectedCount === 3 && styles.categoryComplete
+          ]}
+        />
         <Card.Content>
-          <TextInput
-            label="Nome del Team"
-            value={teamName}
-            onChangeText={setTeamName}
-            mode="outlined"
-            style={{ marginBottom: 12 }}
-          />
-          <View style={styles.summaryDetails}>
-            <Chip icon="cash" selected={budgetLeft < 0}>
-              Budget: {budgetLeft}
-            </Chip>
-            <Text>MotoGP: {ridersByCat.MOTOGP}/3</Text>
-            <Text>Moto2: {ridersByCat.MOTO2}/3</Text>
-            <Text>Moto3: {ridersByCat.MOTO3}/3</Text>
-          </View>
+          {categoryRiders.map(rider => {
+            const isSelected = selectedRiders.includes(rider.id);
+            const canSelect = !isSelected && selectedCount < 3 && 
+                            selectionStats.totalCost + rider.value <= budget;
+            
+            return (
+              <List.Item
+                key={rider.id}
+                title={`${rider.number}. ${rider.name}`}
+                description={`${rider.team} - ${rider.value} crediti`}
+                left={() => (
+                  <Checkbox
+                    status={isSelected ? 'checked' : 'unchecked'}
+                    disabled={!isSelected && !canSelect}
+                  />
+                )}
+                onPress={() => handleRiderToggle(rider.id)}
+                style={[
+                  styles.riderItem,
+                  isSelected && styles.selectedRider,
+                  !canSelect && !isSelected && styles.disabledRider
+                ]}
+              />
+            );
+          })}
         </Card.Content>
       </Card>
-      
-      <SectionList
-        sections={sections}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <List.Item
-            title={`${item.number}. ${item.name}`}
-            description={`Valore: ${item.value} crediti - Team: ${item.team}`}
-            onPress={() => handleSelectRider(item)}
-            right={() => <Checkbox status={selectedRiders[item.id] ? 'checked' : 'unchecked'} />}
-          />
+    );
+  };
+
+  // Render del riepilogo
+  const renderSummary = () => (
+    <Card style={[styles.summaryCard, selectionStats.isValid && styles.validSummary]}>
+      <Card.Content>
+        <Title>Riepilogo Team</Title>
+        <View style={styles.statsRow}>
+          <Text>Piloti selezionati: {selectionStats.totalRiders}/9</Text>
+          <Text>Budget utilizzato: {selectionStats.totalCost}/{budget}</Text>
+        </View>
+        
+        {selectionStats.validationErrors.length > 0 && (
+          <View style={styles.errorsContainer}>
+            {selectionStats.validationErrors.map((error, index) => (
+              <Text key={index} style={styles.errorText}>• {error}</Text>
+            ))}
+          </View>
         )}
-        renderSectionHeader={({ section: { title } }) => (
-          <List.Subheader style={styles.sectionHeader}>{title}</List.Subheader>
-        )}
-        ItemSeparatorComponent={() => <Divider />}
+        
+        <Button
+          mode="contained"
+          onPress={handleCreateTeam}
+          disabled={!selectionStats.isValid}
+          style={styles.createButton}
+        >
+          Crea Team
+        </Button>
+      </Card.Content>
+    </Card>
+  );
+
+  return (
+    <ScrollView style={styles.container}>
+      <TextInput
+        label="Nome del Team"
+        value={teamName}
+        onChangeText={setTeamName}
+        style={styles.teamNameInput}
+        mode="outlined"
       />
       
-      <Button
-        mode="contained"
-        onPress={handleCreateTeam}
-        loading={mutation.isPending}
-        disabled={!isTeamValid || mutation.isPending}
-        style={styles.button}
-        contentStyle={styles.buttonContent}
-      >
-        Crea Team
-      </Button>
-    </View>
+      {renderSummary()}
+      
+      {renderCategory('MOTOGP')}
+      {renderCategory('MOTO2')}
+      {renderCategory('MOTO3')}
+    </ScrollView>
   );
 }
 

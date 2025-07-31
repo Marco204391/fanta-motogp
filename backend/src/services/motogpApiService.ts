@@ -277,7 +277,6 @@ export class MotoGPApiService {
     }
   }
 
-  // 6. Calcola punteggi team secondo il regolamento
   private async calculateTeamScores(raceId: string) {
     // Ottieni tutti gli schieramenti per questa gara
     const lineups = await prisma.raceLineup.findMany({
@@ -297,51 +296,204 @@ export class MotoGPApiService {
       where: { raceId }
     });
 
-    // Mappa riderId -> posizione reale
-    const resultMap = new Map(
-      raceResults.map(r => [r.riderId, r.position || 99])
-    );
+    // Mappa riderId -> posizione reale (99 se non ha finito)
+    const resultMap = new Map<string, number>();
+    raceResults.forEach(result => {
+      if (result.status === 'FINISHED' && result.position) {
+        resultMap.set(result.riderId, result.position);
+      } else {
+        // DNF, DNS, DSQ = massimo punteggio (99)
+        resultMap.set(result.riderId, 99);
+      }
+    });
 
     // Calcola punteggi per ogni team
     for (const lineup of lineups) {
       let totalPoints = 0;
       const riderScores: any[] = [];
 
-      for (const lineupRider of lineup.lineupRiders) {
-        const actualPosition = resultMap.get(lineupRider.riderId) || 99;
+      // Se non c'è schieramento per questa gara, usa l'ultimo valido
+      let actualLineup = lineup;
+      if (lineup.lineupRiders.length === 0) {
+        const lastValidLineup = await prisma.raceLineup.findFirst({
+          where: {
+            teamId: lineup.teamId,
+            lineupRiders: { some: {} },
+            race: { date: { lt: (await prisma.race.findUnique({ where: { id: raceId } }))!.date } }
+          },
+          orderBy: { race: { date: 'desc' } },
+          include: {
+            lineupRiders: {
+              include: { rider: true }
+            }
+          }
+        });
+
+        if (!lastValidLineup) {
+          console.log(`Team ${lineup.team.name} non ha schieramenti validi, skip`);
+          continue;
+        }
+        actualLineup = lastValidLineup;
+      }
+
+      // Calcola punti per ogni pilota schierato
+      for (const lineupRider of actualLineup.lineupRiders) {
+        const actualPosition = resultMap.get(lineupRider.riderId);
         const predictedPosition = lineupRider.predictedPosition;
 
-        // Calcolo punti secondo regolamento:
-        // Punti base = posizione di arrivo
-        // Bonus = differenza tra previsto e reale
-        const basePoints = actualPosition;
-        const bonus = Math.abs(predictedPosition - actualPosition);
-        const points = basePoints + bonus;
+        if (!actualPosition) {
+          console.warn(`Nessun risultato trovato per il pilota ${lineupRider.rider.name}`);
+          continue;
+        }
+
+        // CALCOLO PUNTI SECONDO REGOLAMENTO CORRETTO:
+        // Se il pilota non finisce (posizione 99) = 99 punti
+        // Altrimenti: punti = posizione arrivo + differenza assoluta tra previsto e reale
+        
+        let points: number;
+        if (actualPosition === 99) {
+          // Non ha finito la gara (DNF, DNS, DSQ)
+          points = 99;
+        } else {
+          // Ha finito la gara
+          const basePoints = actualPosition; // Posizione di arrivo
+          const differenza = Math.abs(predictedPosition - actualPosition);
+          points = basePoints + differenza;
+        }
 
         riderScores.push({
           riderId: lineupRider.riderId,
           riderName: lineupRider.rider.name,
           predictedPosition,
           actualPosition,
-          points
+          points,
+          category: lineupRider.rider.category
         });
 
         totalPoints += points;
       }
 
-      // Salva il punteggio
-      await prisma.teamScore.create({
-        data: {
+      // Verifica di aver calcolato punti per 6 piloti
+      if (riderScores.length !== 6) {
+        console.warn(`Team ${lineup.team.name} ha solo ${riderScores.length} piloti schierati`);
+      }
+
+      // Salva o aggiorna il punteggio del team
+      await prisma.teamScore.upsert({
+        where: {
+          teamId_raceId: {
+            teamId: lineup.teamId,
+            raceId
+          }
+        },
+        update: {
+          totalPoints,
+          riderScores,
+          calculatedAt: new Date()
+        },
+        create: {
           teamId: lineup.teamId,
           raceId,
           totalPoints,
           riderScores
         }
       });
+
+      console.log(`Team ${lineup.team.name}: ${totalPoints} punti totali`);
     }
   }
 
-  // Utility functions
+  // Sincronizza risultati da API MotoGP
+  async syncRaceResults(raceId: string) {
+    try {
+      const race = await prisma.race.findUnique({
+        where: { id: raceId }
+      });
+
+      if (!race || !race.apiEventId) {
+        throw new Error('Gara non trovata o mancano dati API');
+      }
+
+      // Chiamata API per ottenere i risultati
+      // Nota: L'endpoint esatto dipende dalla documentazione API MotoGP
+      const categories = ['MOTOGP', 'MOTO2', 'MOTO3'];
+      
+      for (const category of categories) {
+        const response = await axios.get(
+          `${this.baseUrl}/results/${race.apiEventId}/${category}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'Accept': 'application/json'
+            }
+          }
+        );
+
+        if (response.data && response.data.classification) {
+          await this.saveRaceResults(raceId, category as Category, response.data.classification);
+        }
+      }
+
+      // Dopo aver salvato tutti i risultati, calcola i punteggi
+      await this.calculateTeamScores(raceId);
+
+      console.log(`✅ Risultati sincronizzati per gara ${race.name}`);
+      return { success: true, message: 'Risultati sincronizzati con successo' };
+      
+    } catch (error) {
+      console.error('❌ Errore sincronizzazione risultati:', error);
+      throw error;
+    }
+  }
+
+  // Salva risultati nel database
+  private async saveRaceResults(raceId: string, category: Category, classification: any[]) {
+    for (const result of classification) {
+      // Trova il pilota nel database
+      const rider = await prisma.rider.findFirst({
+        where: {
+          name: {
+            contains: result.rider.full_name
+          },
+          category
+        }
+      });
+
+      if (!rider) {
+        console.warn(`⚠️ Pilota non trovato: ${result.rider.full_name}`);
+        continue;
+      }
+
+      // Determina lo stato
+      let status: 'FINISHED' | 'DNF' | 'DNS' | 'DSQ' = 'FINISHED';
+      if (result.status === 'DNS') status = 'DNS';
+      else if (result.status === 'DNF' || !result.position) status = 'DNF';
+      else if (result.status === 'DSQ') status = 'DSQ';
+
+      await prisma.raceResult.upsert({
+        where: {
+          raceId_riderId: {
+            raceId,
+            riderId: rider.id
+          }
+        },
+        update: {
+          position: result.position || null,
+          status,
+          points: 0 // I punti del campionato reale, non del fantacampionato
+        },
+        create: {
+          raceId,
+          riderId: rider.id,
+          position: result.position || null,
+          status,
+          points: 0
+        }
+      });
+    }
+  }
+
+  // Altri metodi utility...
   private mapLegacyCategory(legacyId: number): Category | null {
     switch(legacyId) {
       case 3: return Category.MOTOGP;
@@ -352,41 +504,15 @@ export class MotoGPApiService {
   }
 
   private calculateRiderValue(apiRider: any): number {
-    // Calcola valore basato su vari fattori
     const baseValue = apiRider.current_career_step.category.legacy_id === 3 ? 50 : 
                      apiRider.current_career_step.category.legacy_id === 2 ? 30 : 20;
     
-    // Aggiungi bonus per numero basso (più prestigioso)
     const numberBonus = Math.max(0, 50 - apiRider.current_career_step.number) * 2;
-    
-    // Valore casuale per simulare form/popolarità
     const randomFactor = Math.floor(Math.random() * 20) - 10;
     
     return Math.max(10, baseValue + numberBonus + randomFactor);
   }
-
-  private extractRaceDate(broadcastEvent: any): Date | null {
-    if (!broadcastEvent?.broadcasts) return null;
-    
-    // Cerca la gara principale (RAC)
-    const raceBroadcast = broadcastEvent.broadcasts.find((b: any) => 
-      b.kind === 'RACE' || b.shortname === 'RAC'
-    );
-    
-    return raceBroadcast ? new Date(raceBroadcast.date_start) : null;
-  }
-
-  private extractSprintDate(broadcastEvent: any): Date | null {
-    if (!broadcastEvent?.broadcasts) return null;
-    
-    // Cerca la gara sprint
-    const sprintBroadcast = broadcastEvent.broadcasts.find((b: any) => 
-      b.kind === 'SPRINT' || b.shortname === 'SPR'
-    );
-    
-    return sprintBroadcast ? new Date(sprintBroadcast.date_start) : null;
-  }
 }
 
-// Export singleton instance
-export const motogpApi = new MotoGPApiService();
+// Singleton instance
+export const motogpApi = new MotogpApiService();

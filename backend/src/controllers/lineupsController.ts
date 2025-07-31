@@ -1,6 +1,6 @@
 // backend/src/controllers/lineupsController.ts
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Category } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 
 const prisma = new PrismaClient();
@@ -53,9 +53,11 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
   const { teamId, riders } = req.body; // riders: [{ riderId: string, predictedPosition: number }]
 
   try {
-    // 1. Validazione input
+    // 1. Validazione input base
     if (!teamId || !riders || !Array.isArray(riders) || riders.length !== 6) {
-      return res.status(400).json({ error: 'Dati dello schieramento non validi. Devi schierare 6 piloti.' });
+      return res.status(400).json({ 
+        error: 'Dati dello schieramento non validi. Devi schierare 6 piloti (2 per categoria).' 
+      });
     }
 
     // 2. Controlla la deadline della gara
@@ -69,48 +71,158 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'La deadline per schierare la formazione è passata.' });
     }
 
-    // 3. Verifica che il team appartenga all'utente
+    // 3. Verifica che il team appartenga all'utente e ottieni i piloti
     const team = await prisma.team.findFirst({
       where: { id: teamId, userId },
-      include: { riders: { select: { riderId: true } } },
+      include: { 
+        riders: { 
+          include: { 
+            rider: true 
+          } 
+        } 
+      },
     });
 
     if (!team) {
       return res.status(404).json({ error: 'Team non trovato o non autorizzato.' });
     }
-    
-    // 4. Inizia la transazione per garantire l'integrità dei dati
-    const savedLineup = await prisma.$transaction(async (tx) => {
-        // Logica per creare o aggiornare lo schieramento qui...
-        // Per semplicità, la omettiamo in questa fase ma è importante per la robustezza
-        
-        // Prima si elimina il vecchio schieramento se esiste
-        await tx.raceLineup.deleteMany({
-            where: { teamId, raceId },
-        });
 
-        // E poi si crea quello nuovo
-        return tx.raceLineup.create({
-            data: {
-                teamId,
-                raceId,
-                lineupRiders: {
-                    create: riders.map((r: { riderId: string; predictedPosition: number }) => ({
-                        riderId: r.riderId,
-                        predictedPosition: r.predictedPosition,
-                    })),
-                },
-            },
-            include: {
-                lineupRiders: { include: { rider: true } },
-            },
+    // 4. Validazione dettagliata dello schieramento
+    const schieratoPerCategoria: Record<Category, number> = { 
+      MOTOGP: 0, 
+      MOTO2: 0, 
+      MOTO3: 0 
+    };
+    
+    // Verifica che tutti i piloti schierati appartengano al team
+    for (const riderLineup of riders) {
+      const teamRider = team.riders.find(tr => tr.riderId === riderLineup.riderId);
+      
+      if (!teamRider) {
+        return res.status(400).json({ 
+          error: 'Uno dei piloti schierati non appartiene al tuo team' 
         });
+      }
+      
+      // Conta piloti per categoria
+      schieratoPerCategoria[teamRider.rider.category]++;
+      
+      // Verifica posizione prevista valida
+      if (!riderLineup.predictedPosition || 
+          riderLineup.predictedPosition < 1 || 
+          riderLineup.predictedPosition > 30) {
+        return res.status(400).json({ 
+          error: `Posizione prevista non valida per ${teamRider.rider.name}. Deve essere tra 1 e 30.` 
+        });
+      }
+    }
+
+    // 5. Verifica esattamente 2 piloti per categoria
+    if (schieratoPerCategoria.MOTOGP !== 2 || 
+        schieratoPerCategoria.MOTO2 !== 2 || 
+        schieratoPerCategoria.MOTO3 !== 2) {
+      return res.status(400).json({ 
+        error: 'Devi schierare esattamente 2 piloti per ogni categoria (2 MotoGP, 2 Moto2, 2 Moto3)' 
+      });
+    }
+
+    // 6. Recupera schieramento precedente se esiste
+    const existingLineup = await prisma.raceLineup.findUnique({
+      where: {
+        teamId_raceId: { teamId, raceId }
+      }
     });
 
-    res.status(201).json({ success: true, lineup: savedLineup });
+    // 7. Crea o aggiorna lo schieramento in una transazione
+    const lineup = await prisma.$transaction(async (tx) => {
+      // Se esiste già uno schieramento, elimina i piloti precedenti
+      if (existingLineup) {
+        await tx.lineupRider.deleteMany({
+          where: { lineupId: existingLineup.id }
+        });
+      }
+
+      // Crea o aggiorna lo schieramento
+      const raceLineup = await tx.raceLineup.upsert({
+        where: {
+          teamId_raceId: { teamId, raceId }
+        },
+        update: {
+          updatedAt: new Date()
+        },
+        create: {
+          teamId,
+          raceId
+        }
+      });
+
+      // Aggiungi i nuovi piloti schierati
+      await tx.lineupRider.createMany({
+        data: riders.map((r: any) => ({
+          lineupId: raceLineup.id,
+          riderId: r.riderId,
+          predictedPosition: r.predictedPosition
+        }))
+      });
+
+      // Recupera lo schieramento completo
+      return tx.raceLineup.findUnique({
+        where: { id: raceLineup.id },
+        include: {
+          lineupRiders: {
+            include: { rider: true }
+          },
+          race: true
+        }
+      });
+    });
+
+    res.json({ 
+      success: true, 
+      lineup,
+      message: 'Schieramento salvato con successo!' 
+    });
 
   } catch (error) {
-    console.error("Errore nel salvataggio dello schieramento:", error);
-    res.status(500).json({ error: "Errore nel salvataggio dello schieramento" });
+    console.error('Errore salvataggio schieramento:', error);
+    res.status(500).json({ error: 'Errore nel salvataggio dello schieramento' });
+  }
+};
+
+// GET /api/lineups/last-valid/:teamId - Recupera l'ultimo schieramento valido
+export const getLastValidLineup = async (req: AuthRequest, res: Response) => {
+  const userId = req.userId!;
+  const { teamId } = req.params;
+
+  try {
+    // Verifica che il team appartenga all'utente
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, userId }
+    });
+
+    if (!team) {
+      return res.status(404).json({ error: 'Team non trovato o non autorizzato' });
+    }
+
+    // Trova l'ultimo schieramento fatto
+    const lastLineup = await prisma.raceLineup.findFirst({
+      where: { teamId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        lineupRiders: {
+          include: { rider: true }
+        },
+        race: true
+      }
+    });
+
+    if (!lastLineup) {
+      return res.status(404).json({ message: 'Nessuno schieramento precedente trovato' });
+    }
+
+    res.json({ lineup: lastLineup });
+  } catch (error) {
+    console.error('Errore recupero ultimo schieramento:', error);
+    res.status(500).json({ error: 'Errore nel recupero dello schieramento' });
   }
 };

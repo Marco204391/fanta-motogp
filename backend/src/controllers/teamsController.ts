@@ -6,7 +6,6 @@ import { AuthRequest } from '../middleware/auth';
 
 const prisma = new PrismaClient();
 
-
 // GET /api/teams/my-teams - I miei team
 export const getMyTeams = async (req: AuthRequest, res: Response) => {
   try {
@@ -35,7 +34,6 @@ export const getMyTeams = async (req: AuthRequest, res: Response) => {
     const teamsWithStats = teams.map(team => {
       const totalValue = team.riders.reduce((sum, tr) => sum + tr.rider.value, 0);
       const totalPoints = team.scores.reduce((sum, score) => sum + score.totalPoints, 0);
-      // CORREZIONE: Usa team.league.budget invece di team.budget
       const remainingBudget = team.league.budget - totalValue;
 
       return {
@@ -64,8 +62,8 @@ export const getTeamById = async (req: AuthRequest, res: Response) => {
       where: { 
         id,
         OR: [
-          { userId }, // Il proprietario
-          { league: { members: { some: { userId } } } } // Membro della lega
+          { userId },
+          { league: { members: { some: { userId } } } }
         ]
       },
       include: {
@@ -105,69 +103,103 @@ export const getTeamById = async (req: AuthRequest, res: Response) => {
   }
 };
 
-
 // POST /api/teams - Crea nuovo team
 export const createTeam = async (req: AuthRequest, res: Response) => {
   const userId = req.userId!;
+  const errors = validationResult(req);
+  
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
   const { name, leagueId, riderIds } = req.body;
 
   try {
     const newTeam = await prisma.$transaction(async (tx) => {
-      // 1. Controlli preliminari
-      const league = await tx.league.findUnique({ where: { id: leagueId } });
-      if (!league) throw new Error('Lega non trovata');
-
-      const leagueMember = await tx.leagueMember.findUnique({
-        where: { userId_leagueId: { userId, leagueId } },
-      });
-      if (!leagueMember) throw new Error('Non sei membro di questa lega');
-
-      const existingTeam = await tx.team.findUnique({
-        where: { userId_leagueId: { userId, leagueId } },
-      });
-      if (existingTeam) throw new Error('Hai già un team in questa lega');
-
-      // 2. Controllo Esclusività Piloti
-      const alreadyPickedRiders = await tx.leagueRider.findMany({
-        where: {
-          leagueId: leagueId,
-          riderId: { in: riderIds },
-        },
+      // 1. Verifica che l'utente sia membro della lega
+      const membership = await tx.leagueMember.findUnique({
+        where: { userId_leagueId: { userId, leagueId } }
       });
 
-      if (alreadyPickedRiders.length > 0) {
-        const riderNames = (await tx.rider.findMany({
-          where: { id: { in: alreadyPickedRiders.map(r => r.riderId) } },
-          select: { name: true }
-        })).map(r => r.name).join(', ');
-        throw new Error(`I seguenti piloti sono già stati scelti in questa lega: ${riderNames}`);
+      if (!membership) {
+        throw new Error('Non sei membro di questa lega');
       }
 
-      // 3. Controllo Budget e Composizione Team
-      const riders = await tx.rider.findMany({ where: { id: { in: riderIds } } });
-      if (riders.length !== riderIds.length) throw new Error('Uno o più piloti non validi');
+      // 2. Verifica che non abbia già un team in questa lega
+      const existingTeam = await tx.team.findFirst({
+        where: { userId, leagueId }
+      });
 
-      const totalValue = riders.reduce((sum, rider) => sum + rider.value, 0);
-      if (totalValue > league.budget) {
-        throw new Error(`Budget superato. Costo team: ${totalValue}, Budget: ${league.budget}`);
+      if (existingTeam) {
+        throw new Error('Hai già un team in questa lega');
       }
-      
-      const categoryCounts = riders.reduce((acc, rider) => {
+
+      // 2.1 Verifica il numero massimo di team
+      const league = await tx.league.findUnique({
+        where: { id: leagueId },
+        include: { teams: true }
+      });
+
+      if (!league) {
+        throw new Error('Lega non trovata');
+      }
+
+      if (league.teams.length >= league.maxTeams) {
+        throw new Error(`La lega ha raggiunto il numero massimo di team (${league.maxTeams})`);
+      }
+
+      // 2.2 Verifica che siano esattamente 9 piloti
+      if (!riderIds || riderIds.length !== 9) {
+        throw new Error('Il team deve contenere esattamente 9 piloti (3 per categoria)');
+      }
+
+      // 3. Recupera info sui piloti e verifica disponibilità
+      const riders = await tx.rider.findMany({
+        where: { id: { in: riderIds } }
+      });
+
+      if (riders.length !== riderIds.length) {
+        throw new Error('Uno o più piloti non trovati');
+      }
+
+      // 3.1 Verifica che ci siano esattamente 3 piloti per categoria
+      const ridersByCategory = riders.reduce((acc, rider) => {
         acc[rider.category] = (acc[rider.category] || 0) + 1;
         return acc;
       }, {} as Record<Category, number>);
 
-      if (categoryCounts.MOTOGP !== 3 || categoryCounts.MOTO2 !== 3 || categoryCounts.MOTO3 !== 3) {
-        throw new Error('Devi scegliere 3 piloti per ogni categoria (MotoGP, Moto2, Moto3)');
+      if (ridersByCategory.MOTOGP !== 3 || 
+          ridersByCategory.MOTO2 !== 3 || 
+          ridersByCategory.MOTO3 !== 3) {
+        throw new Error('Devi selezionare esattamente 3 piloti per ogni categoria (MotoGP, Moto2, Moto3)');
       }
 
-      // 4. Creazione del Team
+      // 3.2 Verifica esclusività nella lega
+      const alreadyTaken = await tx.leagueRider.findMany({
+        where: {
+          leagueId,
+          riderId: { in: riderIds }
+        },
+        include: { rider: true }
+      });
+
+      if (alreadyTaken.length > 0) {
+        const takenNames = alreadyTaken.map(lr => lr.rider.name).join(', ');
+        throw new Error(`I seguenti piloti sono già presi in questa lega: ${takenNames}`);
+      }
+
+      // 4. Verifica budget
+      const totalCost = riders.reduce((sum, rider) => sum + rider.value, 0);
+      if (totalCost > league.budget) {
+        throw new Error(`Il costo totale (${totalCost}) supera il budget disponibile (${league.budget})`);
+      }
+
+      // 5. Creazione del Team
       const team = await tx.team.create({
         data: {
           name,
           userId,
           leagueId,
-          // CORREZIONE: Rimosso il campo 'budget' da qui
           riders: {
             create: riderIds.map((riderId: string) => ({
               riderId,
@@ -177,7 +209,7 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
         },
       });
 
-      // 5. "Blocca" i piloti scelti per questa lega
+      // 6. "Blocca" i piloti scelti per questa lega
       await tx.leagueRider.createMany({
         data: riderIds.map((riderId: string) => ({
           leagueId,
@@ -201,7 +233,6 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
     res.status(400).json({ error: error.message || 'Errore nella creazione del team' });
   }
 };
-
 
 // PUT /api/teams/:id - Modifica team
 export const updateTeam = async (req: AuthRequest, res: Response) => {
@@ -240,7 +271,7 @@ export const getTeamStandings = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Team non trovato' });
     }
 
-    // Calcola classifica
+    // Calcola classifica - ORDINAMENTO CRESCENTE (vince chi ha meno punti)
     const standings = team.league.teams
       .map(t => ({
         teamId: t.id,
@@ -249,7 +280,7 @@ export const getTeamStandings = async (req: AuthRequest, res: Response) => {
         totalPoints: t.scores.reduce((sum, s) => sum + s.totalPoints, 0),
         isCurrentTeam: t.id === id
       }))
-      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .sort((a, b) => a.totalPoints - b.totalPoints) // CORRETTO: crescente
       .map((t, index) => ({
         ...t,
         position: index + 1
