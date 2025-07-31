@@ -32,6 +32,9 @@ model Rider {
   value         Int
   photoUrl      String?
   isActive      Boolean   @default(true)
+  apiLegacyId   Int?      @unique // legacy_id dall'API MotoGP
+  apiRiderId    String?   @unique // UUID dall'API MotoGP
+  photoUrl      String?   // URL foto profilo
   
   statistics      RiderStats[]
   teamRiders      TeamRider[]
@@ -118,11 +121,17 @@ model Race {
   sprintDate    DateTime? // Data della gara sprint per la deadline
   round         Int
   season        Int
+
+  apiEventId      String?   @unique // UUID evento dall'API Results
+  apiBroadcastId  String?   @unique // UUID evento dall'API Broadcast
+  apiSessionIds   Json?     // Array di session IDs per categoria
   
   results       RaceResult[]
   teamScores    TeamScore[]
   lineups       RaceLineup[]
   leagueRaces   League[]
+
+  @@unique([season, round])
 }
 
 model RaceLineup {
@@ -166,6 +175,11 @@ model RaceResult {
   dnf           Boolean   @default(false)
   
   fantasyPoints Int       @default(0)
+
+  status        RaceStatus @default(FINISHED)
+  fastestLap    Boolean    @default(false)
+
+
 }
 
 model TeamScore {
@@ -219,6 +233,37 @@ enum Category {
 enum LeagueRole {
   ADMIN
   MEMBER
+}
+
+enum RaceStatus {
+  FINISHED
+  DNF      // Did Not Finish
+  DNS      // Did Not Start  
+  DSQ      // Disqualified
+}
+
+model SyncLog {
+  id            String    @id @default(uuid())
+  type          SyncType
+  status        SyncStatus
+  message       String?
+  details       Json?
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+enum SyncType {
+  RIDERS
+  CALENDAR
+  RACE_RESULTS
+}
+
+enum SyncStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
 }
 
 enum NotificationType {
