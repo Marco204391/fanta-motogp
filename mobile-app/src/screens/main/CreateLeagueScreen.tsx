@@ -14,9 +14,13 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createLeague } from '../../services/api';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { MainStackParamList } from '../../../App';
+
+type CreateLeagueNavigationProp = StackNavigationProp<MainStackParamList>;
 
 export default function CreateLeagueScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<CreateLeagueNavigationProp>();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [isPrivate, setIsPrivate] = useState(true);
@@ -25,10 +29,29 @@ export default function CreateLeagueScreen() {
 
   const mutation = useMutation({
     mutationFn: createLeague,
-    onSuccess: () => {
-      Alert.alert('Successo', 'La tua lega è stata creata!');
+    onSuccess: (data) => {
+      // Invalida le query per forzare il refresh
       queryClient.invalidateQueries({ queryKey: ['myLeagues'] });
-      navigation.goBack();
+      
+      Alert.alert(
+        'Successo', 
+        `La lega "${data.league.name}" è stata creata!\nCodice: ${data.league.code}`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Naviga prima alla tab delle leghe
+              navigation.reset({
+                index: 1,
+                routes: [
+                  { name: 'Tabs' },
+                  { name: 'LeagueDetail', params: { leagueId: data.league.id } }
+                ],
+              });
+            }
+          }
+        ]
+      );
     },
     onError: (error) => {
       Alert.alert('Errore', 'Impossibile creare la lega. Riprova più tardi.');
@@ -49,8 +72,8 @@ export default function CreateLeagueScreen() {
       return;
     }
     if (isNaN(parsedBudget) || parsedBudget < 500) {
-        Alert.alert('Errore', 'Il budget minimo è 500 crediti.');
-        return;
+      Alert.alert('Errore', 'Il budget minimo è 500 crediti.');
+      return;
     }
 
     mutation.mutate({
@@ -79,30 +102,34 @@ export default function CreateLeagueScreen() {
           <List.Item
             title="Lega Privata"
             description="Solo gli utenti con il codice potranno partecipare."
-            right={() => <Switch value={isPrivate} onValueChange={setIsPrivate} />}
+            right={() => (
+              <Switch
+                value={isPrivate}
+                onValueChange={setIsPrivate}
+                color="#FF6B00"
+              />
+            )}
           />
 
           <TextInput
-            label="Numero Massimo Team"
+            label="Numero massimo di team"
             value={maxTeams}
             onChangeText={setMaxTeams}
             mode="outlined"
             keyboardType="numeric"
             style={styles.input}
           />
-          <HelperText type="info">Da 2 a 10 partecipanti.</HelperText>
+          <HelperText type="info">Quanti team possono partecipare (2-20).</HelperText>
 
           <TextInput
-            label="Budget Iniziale"
+            label="Budget per team (crediti)"
             value={budget}
             onChangeText={setBudget}
             mode="outlined"
             keyboardType="numeric"
             style={styles.input}
-            right={<TextInput.Affix text="Crediti" />}
           />
-           <HelperText type="info">Crediti a disposizione per costruire il team.</HelperText>
-
+          <HelperText type="info">Crediti disponibili per ogni team (min. 500).</HelperText>
         </Card.Content>
       </Card>
 
@@ -111,8 +138,7 @@ export default function CreateLeagueScreen() {
         onPress={handleCreateLeague}
         loading={mutation.isPending}
         disabled={mutation.isPending}
-        style={styles.button}
-        contentStyle={styles.buttonContent}
+        style={styles.createButton}
       >
         Crea Lega
       </Button>
@@ -129,16 +155,15 @@ const styles = StyleSheet.create({
     margin: 16,
   },
   title: {
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: 'center',
   },
   input: {
-    marginTop: 12,
+    marginBottom: 8,
   },
-  button: {
+  createButton: {
     margin: 16,
-  },
-  buttonContent: {
     paddingVertical: 8,
+    backgroundColor: '#FF6B00',
   },
 });
