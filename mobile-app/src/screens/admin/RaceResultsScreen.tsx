@@ -15,19 +15,15 @@ import {
   TextInput,
   Button,
   List,
-  Divider,
-  SegmentedButtons,
-  Chip,
   ActivityIndicator,
-  DataTable,
-  IconButton,
   Menu,
+  IconButton,
   Portal,
   Dialog,
-  RadioButton
+  Chip
 } from 'react-native-paper';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getRaceResultsTemplate, postRaceResults } from '../../services/api'; // <-- IMPORTAZIONI AGGIORNATE
 
 interface RiderResult {
   riderId: string;
@@ -37,15 +33,8 @@ interface RiderResult {
   status: 'FINISHED' | 'DNF' | 'DNS' | 'DSQ';
 }
 
-interface Race {
-  id: string;
-  name: string;
-  date: string;
-  round: number;
-}
-
 export default function RaceResultsScreen({ route }: any) {
-  const { raceId } = route.params || {};
+  const { raceId, raceName, round } = route.params || {}; // Riceve i parametri dalla navigazione
   const queryClient = useQueryClient();
   
   const [selectedCategory, setSelectedCategory] = useState<'MOTOGP' | 'MOTO2' | 'MOTO3'>('MOTOGP');
@@ -55,40 +44,29 @@ export default function RaceResultsScreen({ route }: any) {
     MOTO3: []
   });
   const [editingRider, setEditingRider] = useState<string | null>(null);
-  const [tempPosition, setTempPosition] = useState<string>('');
-  const [tempStatus, setTempStatus] = useState<string>('FINISHED');
 
-  // Query per ottenere il template dei piloti
+  // Query per ottenere il template dei piloti usando la nuova funzione API
   const { data: templateData, isLoading } = useQuery({
     queryKey: ['resultsTemplate', raceId, selectedCategory],
-    queryFn: async () => {
-      const response = await fetch(`/api/admin/race-results/template/${raceId}/${selectedCategory}`);
-      return response.json();
-    },
-    enabled: !!raceId,
+    queryFn: () => getRaceResultsTemplate(raceId, selectedCategory),
+    enabled: !!raceId, // La query parte solo se raceId è presente
   });
 
-  // Mutation per salvare i risultati
+  // Mutation per salvare i risultati usando la nuova funzione API
   const saveMutation = useMutation({
-    mutationFn: async (data: { raceId: string; results: any[] }) => {
-      const response = await fetch('/api/admin/race-results', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) throw new Error('Errore nel salvataggio');
-      return response.json();
-    },
+    mutationFn: postRaceResults,
     onSuccess: () => {
       Alert.alert('Successo', 'Risultati salvati correttamente');
-      queryClient.invalidateQueries({ queryKey: ['races'] });
+      // Invalida le query per aggiornare lo stato dell'app
+      queryClient.invalidateQueries({ queryKey: ['racesWithoutResults'] });
+      queryClient.invalidateQueries({ queryKey: ['syncStatus'] });
     },
-    onError: (error) => {
-      Alert.alert('Errore', 'Impossibile salvare i risultati');
+    onError: (error: any) => {
+      Alert.alert('Errore', error.response?.data?.error || 'Impossibile salvare i risultati');
     }
   });
 
-  // Inizializza i risultati quando arriva il template
+  // Inizializza i risultati quando il template viene caricato
   useEffect(() => {
     if (templateData?.template) {
       setResults(prev => ({
@@ -99,27 +77,28 @@ export default function RaceResultsScreen({ route }: any) {
   }, [templateData, selectedCategory]);
 
   const handlePositionChange = (riderId: string, position: string) => {
-    const pos = position === '' ? null : parseInt(position);
-    if (pos !== null && (isNaN(pos) || pos < 1 || pos > 30)) {
-      Alert.alert('Errore', 'La posizione deve essere tra 1 e 30');
+    const pos = position === '' ? null : parseInt(position, 10);
+    if (pos !== null && (isNaN(pos) || pos < 1 || pos > 40)) {
+      Alert.alert('Errore', 'La posizione deve essere un numero valido.');
       return;
     }
 
     setResults(prev => ({
       ...prev,
       [selectedCategory]: prev[selectedCategory].map(r =>
-        r.riderId === riderId ? { ...r, position: pos } : r
+        r.riderId === riderId ? { ...r, position: pos, status: pos === null ? r.status : 'FINISHED' } : r
       )
     }));
   };
 
-  const handleStatusChange = (riderId: string, status: string) => {
+  const handleStatusChange = (riderId: string, status: 'FINISHED' | 'DNF' | 'DNS' | 'DSQ') => {
     setResults(prev => ({
       ...prev,
       [selectedCategory]: prev[selectedCategory].map(r =>
         r.riderId === riderId ? { 
           ...r, 
-          status: status as any,
+          status: status,
+          // Se lo stato non è FINISHED, la posizione deve essere null
           position: status !== 'FINISHED' ? null : r.position
         } : r
       )
@@ -153,15 +132,15 @@ export default function RaceResultsScreen({ route }: any) {
 
     Alert.alert(
       'Conferma',
-      'Sei sicuro di voler salvare questi risultati?',
+      'Sei sicuro di voler salvare questi risultati e ricalcolare tutti i punteggi per questa gara?',
       [
         { text: 'Annulla', style: 'cancel' },
         {
-          text: 'Salva',
+          text: 'Salva e Calcola',
           onPress: () => {
             saveMutation.mutate({
               raceId,
-              results: allResults
+              results: allResults.map(({ riderId, position, status }) => ({ riderId, position, status }))
             });
           }
         }
@@ -215,7 +194,7 @@ export default function RaceResultsScreen({ route }: any) {
                   handleStatusChange(rider.riderId, 'FINISHED');
                   setEditingRider(null);
                 }} 
-                title="Finito"
+                title="Arrivato"
                 leadingIcon="flag-checkered"
               />
               <Menu.Item 
@@ -270,7 +249,7 @@ export default function RaceResultsScreen({ route }: any) {
         <Card style={styles.headerCard}>
           <Card.Content>
             <Title>Inserisci Risultati Gara</Title>
-            <Text>Round {route.params?.round || 'N/A'} - {route.params?.raceName || 'Gara'}</Text>
+            <Text>Round {round || 'N/A'} - {raceName || 'Gara sconosciuta'}</Text>
           </Card.Content>
         </Card>
 
@@ -311,7 +290,6 @@ export default function RaceResultsScreen({ route }: any) {
         <Button
           mode="outlined"
           onPress={() => {
-            // Reset della categoria corrente
             setResults(prev => ({
               ...prev,
               [selectedCategory]: templateData?.template || []
@@ -328,7 +306,7 @@ export default function RaceResultsScreen({ route }: any) {
           disabled={saveMutation.isPending}
           style={[styles.actionButton, styles.saveButton]}
         >
-          Salva Tutti i Risultati
+          Salva e Calcola Punti
         </Button>
       </View>
     </KeyboardAvoidingView>
@@ -388,7 +366,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   riderInfo: {
     flex: 1,
@@ -397,10 +376,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   riderNumber: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#666',
-    minWidth: 40,
+    minWidth: 35,
+    textAlign: 'right',
   },
   riderName: {
     fontSize: 16,
@@ -409,18 +389,21 @@ const styles = StyleSheet.create({
   riderControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 0,
   },
   positionInput: {
-    width: 60,
-    height: 40,
+    width: 70,
+    height: 48,
+    textAlign: 'center',
   },
   statusChip: {
     minWidth: 60,
+    justifyContent: 'center',
   },
   statusChipText: {
     fontSize: 12,
     color: 'white',
+    margin: 0,
   },
   statusDNF: {
     backgroundColor: '#F44336',
@@ -441,11 +424,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     elevation: 8,
     gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0'
   },
   actionButton: {
     flex: 1,
   },
   saveButton: {
-    backgroundColor: '#FF6B00',
+    backgroundColor: '#4CAF50',
   },
 });

@@ -149,3 +149,14 @@ export const getRiderStats = async (riderId: string, season?: number) => {
   });
   return response.data;
 };
+
+// Funzioni Admin
+export const getRaceResultsTemplate = async (raceId: string, category: string) => {
+  const response = await api.get(`/sync/results/template/${raceId}/${category}`);
+  return response.data;
+};
+
+export const postRaceResults = async (data: { raceId: string; results: any[] }) => {
+  const response = await api.post('/sync/results', data);
+  return response.data;
+};
