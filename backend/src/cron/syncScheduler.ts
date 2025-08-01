@@ -109,8 +109,7 @@ export class SyncScheduler {
           userId: user.id,
           title: 'Risultati disponibili!',
           message: `I risultati di ${race.name} sono ora disponibili. Controlla i tuoi punteggi!`,
-          type: 'RACE_RESULTS',
-          data: { raceId: race.id }
+          type: 'RACE_RESULTS'
         }
       });
     }

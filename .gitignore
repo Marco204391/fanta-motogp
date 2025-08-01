@@ -61,3 +61,5 @@ mobile-app/web-build/
 *.tmp
 *.temp
 .cache/
+backend/prisma/migrations/20250731125759_init/migration.sql
+backend/prisma/migrations/migration_lock.toml

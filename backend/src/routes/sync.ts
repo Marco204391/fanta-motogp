@@ -18,7 +18,8 @@ router.post('/race-results/:raceId', syncController.syncRaceResults);
 router.get('/logs', syncController.getSyncLogs);
 router.get('/status', syncController.getSyncStatus);
 
-router.get('/results/template/:raceId/:category', adminController.getResultsTemplate);
-router.post('/results', adminController.insertRaceResults);
+// Route per inserimento manuale risultati
+router.get('/results/template/:raceId/:category', syncController.getResultsTemplate);
+router.post('/results', syncController.insertRaceResults);
 
 export default router;
