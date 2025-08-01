@@ -241,9 +241,6 @@ export const getWeekendLineups = async (req: AuthRequest, res: Response) => {
     // Trova la gara principale
     const race = await prisma.race.findUnique({
       where: { id: raceId },
-      include: {
-        circuit: true
-      }
     });
 
     if (!race) {
@@ -253,7 +250,7 @@ export const getWeekendLineups = async (req: AuthRequest, res: Response) => {
     // Trova tutte le gare dello stesso weekend (stesso circuito, date vicine)
     const weekendRaces = await prisma.race.findMany({
       where: {
-        circuitId: race.circuitId,
+        circuit: race.circuit, // Use circuit name for filtering
         date: {
           gte: new Date(race.date.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 giorni prima
           lte: new Date(race.date.getTime() + 3 * 24 * 60 * 60 * 1000), // 3 giorni dopo

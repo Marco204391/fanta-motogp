@@ -246,58 +246,58 @@ export default function TeamsScreen() {
               <Text style={styles.pointsValue}>{team.totalPoints}</Text>
             </View>
           )}
+        
+          {selectedTeam === team.id && (
+            <>
+              <Divider style={{ marginVertical: 8 }} />
+              <View style={styles.expandedContent}>
+                {['MOTOGP', 'MOTO2', 'MOTO3'].map((category) => {
+                  const categoryRiders = team.riders.filter(tr => tr.rider.category === category);
+                  if (categoryRiders.length === 0) return null;
+                  
+                  return (
+                    <View key={category} style={styles.categorySection}>
+                      <Text style={[styles.categoryTitle, { color: getCategoryColor(category) }]}>
+                        {category}
+                      </Text>
+                      {categoryRiders.map((teamRider) => (
+                        <List.Item
+                          key={teamRider.rider.id}
+                          title={`${teamRider.rider.number}. ${teamRider.rider.name}`}
+                          description={`${teamRider.rider.value.toLocaleString()} crediti`}
+                          left={(props) => (
+                            <Avatar.Text 
+                              {...props} 
+                              label={teamRider.rider.number.toString()} 
+                              size={36} 
+                              style={{ 
+                                backgroundColor: getCategoryColor(category),
+                                marginRight: 8 
+                              }} 
+                            />
+                          )}
+                          titleStyle={styles.riderName}
+                          descriptionStyle={styles.riderValue}
+                        />
+                      ))}
+                    </View>
+                  );
+                })}
+              </View>
+              <Button 
+                mode="contained" 
+                style={styles.manageButton}
+                onPress={() => navigation.navigate('Lineup', { teamId: team.id, race: null })}
+                icon={hasLineup ? "pencil" : "rocket-launch-outline"}
+              >
+                {hasLineup ? 'Modifica Schieramento' : 'Gestisci Schieramenti'}
+              </Button>
+            </>
+          )}
         </Card.Content>
-        {selectedTeam === team.id && (
-          <Card.Content>
-            <Divider style={{ marginVertical: 8 }} />
-            <View style={styles.expandedContent}>
-              {['MOTOGP', 'MOTO2', 'MOTO3'].map((category) => {
-                const categoryRiders = team.riders.filter(tr => tr.rider.category === category);
-                if (categoryRiders.length === 0) return null;
-                
-                return (
-                  <View key={category} style={styles.categorySection}>
-                    <Text style={[styles.categoryTitle, { color: getCategoryColor(category) }]}>
-                      {category}
-                    </Text>
-                    {categoryRiders.map((teamRider) => (
-                      <List.Item
-                        key={teamRider.rider.id}
-                        title={`${teamRider.rider.number}. ${teamRider.rider.name}`}
-                        description={`${teamRider.rider.value.toLocaleString()} crediti`}
-                        left={(props) => (
-                          <Avatar.Text 
-                            {...props} 
-                            label={teamRider.rider.number.toString()} 
-                            size={36} 
-                            style={{ 
-                              backgroundColor: getCategoryColor(category),
-                              marginRight: 8 
-                            }} 
-                          />
-                        )}
-                        titleStyle={styles.riderName}
-                        descriptionStyle={styles.riderValue}
-                      />
-                    ))}
-                  </View>
-                );
-              })}
-            </View>
-            <Button 
-              mode="contained" 
-              style={styles.manageButton}
-              onPress={() => navigation.navigate('Lineup', { teamId: team.id, race: null })}
-              icon={hasLineup ? "pencil" : "rocket-launch-outline"}
-            >
-              {hasLineup ? 'Modifica Schieramento' : 'Gestisci Schieramenti'}
-            </Button>
-          </Card.Content>
-        )}
-      </Card.Content>
-    </Card>
-  );
-};
+      </Card>
+    );
+  };
 
   if (loadingTeams) {
     return (

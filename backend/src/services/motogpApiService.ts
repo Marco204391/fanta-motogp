@@ -262,7 +262,7 @@ export class MotoGPApiService {
     // 2. Crea mappa dei risultati per un accesso rapido
     const resultMap = new Map<string, number>();
     raceResults.forEach(result => {
-      resultMap.set(result.riderId, result.position);
+      resultMap.set(result.riderId, result.position ?? 99 );
     });
 
     // 3. Ottieni tutti gli schieramenti per questa gara
@@ -304,18 +304,19 @@ export class MotoGPApiService {
         console.log(`Team ${team.name}: nessuno schieramento per questa gara, cerco il precedente...`);
         
         const lastValidLineup = await prisma.raceLineup.findFirst({
-          where: { 
-            teamId: team.id,
-            race: {
-              date: { lt: race.date }
-            }
+          where: {
+              teamId: team.id,
+              race: {
+                  date: { lt: race.date }
+              }
           },
           orderBy: { race: { date: 'desc' } },
           include: {
-            lineupRiders: {
-              include: { rider: true }
-            },
-            team: true
+              lineupRiders: {
+                  include: { rider: true }
+              },
+              team: true,
+              race: true // Add this line
           }
         });
         
