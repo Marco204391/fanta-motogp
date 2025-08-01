@@ -120,11 +120,6 @@ export const getPastRaces = async () => {
   return response.data;
 };
 
-export const getRaceResults = async (raceId: string) => {
-  const response = await api.get(`/races/${raceId}/results`);
-  return response.data;
-};
-
 // Schieramenti
 export const getLineup = async (teamId: string, raceId: string) => {
   const response = await api.get(`/lineups/${raceId}`, { params: { teamId } });
@@ -143,13 +138,6 @@ export const getMyStats = async () => {
   return response.data;
 };
 
-export const getRiderStats = async (riderId: string, season?: number) => {
-  const response = await api.get(`/stats/rider/${riderId}`, {
-    params: { season }
-  });
-  return response.data;
-};
-
 // Funzioni Admin
 export const getRaceResultsTemplate = async (raceId: string, category: string) => {
   const response = await api.get(`/sync/results/template/${raceId}/${category}`);
@@ -158,13 +146,6 @@ export const getRaceResultsTemplate = async (raceId: string, category: string) =
 
 export const postRaceResults = async (data: { raceId: string; results: any[] }) => {
   const response = await api.post('/sync/results', data);
-  return response.data;
-};
-
-
-/ Ottieni gare passate
-export const getPastRaces = async () => {
-  const response = await api.get('/races/past');
   return response.data;
 };
 

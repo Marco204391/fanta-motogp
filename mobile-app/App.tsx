@@ -1,11 +1,14 @@
 // mobile-app/App.tsx
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Provider as PaperProvider, DefaultTheme } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 
 // Import screens
 import LoginScreen from './src/screens/auth/LoginScreen';
@@ -23,57 +26,21 @@ import LeagueDetailScreen from './src/screens/main/LeagueDetailScreen';
 // Import contexts
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 
+SplashScreen.preventAutoHideAsync();
+
 // Navigation types
-export type RootStackParamList = {
-  Auth: undefined;
-  Main: undefined;
-};
-
-export type AuthStackParamList = {
-  Login: undefined;
-  Register: undefined;
-};
-
-export type MainStackParamList = {
-  Tabs: undefined;
-  CreateTeam: { leagueId: string };
-  CreateLeague: undefined;
-  Lineup: { teamId: string, race: any };
-  LeagueDetail: { leagueId: string };
-};
-
-export type MainTabParamList = {
-  Home: undefined;
-  Teams: undefined;
-  Leagues: undefined;
-  Riders: undefined;
-  Profile: undefined;
-};
+export type RootStackParamList = { Auth: undefined; Main: undefined; };
+export type AuthStackParamList = { Login: undefined; Register: undefined; };
+export type MainStackParamList = { Tabs: undefined; CreateTeam: { leagueId: string }; CreateLeague: undefined; Lineup: { teamId: string, race: any }; LeagueDetail: { leagueId: string }; };
+export type MainTabParamList = { Home: undefined; Teams: undefined; Leagues: undefined; Riders: undefined; Profile: undefined; };
 
 const RootStack = createStackNavigator<RootStackParamList>();
 const AuthStack = createStackNavigator<AuthStackParamList>();
 const MainStack = createStackNavigator<MainStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// Query Client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 2,
-      staleTime: 5 * 60 * 1000, // 5 minuti
-    },
-  },
-});
-
-// Theme
-const theme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: '#FF6B00',
-    accent: '#1E1E1E',
-  },
-};
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 2, staleTime: 5 * 60 * 1000 } } });
+const theme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: '#FF6B00', accent: '#1E1E1E' } };
 
 function AuthNavigator() {
   return (
@@ -120,31 +87,11 @@ function MainNavigator() {
         headerTintColor: '#fff',
       }}
     >
-      <MainStack.Screen 
-        name="Tabs" 
-        component={TabNavigator} 
-        options={{ headerShown: false }}
-      />
-      <MainStack.Screen 
-        name="CreateTeam" 
-        component={CreateTeamScreen} 
-        options={{ title: 'Crea Team' }} 
-      />
-      <MainStack.Screen 
-        name="CreateLeague" 
-        component={CreateLeagueScreen} 
-        options={{ title: 'Crea Lega' }} 
-      />
-      <MainStack.Screen 
-        name="Lineup" 
-        component={LineupScreen} 
-        options={{ title: 'Schiera Formazione' }} 
-      />
-      <MainStack.Screen 
-        name="LeagueDetail" 
-        component={LeagueDetailScreen} 
-        options={{ title: 'Dettagli Lega' }} 
-      />
+      <MainStack.Screen name="Tabs" component={TabNavigator} options={{ headerShown: false }}/>
+      <MainStack.Screen name="CreateTeam" component={CreateTeamScreen} options={{ title: 'Crea Team' }} />
+      <MainStack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Crea Lega' }} />
+      <MainStack.Screen name="Lineup" component={LineupScreen} options={{ title: 'Schiera Formazione' }} />
+      <MainStack.Screen name="LeagueDetail" component={LeagueDetailScreen} options={{ title: 'Dettagli Lega' }} />
     </MainStack.Navigator>
   );
 }
@@ -165,14 +112,39 @@ function RootNavigator() {
   );
 }
 
+function AppContent() {
+  const [fontsLoaded, fontError] = useFonts({
+    ...MaterialCommunityIcons.font,
+  });
+
+  const { isLoading: isAuthLoading } = useAuth();
+
+  useEffect(() => {
+    async function hideSplash() {
+      if (fontsLoaded && !isAuthLoading) {
+        await SplashScreen.hideAsync();
+      }
+    }
+    hideSplash();
+  }, [fontsLoaded, isAuthLoading]);
+
+  if (!fontsLoaded || fontError) {
+    return null;
+  }
+
+  return (
+    <NavigationContainer>
+      <RootNavigator />
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <PaperProvider theme={theme}>
         <AuthProvider>
-          <NavigationContainer>
-            <RootNavigator />
-          </NavigationContainer>
+          <AppContent />
         </AuthProvider>
       </PaperProvider>
     </QueryClientProvider>

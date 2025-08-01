@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format, isBefore, isAfter, startOfDay, endOfDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { getUpcomingRaces, getPastRaces } from '../../services/api';
-import RaceCard from '../../components/RaceCard';
+import RaceCard from '../../components/RiderCard';
 
 interface Race {
   id: string;

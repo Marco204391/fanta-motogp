@@ -1,320 +1,256 @@
-// mobile-app/src/components/RiderCard.tsx
+// mobile-app/src/components/RaceCard.tsx
 import React from 'react';
-import { View, StyleSheet, ImageBackground, Image } from 'react-native';
+import { View, StyleSheet, ImageBackground } from 'react-native';
 import { Card, Text, Chip, useTheme } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { format, differenceInDays, differenceInHours, differenceInMinutes } from 'date-fns';
+import { it } from 'date-fns/locale';
 
-interface RiderCardProps {
-  rider: {
+interface RaceCardProps {
+  race: {
     id: string;
     name: string;
-    number: number;
-    team: string;
-    category: 'MOTOGP' | 'MOTO2' | 'MOTO3';
-    nationality: string;
-    value: number;
-    photoUrl?: string | null;
+    circuit: string;
+    country: string;
+    date: Date;
+    sprintDate?: Date;
+    round: number;
+    season: number;
   };
-  selected?: boolean;
+  variant?: 'upcoming' | 'past' | 'current';
   onPress?: () => void;
-  showValue?: boolean;
-  variant?: 'default' | 'compact';
 }
 
-// Mappatura bandiere per nazionalità
-const nationalityFlags: Record<string, string> = {
-  'IT': '🇮🇹',
-  'ES': '🇪🇸',
-  'FR': '🇫🇷',
-  'PT': '🇵🇹',
-  'DE': '🇩🇪',
-  'AT': '🇦🇹',
-  'NL': '🇳🇱',
-  'BE': '🇧🇪',
-  'GB': '🇬🇧',
-  'US': '🇺🇸',
-  'AR': '🇦🇷',
-  'AU': '🇦🇺',
-  'JP': '🇯🇵',
-  'TH': '🇹🇭',
-  'MY': '🇲🇾',
-  'ID': '🇮🇩',
-  'IN': '🇮🇳',
-  'BR': '🇧🇷',
-  'ZA': '🇿🇦',
-  'TR': '🇹🇷',
+// Mappatura bandiere per paese
+const countryFlags: Record<string, string> = {
+  'Italy': '🇮🇹',
+  'Spain': '🇪🇸',
+  'France': '🇫🇷',
+  'Portugal': '🇵🇹',
+  'Germany': '🇩🇪',
+  'Austria': '🇦🇹',
+  'Netherlands': '🇳🇱',
+  'Finland': '🇫🇮',
+  'Czech Republic': '🇨🇿',
+  'United Kingdom': '🇬🇧',
+  'San Marino': '🇸🇲',
+  'Aragon': '🇪🇸',
+  'Catalunya': '🇪🇸',
+  'Valencia': '🇪🇸',
+  'Americas': '🇺🇸',
+  'Argentina': '🇦🇷',
+  'Thailand': '🇹🇭',
+  'Japan': '🇯🇵',
+  'Australia': '🇦🇺',
+  'Malaysia': '🇲🇾',
+  'Qatar': '🇶🇦',
+  'Indonesia': '🇮🇩',
+  'India': '🇮🇳',
+  'Hungary': '🇭🇺',
 };
 
-// Colori per categoria
-const categoryColors = {
-  MOTOGP: ['#E53935', '#B71C1C'],
-  MOTO2: ['#1E88E5', '#0D47A1'],
-  MOTO3: ['#43A047', '#1B5E20'],
-};
-
-// Placeholder per foto piloti
-const riderPlaceholder = 'https://via.placeholder.com/150x200/cccccc/666666?text=Rider';
-
-export default function RiderCard({ 
-  rider, 
-  selected = false, 
-  onPress, 
-  showValue = true,
-  variant = 'default' 
-}: RiderCardProps) {
+export default function RaceCard({ race, variant = 'upcoming', onPress }: RaceCardProps) {
   const theme = useTheme();
-  const gradientColors = categoryColors[rider.category];
+  const raceDate = new Date(race.date);
+  const sprintDate = race.sprintDate ? new Date(race.sprintDate) : null;
+  
+  // Calcola countdown
+  const now = new Date();
+  const daysUntilRace = differenceInDays(raceDate, now);
+  const hoursUntilRace = differenceInHours(raceDate, now) % 24;
+  const minutesUntilRace = differenceInMinutes(raceDate, now) % 60;
 
-  if (variant === 'compact') {
-    return (
-      <Card 
-        style={[styles.compactCard, selected && styles.selectedCard]} 
-        onPress={onPress}
-        mode={selected ? 'elevated' : 'contained'}
-      >
-        <View style={styles.compactContent}>
-          <View style={styles.compactNumber}>
-            <Text variant="titleLarge" style={styles.numberText}>
-              #{rider.number}
-            </Text>
-          </View>
-          <View style={styles.compactInfo}>
-            <Text variant="titleSmall" numberOfLines={1}>
-              {rider.name}
-            </Text>
-            <Text variant="bodySmall" numberOfLines={1} style={{ opacity: 0.7 }}>
-              {rider.team}
-            </Text>
-          </View>
-          {showValue && (
-            <Chip compact style={styles.valueChip}>
-              {rider.value}
-            </Chip>
-          )}
-        </View>
-      </Card>
-    );
-  }
+  const getStatusChip = () => {
+    switch (variant) {
+      case 'past':
+        return <Chip style={styles.statusChip} textStyle={styles.statusText}>✓ Terminato</Chip>;
+      case 'current':
+        return <Chip style={[styles.statusChip, { backgroundColor: theme.colors.error }]} textStyle={styles.statusText}>● LIVE</Chip>;
+      case 'upcoming':
+        if (daysUntilRace <= 7 && daysUntilRace >= 0) {
+          return <Chip style={[styles.statusChip, { backgroundColor: theme.colors.primary }]} textStyle={styles.statusText}>PROSSIMO</Chip>;
+        }
+        return null;
+    }
+  };
+
+  const getBackgroundColor = () => {
+    switch (variant) {
+      case 'past':
+        return '#E0E0E0';
+      case 'current':
+        return theme.colors.errorContainer;
+      case 'upcoming':
+        return daysUntilRace <= 7 ? theme.colors.primaryContainer : '#F5F5F5';
+    }
+  };
 
   return (
     <Card 
-      style={[styles.card, selected && styles.selectedCard]} 
+      style={[styles.card, { backgroundColor: getBackgroundColor() }]} 
       onPress={onPress}
-      mode={selected ? 'elevated' : 'contained'}
+      mode={variant === 'current' ? 'elevated' : 'contained'}
+      elevation={variant === 'current' ? 4 : 1}
     >
-      <View style={styles.cardContent}>
-        <LinearGradient
-          colors={gradientColors}
-          style={styles.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.header}>
-            <View style={styles.categoryBadge}>
-              <Text variant="labelSmall" style={styles.categoryText}>
-                {rider.category}
-              </Text>
-            </View>
-            {selected && (
-              <View style={styles.selectedBadge}>
-                <Text variant="labelSmall" style={styles.selectedText}>
-                  ✓ SELECTED
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.riderImageContainer}>
-            {rider.photoUrl ? (
-              <Image 
-                source={{ uri: rider.photoUrl }} 
-                style={styles.riderImage}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={styles.placeholderImage}>
-                <Text variant="displayMedium" style={styles.placeholderNumber}>
-                  {rider.number}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.numberOverlay}>
-            <Text variant="displayLarge" style={styles.bigNumber}>
-              #{rider.number}
+      <View style={styles.header}>
+        <View style={styles.roundInfo}>
+          <Text variant="titleLarge" style={styles.roundNumber}>
+            {race.round.toString().padStart(2, '0')}
+          </Text>
+          <Text variant="labelSmall" style={styles.roundLabel}>ROUND</Text>
+        </View>
+        
+        <View style={styles.raceInfo}>
+          <View style={styles.titleRow}>
+            <Text variant="titleMedium" style={styles.country}>
+              {countryFlags[race.country] || '🏁'} {race.country.toUpperCase()}
             </Text>
+            {getStatusChip()}
           </View>
-        </LinearGradient>
-
-        <View style={styles.infoSection}>
-          <View style={styles.nameRow}>
-            <Text variant="titleMedium" style={styles.riderName}>
-              {rider.name.toUpperCase()}
-            </Text>
-          </View>
-          
-          <View style={styles.detailsRow}>
-            <Text variant="bodySmall" style={styles.nationality}>
-              {nationalityFlags[rider.nationality] || '🏁'} {rider.nationality}
-            </Text>
-            <Text variant="bodySmall" style={styles.separator}>•</Text>
-            <Text variant="bodySmall" style={styles.team} numberOfLines={1}>
-              {rider.team}
-            </Text>
-          </View>
-
-          {showValue && (
-            <View style={styles.valueRow}>
-              <Text variant="labelMedium">Valore:</Text>
-              <Chip compact style={styles.valueChip}>
-                {rider.value} crediti
-              </Chip>
-            </View>
-          )}
+          <Text variant="bodyMedium" style={styles.raceName}>{race.name}</Text>
+          <Text variant="bodySmall" style={styles.circuit}>{race.circuit}</Text>
         </View>
       </View>
+
+      <View style={styles.dateSection}>
+        <View style={styles.dateRow}>
+          <MaterialCommunityIcons name="calendar" size={16} color={theme.colors.onSurfaceVariant} />
+          <Text variant="bodySmall" style={styles.dateText}>
+            {format(raceDate, 'dd MMM', { locale: it })} - {format(raceDate, 'dd MMM yyyy', { locale: it })}
+          </Text>
+        </View>
+        
+        {sprintDate && (
+          <View style={styles.sprintRow}>
+            <MaterialCommunityIcons name="lightning-bolt" size={16} color={theme.colors.primary} />
+            <Text variant="bodySmall" style={[styles.dateText, { color: theme.colors.primary }]}>
+              Sprint: {format(sprintDate, 'dd MMM HH:mm', { locale: it })}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {variant === 'upcoming' && daysUntilRace >= 0 && daysUntilRace <= 14 && (
+        <View style={styles.countdown}>
+          <Text variant="labelSmall" style={styles.countdownLabel}>INIZIA TRA</Text>
+          <View style={styles.countdownValues}>
+            <View style={styles.countdownItem}>
+              <Text variant="headlineSmall" style={styles.countdownNumber}>
+                {daysUntilRace.toString().padStart(2, '0')}
+              </Text>
+              <Text variant="labelSmall">GIORNI</Text>
+            </View>
+            <Text variant="headlineSmall" style={styles.countdownSeparator}>:</Text>
+            <View style={styles.countdownItem}>
+              <Text variant="headlineSmall" style={styles.countdownNumber}>
+                {hoursUntilRace.toString().padStart(2, '0')}
+              </Text>
+              <Text variant="labelSmall">ORE</Text>
+            </View>
+            <Text variant="headlineSmall" style={styles.countdownSeparator}>:</Text>
+            <View style={styles.countdownItem}>
+              <Text variant="headlineSmall" style={styles.countdownNumber}>
+                {minutesUntilRace.toString().padStart(2, '0')}
+              </Text>
+              <Text variant="labelSmall">MIN</Text>
+            </View>
+          </View>
+        </View>
+      )}
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 8,
-    marginVertical: 6,
+    marginHorizontal: 16,
+    marginVertical: 8,
     overflow: 'hidden',
-  },
-  selectedCard: {
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-  },
-  cardContent: {
-    overflow: 'hidden',
-  },
-  gradient: {
-    height: 200,
-    position: 'relative',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 12,
-  },
-  categoryBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  categoryText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  selectedBadge: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  selectedText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  riderImageContainer: {
-    position: 'absolute',
-    right: 20,
-    bottom: 0,
-    height: 160,
-    width: 120,
-  },
-  riderImage: {
-    width: '100%',
-    height: '100%',
-  },
-  placeholderImage: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 8,
-  },
-  placeholderNumber: {
-    color: 'rgba(255,255,255,0.3)',
-    fontWeight: 'bold',
-  },
-  numberOverlay: {
-    position: 'absolute',
-    left: 12,
-    bottom: 12,
-  },
-  bigNumber: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 48,
-    opacity: 0.9,
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-  },
-  infoSection: {
     padding: 16,
-    backgroundColor: 'white',
   },
-  nameRow: {
+  roundInfo: {
+    alignItems: 'center',
+    marginRight: 16,
+    minWidth: 60,
+  },
+  roundNumber: {
+    fontWeight: 'bold',
+    fontSize: 32,
+  },
+  roundLabel: {
+    opacity: 0.6,
+    marginTop: -4,
+  },
+  raceInfo: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
   },
-  riderName: {
+  country: {
     fontWeight: 'bold',
   },
-  detailsRow: {
+  raceName: {
+    marginBottom: 2,
+  },
+  circuit: {
+    opacity: 0.7,
+  },
+  statusChip: {
+    height: 24,
+    backgroundColor: '#4CAF50',
+  },
+  statusText: {
+    fontSize: 11,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  dateSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  sprintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  dateText: {
+    opacity: 0.8,
+  },
+  countdown: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 16,
+    alignItems: 'center',
+  },
+  countdownLabel: {
+    opacity: 0.6,
     marginBottom: 8,
   },
-  nationality: {
-    opacity: 0.7,
-  },
-  separator: {
-    marginHorizontal: 8,
-    opacity: 0.5,
-  },
-  team: {
-    opacity: 0.7,
-    flex: 1,
-  },
-  valueRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  valueChip: {
-    backgroundColor: '#E3F2FD',
-  },
-  // Stili per variant compact
-  compactCard: {
-    marginHorizontal: 8,
-    marginVertical: 4,
-  },
-  compactContent: {
+  countdownValues: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    gap: 8,
   },
-  compactNumber: {
-    width: 50,
+  countdownItem: {
     alignItems: 'center',
   },
-  numberText: {
+  countdownNumber: {
     fontWeight: 'bold',
-    color: '#666',
   },
-  compactInfo: {
-    flex: 1,
-    marginHorizontal: 12,
+  countdownSeparator: {
+    fontWeight: 'bold',
+    opacity: 0.5,
   },
 });

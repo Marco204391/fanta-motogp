@@ -13,7 +13,7 @@ import { it } from 'date-fns/locale';
 import { getLeagueById, getMyTeamInLeague, getUpcomingRaces } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 import { useAuth } from '../../contexts/AuthContext';
-import RaceCard from '../../components/RaceCard';
+import RaceCard from '../../components/RiderCard';
 
 type LeagueDetailScreenRouteProp = RouteProp<MainStackParamList, 'LeagueDetail'>;
 
