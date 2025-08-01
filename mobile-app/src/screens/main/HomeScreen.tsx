@@ -12,7 +12,7 @@ import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUpcomingRaces, getMyLeagues, getMyTeams } from '../../services/api';
-import RaceCard from '../../components/RiderCard';
+import RaceCard from '../../components/RaceCard';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
