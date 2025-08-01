@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format, isBefore } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { getLeagueById, getMyTeamInLeague, getUpcomingRaces } from '../../services/api';
+import { getLeagueDetails, getMyTeamInLeague, getUpcomingRaces } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 import { useAuth } from '../../contexts/AuthContext';
 import RaceCard from '../../components/RaceCard';
@@ -40,7 +40,7 @@ export default function LeagueDetailScreen() {
   // Query per i dettagli della lega
   const { data: leagueData, isLoading: isLoadingLeague, refetch: refetchLeague } = useQuery({
     queryKey: ['league', leagueId],
-    queryFn: () => getLeagueById(leagueId),
+    queryFn: () => getLeagueDetails(leagueId),
   });
 
   // Query per il mio team nella lega

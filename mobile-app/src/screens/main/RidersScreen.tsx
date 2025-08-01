@@ -26,7 +26,7 @@ export default function RidersScreen() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['riders'],
-    queryFn: getRiders,
+    queryFn: () => getRiders({ limit: 100 } as any),
   });
 
   const riders = data?.riders || [];
@@ -170,11 +170,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   listContent: {
-    padding: 8,
+    paddingHorizontal: 16, // Use padding on the container
+    paddingVertical: 8,
     paddingBottom: 100,
   },
   row: {
-    justifyContent: 'space-between',
+    gap: 16, // Use gap for consistent spacing
   },
   emptyState: {
     flex: 1,

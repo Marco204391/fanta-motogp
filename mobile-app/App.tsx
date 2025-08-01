@@ -1,6 +1,5 @@
 // mobile-app/App.tsx
-import React, { useCallback, useEffect } from 'react';
-import { View } from 'react-native';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -22,6 +21,9 @@ import CreateTeamScreen from './src/screens/main/CreateTeamScreen';
 import CreateLeagueScreen from './src/screens/main/CreateLeagueScreen';
 import LineupScreen from './src/screens/main/LineupScreen';
 import LeagueDetailScreen from './src/screens/main/LeagueDetailScreen';
+import RaceCalendarScreen from './src/screens/main/RaceCalendarScreen';
+import RaceDetailScreen from './src/screens/main/RaceDetailScreen';
+import RiderDetailScreen from './src/screens/main/RiderDetailScreen';
 
 // Import contexts
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
@@ -31,8 +33,23 @@ SplashScreen.preventAutoHideAsync();
 // Navigation types
 export type RootStackParamList = { Auth: undefined; Main: undefined; };
 export type AuthStackParamList = { Login: undefined; Register: undefined; };
-export type MainStackParamList = { Tabs: undefined; CreateTeam: { leagueId: string }; CreateLeague: undefined; Lineup: { teamId: string, race: any }; LeagueDetail: { leagueId: string }; };
-export type MainTabParamList = { Home: undefined; Teams: undefined; Leagues: undefined; Riders: undefined; Profile: undefined; };
+export type MainStackParamList = {
+  Tabs: undefined;
+  CreateTeam: { leagueId: string };
+  CreateLeague: undefined;
+  Lineup: { teamId: string, race: any };
+  LeagueDetail: { leagueId: string };
+  RaceDetail: { raceId: string };
+  RiderDetail: { riderId: string };
+};
+export type MainTabParamList = {
+  Home: undefined;
+  Teams: undefined;
+  Leagues: undefined;
+  Riders: undefined;
+  Profile: undefined;
+  Calendar: undefined;
+};
 
 const RootStack = createStackNavigator<RootStackParamList>();
 const AuthStack = createStackNavigator<AuthStackParamList>();
@@ -62,6 +79,7 @@ function TabNavigator() {
           else if (route.name === 'Leagues') iconName = 'trophy';
           else if (route.name === 'Riders') iconName = 'motorbike';
           else if (route.name === 'Profile') iconName = 'account';
+          else if (route.name === 'Calendar') iconName = 'calendar-check';
           return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.primary,
@@ -74,6 +92,7 @@ function TabNavigator() {
       <Tab.Screen name="Teams" component={TeamsScreen} options={{ title: 'I Miei Team' }} />
       <Tab.Screen name="Leagues" component={LeaguesScreen} options={{ title: 'Leghe' }} />
       <Tab.Screen name="Riders" component={RidersScreen} options={{ title: 'Piloti' }} />
+      <Tab.Screen name="Calendar" component={RaceCalendarScreen} options={{ title: 'Calendario' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profilo' }} />
     </Tab.Navigator>
   );
@@ -92,6 +111,8 @@ function MainNavigator() {
       <MainStack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Crea Lega' }} />
       <MainStack.Screen name="Lineup" component={LineupScreen} options={{ title: 'Schiera Formazione' }} />
       <MainStack.Screen name="LeagueDetail" component={LeagueDetailScreen} options={{ title: 'Dettagli Lega' }} />
+      <MainStack.Screen name="RaceDetail" component={RaceDetailScreen} options={{ title: 'Dettagli Gara' }} />
+      <MainStack.Screen name="RiderDetail" component={RiderDetailScreen} options={{ title: 'Dettagli Pilota' }} />
     </MainStack.Navigator>
   );
 }

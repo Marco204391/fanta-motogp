@@ -180,9 +180,9 @@ export default function RiderCard({
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 8,
     marginVertical: 6,
     overflow: 'hidden',
+    flex: 1,
   },
   selectedCard: {
     borderWidth: 2,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   gradient: {
-    height: 200,
+    height: 160,
     position: 'relative',
   },
   header: {
@@ -222,10 +222,10 @@ const styles = StyleSheet.create({
   },
   riderImageContainer: {
     position: 'absolute',
-    right: 20,
+    right: 10,
     bottom: 0,
-    height: 160,
-    width: 120,
+    height: 130,
+    width: 100,
   },
   riderImage: {
     width: '100%',
@@ -246,19 +246,19 @@ const styles = StyleSheet.create({
   numberOverlay: {
     position: 'absolute',
     left: 12,
-    bottom: 12,
+    bottom: 4, 
   },
   bigNumber: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 48,
+    fontSize: 40, // Reduced size
     opacity: 0.9,
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 4,
   },
   infoSection: {
-    padding: 16,
+    padding: 12, // Reduced padding
     backgroundColor: 'white',
   },
   nameRow: {

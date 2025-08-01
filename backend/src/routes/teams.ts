@@ -33,6 +33,7 @@ router.use(authenticate);
 
 // Routes
 router.get('/my-teams', teamsController.getMyTeams);
+router.get('/my-team/:leagueId', teamsController.getMyTeamInLeague); // <-- AGGIUNGI QUESTA RIGA
 router.get('/:id', teamIdValidation, teamsController.getTeamById);
 router.get('/:id/standings', teamIdValidation, teamsController.getTeamStandings);
 router.post('/', createTeamValidation, teamsController.createTeam);

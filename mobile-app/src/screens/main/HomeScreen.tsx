@@ -238,9 +238,6 @@ export default function HomeScreen() {
 
         {/* Azioni Rapide */}
         <View style={styles.section}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>
-            AZIONI RAPIDE
-          </Text>
           
           <View style={styles.quickActions}>
             <Surface style={styles.actionCard} elevation={1}>
@@ -328,10 +325,13 @@ const styles = StyleSheet.create({
   },
   horizontalScroll: {
     paddingHorizontal: 16,
+    paddingVertical: 4,
   },
   leagueCard: {
     width: 280,
     marginRight: 12,
+    minHeight: 150, 
+    justifyContent: 'space-between',
   },
   leagueCardHeader: {
     flexDirection: 'row',
@@ -343,6 +343,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+    minHeight: 60, 
   },
   createLeagueCard: {
     width: 180,
@@ -352,6 +353,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 20,
+    flex: 1, 
   },
   emptyCard: {
     marginHorizontal: 16,
@@ -372,9 +374,9 @@ const styles = StyleSheet.create({
   actionCard: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     borderRadius: 12,
     width: 80,
-    height: 80,
   },
 });

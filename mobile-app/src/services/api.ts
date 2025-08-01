@@ -167,6 +167,11 @@ export const getRiderById = async (riderId: string) => {
   return response.data;
 };
 
+export const getTeamById = async (teamId: string) => {
+  const response = await api.get(`/teams/${teamId}`);
+  return response.data;
+};
+
 // Ottieni statistiche di un pilota
 export const getRiderStats = async (riderId: string, season?: number) => {
   const params = season ? { season } : {};

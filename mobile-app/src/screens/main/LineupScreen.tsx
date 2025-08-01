@@ -130,25 +130,33 @@ export default function LineupScreen() {
   }, [lineup, team]);
 
   const handleRiderToggle = (riderId: string, category: string) => {
-    if (isDeadlinePassed) return;
-    const ridersInCategory = team.riders.filter((r: any) => r.rider.category === category);
-    const selectedInCategory = Object.keys(lineup).filter(id =>
-      lineup[id].selected && ridersInCategory.some((r: any) => r.rider.id === id)
-    );
+      if (isDeadlinePassed || !team) return;
 
-    setLineup(prev => {
-      const newLineup = { ...prev };
-      const isCurrentlySelected = !!newLineup[riderId]?.selected;
+      setLineup(prev => {
+          const newLineup = { ...prev };
+          const isCurrentlySelected = !!newLineup[riderId]?.selected;
 
-      if (isCurrentlySelected) {
-        delete newLineup[riderId];
-      } else if (selectedInCategory.length < 2) {
-        newLineup[riderId] = { selected: true, predictedPosition: '' };
-      } else {
-        Alert.alert('Limite Raggiunto', `Puoi schierare solo 2 piloti per la categoria ${category}.`);
-      }
-      return newLineup;
-    });
+          // Se il pilota è già selezionato, lo deselezioniamo e basta.
+          if (isCurrentlySelected) {
+              delete newLineup[riderId];
+              return newLineup;
+          }
+
+          // Altrimenti, ricalcoliamo il conteggio PRIMA di aggiungerne un altro.
+          // Questo usa lo stato più recente (`prev`) per il controllo.
+          const ridersInCategory = team.riders.filter((r: any) => r.rider.category === category);
+          const selectedInCategoryCount = Object.keys(prev).filter(id =>
+              prev[id]?.selected && ridersInCategory.some((r: any) => r.rider.id === id)
+          ).length;
+
+          if (selectedInCategoryCount < 2) {
+              newLineup[riderId] = { selected: true, predictedPosition: '' };
+          } else {
+              Alert.alert('Limite Raggiunto', `Puoi schierare solo 2 piloti per la categoria ${category}.`);
+          }
+
+          return newLineup;
+      });
   };
 
   const handlePredictionChange = (riderId: string, position: string) => {
@@ -211,17 +219,19 @@ export default function LineupScreen() {
           {riders.map((teamRider: any) => {
             const rider = teamRider.rider;
             const isSelected = !!lineup[rider.id]?.selected;
-            const canSelect = selectedCount < 2 || isSelected;
+            const canSelect = selectedCount < 2;
+
             return (
               <View key={rider.id} style={styles.riderRow}>
                 <List.Item
                   title={`${rider.number}. ${rider.name}`}
                   description={rider.team}
+                  onPress={() => handleRiderToggle(rider.id, rider.category)}
+                  disabled={isDeadlinePassed || (!isSelected && !canSelect)}
                   left={() => (
                     <Checkbox
                       status={isSelected ? 'checked' : 'unchecked'}
-                      disabled={!canSelect || isDeadlinePassed}
-                      onPress={() => handleRiderToggle(rider.id, rider.category)}
+                      disabled={isDeadlinePassed || (!isSelected && !canSelect)}
                     />
                   )}
                   style={[
@@ -242,9 +252,9 @@ export default function LineupScreen() {
                     maxLength={2}
                     disabled={isDeadlinePassed}
                     error={
-                      lineup[rider.id]?.predictedPosition &&
-                      (parseInt(lineup[rider.id].predictedPosition) < 1 ||
-                       parseInt(lineup[rider.id].predictedPosition) > 30)
+                      lineup[rider.id]?.predictedPosition
+                        ? !/^(?:[1-9]|[12][0-9]|30)$/.test(lineup[rider.id].predictedPosition)
+                        : false
                     }
                   />
                 )}
