@@ -110,10 +110,7 @@ export class MotoGPApiService {
       for (const event of eventsResponse.data) {
         await prisma.race.upsert({
           where: {
-            season_round: {
-              season: season,
-              round: event.number || 0
-            }
+            apiEventId: event.id,
           },
           update: {
             name: event.name,
@@ -121,7 +118,8 @@ export class MotoGPApiService {
             country: event.country.name,
             date: new Date(event.date_end),
             sprintDate: event.date_start ? new Date(event.date_start) : null,
-            apiEventId: event.id
+            round: event.number || 0,
+            season: season,
           },
           create: {
             name: event.name,
@@ -131,7 +129,7 @@ export class MotoGPApiService {
             sprintDate: event.date_start ? new Date(event.date_start) : null,
             round: event.number || 0,
             season: season,
-            apiEventId: event.id
+            apiEventId: event.id,
           }
         });
 

@@ -117,7 +117,7 @@ model Race {
   circuit       String
   country       String
   date          DateTime
-  sprintDate    DateTime? // Data della gara sprint per la deadline
+  sprintDate    DateTime?
   round         Int
   season        Int
 
@@ -130,7 +130,6 @@ model Race {
   lineups       RaceLineup[]
   leagueRaces   League[]
 
-  @@unique([season, round])
 }
 
 model RaceLineup {
