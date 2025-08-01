@@ -160,3 +160,41 @@ export const postRaceResults = async (data: { raceId: string; results: any[] }) 
   const response = await api.post('/sync/results', data);
   return response.data;
 };
+
+
+/ Ottieni gare passate
+export const getPastRaces = async () => {
+  const response = await api.get('/races/past');
+  return response.data;
+};
+
+// Ottieni dettagli di una gara specifica
+export const getRaceById = async (raceId: string) => {
+  const response = await api.get(`/races/${raceId}`);
+  return response.data;
+};
+
+// Ottieni risultati di una gara
+export const getRaceResults = async (raceId: string) => {
+  const response = await api.get(`/races/${raceId}/results`);
+  return response.data;
+};
+
+// Ottieni dettagli di un pilota
+export const getRiderById = async (riderId: string) => {
+  const response = await api.get(`/riders/${riderId}`);
+  return response.data;
+};
+
+// Ottieni statistiche di un pilota
+export const getRiderStats = async (riderId: string, season?: number) => {
+  const params = season ? { season } : {};
+  const response = await api.get(`/riders/${riderId}/stats`, { params });
+  return response.data;
+};
+
+// Ottieni il mio team in una lega specifica
+export const getMyTeamInLeague = async (leagueId: string) => {
+  const response = await api.get(`/teams/my-team/${leagueId}`);
+  return response.data;
+};

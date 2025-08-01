@@ -1,394 +1,428 @@
 // mobile-app/src/screens/main/LeagueDetailScreen.tsx
-import React from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, Alert } from 'react-native';
-import { 
-  ActivityIndicator, 
-  Card, 
-  List, 
-  Text, 
-  Title, 
-  DataTable, 
-  Avatar, 
-  Button,
-  Chip,
-  Divider,
-  Banner
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import {
+  ActivityIndicator, Avatar, Banner, Button, Card, Chip, DataTable, 
+  Divider, FAB, IconButton, List, Text, Title, useTheme
 } from 'react-native-paper';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getLeagueDetails } from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
-import { MainStackParamList } from '../../../App';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { format, isBefore } from 'date-fns';
+import { it } from 'date-fns/locale';
+import { getLeagueById, getMyTeamInLeague, getUpcomingRaces } from '../../services/api';
+import { MainStackParamList } from '../../../App';
+import { useAuth } from '../../contexts/AuthContext';
+import RaceCard from '../../components/RaceCard';
 
-type LeagueDetailNavigationProp = StackNavigationProp<MainStackParamList, 'LeagueDetail'>;
+type LeagueDetailScreenRouteProp = RouteProp<MainStackParamList, 'LeagueDetail'>;
 
-export default function LeagueDetailScreen({ route }: any) {
-  const { leagueId } = route.params;
+interface Standing {
+  teamId: string;
+  teamName: string;
+  userId: string;
+  userName: string;
+  totalPoints: number;
+  lastRacePoints?: number;
+  position?: number;
+  trend?: 'up' | 'down' | 'stable';
+}
+
+export default function LeagueDetailScreen() {
+  const navigation = useNavigation();
+  const route = useRoute<LeagueDetailScreenRouteProp>();
+  const theme = useTheme();
   const { user } = useAuth();
-  const navigation = useNavigation<LeagueDetailNavigationProp>();
-  const queryClient = useQueryClient();
+  const { leagueId } = route.params;
+  
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data: leagueData, isLoading, isError, refetch } = useQuery({
-    queryKey: ['leagueDetails', leagueId],
-    queryFn: () => getLeagueDetails(leagueId),
+  // Query per i dettagli della lega
+  const { data: leagueData, isLoading: isLoadingLeague, refetch: refetchLeague } = useQuery({
+    queryKey: ['league', leagueId],
+    queryFn: () => getLeagueById(leagueId),
   });
 
-  const onRefresh = React.useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['leagueDetails', leagueId] });
-  }, [leagueId, queryClient]);
+  // Query per il mio team nella lega
+  const { data: myTeamData } = useQuery({
+    queryKey: ['myTeamInLeague', leagueId],
+    queryFn: () => getMyTeamInLeague(leagueId),
+    enabled: !!user,
+  });
 
-  if (isLoading) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#FF6B00" />
-      </View>
-    );
-  }
+  // Query per le prossime gare
+  const { data: racesData } = useQuery({
+    queryKey: ['upcomingRaces'],
+    queryFn: getUpcomingRaces,
+  });
 
-  if (isError || !leagueData?.league) {
-    return (
-      <View style={styles.loader}>
-        <Text>Impossibile caricare i dati della lega.</Text>
-        <Button onPress={() => refetch()}>Riprova</Button>
-      </View>
-    );
-  }
+  const league = leagueData?.league;
+  const standings = leagueData?.standings || [];
+  const myTeam = myTeamData?.team;
+  const nextRace = racesData?.races?.[0];
 
-  const { league } = leagueData;
-  const userTeam = league.teams.find((team: any) => team.userId === user?.id);
-  const userHasTeamInLeague = !!userTeam;
-  const isMember = league.isMember;
-  const isFull = league.teams.length >= league.maxTeams;
+  // Calcola statistiche e posizioni
+  const sortedStandings = [...standings].sort((a, b) => a.totalPoints - b.totalPoints);
+  sortedStandings.forEach((team, index) => {
+    team.position = index + 1;
+  });
 
-  // Ordiniamo la classifica: meno punti = migliore posizione
-  const sortedStandings = league.standings.sort((a, b) => a.totalPoints - b.totalPoints);
+  const myPosition = sortedStandings.findIndex(s => s.userId === user?.id) + 1;
+  const isMember = league?.members?.some((m: any) => m.userId === user?.id);
+  const isAdmin = league?.members?.find((m: any) => m.userId === user?.id)?.role === 'ADMIN';
+  const userHasTeamInLeague = !!myTeam;
+  const memberCount = league?.teams?.length || 0;
+  const isFull = memberCount >= (league?.maxTeams || 10);
 
-  const handleCreateTeam = () => {
-    if (!isMember) {
-      Alert.alert(
-        'Non sei membro',
-        'Devi prima unirti a questa lega per creare un team.',
-        [
-          { text: 'Annulla', style: 'cancel' },
-          { 
-            text: 'Unisciti', 
-            onPress: () => {
-              // TODO: Implementare join dalla schermata di dettaglio
-              navigation.goBack();
-            }
-          }
-        ]
-      );
-      return;
-    }
-
-    if (isFull) {
-      Alert.alert('Lega Piena', 'Questa lega ha raggiunto il numero massimo di team.');
-      return;
-    }
-
-    navigation.navigate('CreateTeam', { leagueId: league.id });
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refetchLeague()]);
+    setRefreshing(false);
   };
 
+  const handleCreateTeam = () => {
+    navigation.navigate('CreateTeam', { leagueId });
+  };
+
+  const handleManageLineup = () => {
+    if (myTeam) {
+      navigation.navigate('Lineup', { teamId: myTeam.id });
+    }
+  };
+
+  if (isLoadingLeague) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!league) {
+    return (
+      <View style={styles.loader}>
+        <Text>Lega non trovata</Text>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={onRefresh} />}
-    >
-      {/* Card Info Lega */}
-      <Card style={styles.card}>
-        <Card.Title
-          title={league.name}
-          subtitle={`Codice: ${league.code}`}
-          left={(props) => (
-            <Avatar.Icon 
-              {...props} 
-              icon={league.isPrivate ? 'lock' : 'earth'}
-              style={{ backgroundColor: league.isPrivate ? '#666' : '#4CAF50' }}
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Header con info lega */}
+        <Card style={styles.headerCard}>
+          <Card.Content>
+            <View style={styles.leagueHeader}>
+              <Avatar.Icon size={64} icon="trophy" style={{ backgroundColor: theme.colors.primary }} />
+              <View style={styles.leagueInfo}>
+                <Title>{league.name}</Title>
+                <Text variant="bodyMedium">Codice: {league.code}</Text>
+                <View style={styles.statsRow}>
+                  <Chip icon="account-multiple" compact>
+                    {memberCount}/{league.maxTeams} Team
+                  </Chip>
+                  <Chip icon="currency-eur" compact>
+                    {league.budget} crediti
+                  </Chip>
+                </View>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Prossimo GP */}
+        {nextRace && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                PROSSIMO GRAN PREMIO
+              </Text>
+              {myTeam && (
+                <Button 
+                  mode="text" 
+                  onPress={handleManageLineup}
+                  icon="pencil"
+                  compact
+                >
+                  Schiera
+                </Button>
+              )}
+            </View>
+            <RaceCard 
+              race={nextRace} 
+              variant="upcoming"
+              onPress={() => navigation.navigate('RaceDetail', { raceId: nextRace.id })}
             />
-          )}
-        />
-        <Card.Content>
-          <View style={styles.leagueStats}>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="account-group" size={24} color="#666" />
-              <Text style={styles.statLabel}>Team</Text>
-              <Text style={styles.statValue}>{league.teams.length}/{league.maxTeams}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="currency-eur" size={24} color="#666" />
-              <Text style={styles.statLabel}>Budget</Text>
-              <Text style={styles.statValue}>{league.budget}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="trophy" size={24} color="#FFD700" />
-              <Text style={styles.statLabel}>Stato</Text>
-              <Text style={styles.statValue}>{isFull ? 'Piena' : 'Aperta'}</Text>
-            </View>
+            {myTeam && isBefore(new Date(), new Date(nextRace.sprintDate || nextRace.date)) && (
+              <Banner
+                visible={true}
+                icon="alert"
+                style={[styles.banner, { backgroundColor: theme.colors.warningContainer }]}
+              >
+                Ricorda di schierare i tuoi piloti prima della gara sprint!
+              </Banner>
+            )}
           </View>
-          
-          <Divider style={styles.divider} />
-          
-          {/* Stato utente nella lega */}
-          {isMember ? (
-            <View style={styles.membershipInfo}>
-              <Chip icon="check-circle" style={styles.memberChip}>
-                Sei membro di questa lega
-              </Chip>
-              {userTeam && (
-                <View style={styles.userTeamInfo}>
-                  <Text style={styles.userTeamName}>Il tuo team: {userTeam.teamName}</Text>
-                  <Text style={styles.userTeamStats}>
-                    Posizione: {sortedStandings.findIndex(s => s.teamId === userTeam.teamId) + 1}° • 
-                    Punti: {userTeam.totalPoints}
+        )}
+
+        {/* La mia posizione */}
+        {myTeam && myPosition > 0 && (
+          <Card style={[styles.card, { backgroundColor: theme.colors.primaryContainer }]}>
+            <Card.Content>
+              <View style={styles.myPositionRow}>
+                <View>
+                  <Text variant="labelMedium">LA TUA POSIZIONE</Text>
+                  <View style={styles.positionInfo}>
+                    <Text variant="headlineMedium" style={{ fontWeight: 'bold' }}>
+                      {myPosition}°
+                    </Text>
+                    <Text variant="bodyLarge" style={{ marginLeft: 12 }}>
+                      {myTeam.name}
+                    </Text>
+                  </View>
+                  <Text variant="bodyMedium">
+                    {sortedStandings.find(s => s.userId === user?.id)?.totalPoints || 0} punti totali
                   </Text>
                 </View>
-              )}
-            </View>
-          ) : (
-            <Banner
-              visible={true}
-              icon="information"
-              style={styles.banner}
-            >
-              Non sei ancora membro di questa lega. Usa il codice {league.code} per unirti.
-            </Banner>
-          )}
-          
-          {/* Azioni disponibili */}
-          {isMember && !userHasTeamInLeague && !isFull && (
-            <Button 
-              mode="contained" 
-              onPress={handleCreateTeam}
-              style={styles.createTeamButton}
-              icon="plus"
-            >
-              Crea il tuo team
-            </Button>
-          )}
-          
-          {isFull && !userHasTeamInLeague && (
-            <Banner
-              visible={true}
-              icon="alert"
-              style={[styles.banner, { backgroundColor: '#FFF3E0' }]}
-            >
-              Questa lega è piena. Non è possibile creare nuovi team.
-            </Banner>
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* Card Classifica */}
-      <Card style={styles.card}>
-        <Card.Title 
-          title="Classifica" 
-          subtitle="Ricorda: nel Fanta-MotoGP vince chi fa meno punti!"
-          left={(props) => <Avatar.Icon {...props} icon="podium" />}
-        />
-        
-        {sortedStandings.length > 0 ? (
-          <DataTable>
-            <DataTable.Header>
-              <DataTable.Title style={{ flex: 0.5 }}>Pos.</DataTable.Title>
-              <DataTable.Title style={{ flex: 2 }}>Team</DataTable.Title>
-              <DataTable.Title numeric style={{ flex: 1 }}>Punti</DataTable.Title>
-            </DataTable.Header>
-
-            {sortedStandings.map((item, index) => {
-              const isUserTeam = item.userId === user?.id;
-              const isPodium = index < 3;
-              
-              return (
-                <DataTable.Row 
-                  key={item.teamId} 
-                  style={[
-                    isUserTeam && styles.userRow,
-                    isPodium && styles.podiumRow
-                  ]}
-                >
-                  <DataTable.Cell style={{ flex: 0.5 }}>
-                    <View style={styles.positionCell}>
-                      {isPodium && (
-                        <MaterialCommunityIcons 
-                          name={index === 0 ? 'trophy' : index === 1 ? 'medal' : 'medal-outline'} 
-                          size={20} 
-                          color={index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'} 
-                        />
-                      )}
-                      <Text style={[styles.positionText, isPodium && styles.podiumText]}>
-                        {index + 1}
-                      </Text>
-                    </View>
-                  </DataTable.Cell>
-                  <DataTable.Cell style={{ flex: 2 }}>
-                    <View>
-                      <Text style={[styles.teamName, isUserTeam && styles.userTeamName]}>
-                        {item.teamName}
-                      </Text>
-                      <Text style={styles.username}>{item.username}</Text>
-                    </View>
-                  </DataTable.Cell>
-                  <DataTable.Cell numeric style={{ flex: 1 }}>
-                    <Text style={[styles.points, isUserTeam && styles.userPoints]}>
-                      {item.totalPoints}
-                    </Text>
-                  </DataTable.Cell>
-                </DataTable.Row>
-              );
-            })}
-          </DataTable>
-        ) : (
-          <Card.Content>
-            <Text style={styles.emptyText}>
-              Nessun team ha ancora totalizzato punti in questa lega.
-            </Text>
-          </Card.Content>
-        )}
-      </Card>
-
-      {/* Card Membri */}
-      <Card style={[styles.card, styles.lastCard]}>
-        <Card.Title 
-          title="Membri della Lega" 
-          subtitle={`${league.members.length} partecipanti`}
-          left={(props) => <Avatar.Icon {...props} icon="account-multiple" />}
-        />
-        <Card.Content>
-          {league.members.map((member: any) => (
-            <List.Item
-              key={member.user.id}
-              title={member.user.username}
-              description={member.role === 'ADMIN' ? 'Amministratore' : 'Membro'}
-              left={(props) => (
-                <Avatar.Text 
-                  {...props} 
-                  label={member.user.username.substring(0, 2).toUpperCase()} 
-                  size={40}
-                  style={{ backgroundColor: member.role === 'ADMIN' ? '#FF6B00' : '#666' }}
+                <Avatar.Icon 
+                  size={48} 
+                  icon={myPosition <= 3 ? 'trophy' : 'chevron-up'} 
+                  style={{ 
+                    backgroundColor: myPosition === 1 ? '#FFD700' : 
+                                   myPosition === 2 ? '#C0C0C0' : 
+                                   myPosition === 3 ? '#CD7F32' : 
+                                   theme.colors.primary 
+                  }} 
                 />
-              )}
-              right={() => member.role === 'ADMIN' && (
-                <Chip icon="crown" style={styles.adminChip}>Admin</Chip>
-              )}
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Azioni disponibili */}
+        {isMember && !userHasTeamInLeague && !isFull && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={{ marginBottom: 8 }}>
+                Non hai ancora un team
+              </Text>
+              <Text variant="bodyMedium" style={{ marginBottom: 16 }}>
+                Crea il tuo team per partecipare a questa lega!
+              </Text>
+              <Button 
+                mode="contained" 
+                onPress={handleCreateTeam}
+                icon="plus"
+              >
+                Crea il tuo team
+              </Button>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Classifica completa */}
+        <Card style={styles.card}>
+          <Card.Title 
+            title="CLASSIFICA" 
+            subtitle="Ricorda: vince chi fa meno punti!"
+            left={(props) => <Avatar.Icon {...props} icon="podium" />}
+          />
+          
+          {sortedStandings.length > 0 ? (
+            <DataTable>
+              <DataTable.Header>
+                <DataTable.Title style={{ flex: 0.5 }}>Pos</DataTable.Title>
+                <DataTable.Title style={{ flex: 2 }}>Team</DataTable.Title>
+                <DataTable.Title numeric style={{ flex: 1 }}>Punti</DataTable.Title>
+                <DataTable.Title style={{ flex: 0.5 }}></DataTable.Title>
+              </DataTable.Header>
+
+              {sortedStandings.map((item, index) => {
+                const isUserTeam = item.userId === user?.id;
+                const isPodium = index < 3;
+                
+                return (
+                  <DataTable.Row 
+                    key={item.teamId} 
+                    style={[
+                      isUserTeam && styles.userRow,
+                      isPodium && styles.podiumRow
+                    ]}
+                  >
+                    <DataTable.Cell style={{ flex: 0.5 }}>
+                      <View style={styles.positionCell}>
+                        {isPodium && (
+                          <MaterialCommunityIcons 
+                            name={index === 0 ? 'trophy' : index === 1 ? 'medal' : 'medal-outline'} 
+                            size={20} 
+                            color={index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'} 
+                          />
+                        )}
+                        <Text variant="bodyMedium" style={{ fontWeight: isPodium ? 'bold' : 'normal' }}>
+                          {index + 1}
+                        </Text>
+                      </View>
+                    </DataTable.Cell>
+                    
+                    <DataTable.Cell style={{ flex: 2 }}>
+                      <View>
+                        <Text variant="bodyMedium" style={{ fontWeight: isUserTeam ? 'bold' : 'normal' }}>
+                          {item.teamName}
+                        </Text>
+                        <Text variant="bodySmall" style={{ opacity: 0.7 }}>
+                          {item.userName}
+                        </Text>
+                      </View>
+                    </DataTable.Cell>
+                    
+                    <DataTable.Cell numeric style={{ flex: 1 }}>
+                      <Text variant="bodyMedium" style={{ fontWeight: 'bold' }}>
+                        {item.totalPoints}
+                      </Text>
+                    </DataTable.Cell>
+                    
+                    <DataTable.Cell style={{ flex: 0.5 }}>
+                      {item.trend === 'up' && <MaterialCommunityIcons name="trending-up" size={16} color="green" />}
+                      {item.trend === 'down' && <MaterialCommunityIcons name="trending-down" size={16} color="red" />}
+                    </DataTable.Cell>
+                  </DataTable.Row>
+                );
+              })}
+            </DataTable>
+          ) : (
+            <Card.Content>
+              <Text style={{ textAlign: 'center', opacity: 0.6 }}>
+                Nessun team presente nella lega
+              </Text>
+            </Card.Content>
+          )}
+        </Card>
+
+        {/* Info regolamento */}
+        <Card style={styles.card}>
+          <Card.Title 
+            title="REGOLAMENTO" 
+            left={(props) => <Avatar.Icon {...props} icon="book-open-variant" />}
+          />
+          <Card.Content>
+            <List.Item
+              title="Budget"
+              description={`${league.budget} crediti per creare il team`}
+              left={(props) => <List.Icon {...props} icon="currency-eur" />}
             />
-          ))}
-        </Card.Content>
-      </Card>
-    </ScrollView>
+            <List.Item
+              title="Composizione Team"
+              description="3 piloti MotoGP + 3 Moto2 + 3 Moto3"
+              left={(props) => <List.Icon {...props} icon="motorbike" />}
+            />
+            <List.Item
+              title="Schieramento"
+              description="2 piloti per categoria ogni GP"
+              left={(props) => <List.Icon {...props} icon="strategy" />}
+            />
+            <List.Item
+              title="Punteggio"
+              description="Vince chi fa meno punti totali"
+              left={(props) => <List.Icon {...props} icon="trophy-outline" />}
+            />
+          </Card.Content>
+        </Card>
+      </ScrollView>
+
+      {/* FAB per azioni rapide */}
+      {myTeam && (
+        <FAB
+          icon="pencil"
+          style={styles.fab}
+          onPress={handleManageLineup}
+          label="Schiera"
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#f5f5f5' 
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
   },
-  card: { 
-    margin: 16, 
-    marginBottom: 0,
-    elevation: 2,
-  },
-  lastCard: {
-    marginBottom: 16,
-  },
-  loader: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  leagueStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
-  },
-  statItem: {
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+  content: {
+    paddingBottom: 80,
   },
-  statValue: {
-    fontSize: 16,
+  headerCard: {
+    margin: 16,
+    marginBottom: 8,
+  },
+  leagueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  leagueInfo: {
+    flex: 1,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  section: {
+    marginVertical: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  sectionTitle: {
     fontWeight: 'bold',
-    marginTop: 2,
   },
-  divider: {
-    marginVertical: 16,
-  },
-  membershipInfo: {
-    marginBottom: 16,
-  },
-  memberChip: {
-    alignSelf: 'center',
-    backgroundColor: '#E8F5E9',
-  },
-  userTeamInfo: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-  },
-  userTeamName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  userTeamStats: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+  card: {
+    margin: 16,
+    marginTop: 8,
   },
   banner: {
-    marginBottom: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
   },
-  createTeamButton: {
-    marginTop: 16,
-    backgroundColor: '#FF6B00',
+  myPositionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  userRow: {
-    backgroundColor: '#FFF3E0',
-  },
-  podiumRow: {
-    backgroundColor: '#F5F5F5',
+  positionInfo: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginVertical: 4,
   },
   positionCell: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  positionText: {
-    fontSize: 16,
-    fontWeight: '500',
+  userRow: {
+    backgroundColor: 'rgba(103, 80, 164, 0.08)',
   },
-  podiumText: {
-    fontWeight: 'bold',
+  podiumRow: {
+    backgroundColor: 'rgba(255, 193, 7, 0.08)',
   },
-  teamName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  username: {
-    fontSize: 12,
-    color: '#666',
-  },
-  points: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  userPoints: {
-    fontWeight: 'bold',
-    color: '#FF6B00',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#666',
-    paddingVertical: 24,
-  },
-  adminChip: {
-    backgroundColor: '#FFF3E0',
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
   },
 });

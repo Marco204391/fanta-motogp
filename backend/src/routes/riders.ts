@@ -48,6 +48,7 @@ router.get('/values', ridersController.getRiderValues);
 router.get('/:id', riderIdValidation, ridersController.getRiderById);
 router.get('/:id/stats', riderIdValidation, ridersController.getRiderStats);
 
+
 // Routes protette (richiedono autenticazione)
 // TODO: Aggiungere middleware per verificare ruolo admin
 router.put('/:id/value', 

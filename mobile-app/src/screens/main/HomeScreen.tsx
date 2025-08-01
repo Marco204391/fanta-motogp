@@ -1,221 +1,293 @@
 // mobile-app/src/screens/main/HomeScreen.tsx
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-  Dimensions
-} from 'react-native';
-import {
-  Card,
-  Text,
-  Title,
-  Paragraph,
-  Avatar,
-  Button,
-  Divider,
-  ActivityIndicator,
-  List,
-  Surface
+import React, { useState } from 'react';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { 
+  ActivityIndicator, Avatar, Banner, Button, Card, Chip, FAB, 
+  IconButton, List, Surface, Text, Title, useTheme 
 } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAuth } from '../../contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
-import { getUpcomingRaces, getMyStats, getMyTeams } from '../../services/api';
 import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { MainStackParamList } from '../../../App';
-
-const { width } = Dimensions.get('window');
-
-type HomeScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Home'>;
+import { useQuery } from '@tanstack/react-query';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { format, differenceInDays } from 'date-fns';
+import { it } from 'date-fns/locale';
+import { useAuth } from '../../contexts/AuthContext';
+import { getUpcomingRaces, getMyLeagues, getMyTeams } from '../../services/api';
+import RaceCard from '../../components/RaceCard';
 
 export default function HomeScreen() {
-  const navigation = useNavigation<HomeScreenNavigationProp>(); // Configura la navigazione
+  const navigation = useNavigation();
+  const theme = useTheme();
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Query per i dati dashboard
-  const { data: upcomingRaces, isLoading: loadingRaces } = useQuery({
+  // Query per le prossime gare
+  const { data: racesData, refetch: refetchRaces } = useQuery({
     queryKey: ['upcomingRaces'],
     queryFn: getUpcomingRaces,
   });
 
-  const { data: myStats, isLoading: loadingStats } = useQuery({
-    queryKey: ['myStats'],
-    queryFn: getMyStats,
+  // Query per le mie leghe
+  const { data: leaguesData, refetch: refetchLeagues } = useQuery({
+    queryKey: ['myLeagues'],
+    queryFn: getMyLeagues,
+    enabled: !!user,
   });
 
-  const { data: myTeams, isLoading: loadingTeams } = useQuery({
+  // Query per i miei team
+  const { data: teamsData, refetch: refetchTeams } = useQuery({
     queryKey: ['myTeams'],
     queryFn: getMyTeams,
-    select: (data) => data.teams,
+    enabled: !!user,
   });
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    // Ricarica tutti i dati
-    Promise.all([
-      // queryClient.invalidateQueries(['upcomingRaces']),
-      // queryClient.invalidateQueries(['myStats']),
-      // queryClient.invalidateQueries(['myTeams']),
-    ]).finally(() => setRefreshing(false));
-  }, []);
+  const nextRace = racesData?.races?.[0];
+  const myLeagues = leaguesData?.leagues || [];
+  const myTeams = teamsData?.teams || [];
+  const activeLeagues = myLeagues.filter((l: any) => 
+    !l.endDate || new Date(l.endDate) > new Date()
+  );
 
-  if (loadingRaces || loadingStats || loadingTeams) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B00" />
-      </View>
-    );
-  }
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      refetchRaces(),
+      refetchLeagues(),
+      refetchTeams(),
+    ]);
+    setRefreshing(false);
+  };
+
+  const getDaysUntilRace = () => {
+    if (!nextRace) return null;
+    return differenceInDays(new Date(nextRace.date), new Date());
+  };
+
+  const daysUntilRace = getDaysUntilRace();
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Header con saluto */}
-      <Card style={styles.headerCard}>
-        <Card.Content>
-          <View style={styles.headerContent}>
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Header Benvenuto */}
+        <Surface style={styles.headerSurface} elevation={2}>
+          <View style={styles.header}>
             <View>
-              <Title style={styles.greeting}>
-                Ciao {user?.username}! 👋
-              </Title>
-              <Paragraph style={styles.credits}>
-                Crediti disponibili: €{user?.credits?.toLocaleString()}
-              </Paragraph>
+              <Text variant="headlineSmall">
+                Ciao, {user?.username || 'Pilota'}! 👋
+              </Text>
+              <Text variant="bodyMedium" style={{ opacity: 0.7 }}>
+                Bentornato nel Fanta MotoGP
+              </Text>
             </View>
-            <Avatar.Icon
-              size={50}
-              icon="motorbike"
-              style={styles.avatar}
+            <Avatar.Icon 
+              size={48} 
+              icon="motorbike" 
+              style={{ backgroundColor: theme.colors.primary }}
             />
           </View>
-        </Card.Content>
-      </Card>
+        </Surface>
 
-      {/* Prossima gara */}
-      {upcomingRaces?.length > 0 && (
-        <Card style={styles.card}>
-          <Card.Title
-            title="Prossima Gara"
-            left={(props) => <Avatar.Icon {...props} icon="flag-checkered" />}
-          />
-          <Card.Content>
-            <Title>{upcomingRaces[0].name}</Title>
-            <Paragraph>
-              📍 {upcomingRaces[0].circuit}, {upcomingRaces[0].country}
-            </Paragraph>
-            <Paragraph>
-              📅 {new Date(upcomingRaces[0].date).toLocaleDateString('it-IT', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long'
-              })}
-            </Paragraph>
-          </Card.Content>
-          <Card.Actions>
+        {/* Prossimo GP */}
+        {nextRace && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text variant="titleLarge" style={styles.sectionTitle}>
+                PROSSIMA GARA
+              </Text>
+              <IconButton
+                icon="arrow-right"
+                size={20}
+                onPress={() => navigation.navigate('Calendar' as any)}
+              />
+            </View>
+            
+            <RaceCard 
+              race={nextRace} 
+              variant="upcoming"
+              onPress={() => navigation.navigate('RaceDetail' as any, { raceId: nextRace.id })}
+            />
+
+            {daysUntilRace !== null && daysUntilRace <= 7 && daysUntilRace >= 0 && (
+              <Banner
+                visible={true}
+                icon="alert-circle"
+                style={[styles.banner, { backgroundColor: theme.colors.warningContainer }]}
+              >
+                {daysUntilRace === 0 
+                  ? 'La gara è oggi! Hai schierato i tuoi piloti?' 
+                  : `Mancano solo ${daysUntilRace} giorni! Ricorda di schierare i tuoi piloti.`
+                }
+              </Banner>
+            )}
+          </View>
+        )}
+
+        {/* Le mie Leghe */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text variant="titleLarge" style={styles.sectionTitle}>
+              LE MIE LEGHE
+            </Text>
             <Button 
-                mode="contained" 
-                icon="racing-helmet"
-                onPress={() => navigation.navigate('Lineup', { 
-                    teamId: myTeams[0].id, // Esempio: usiamo il primo team
-                    race: upcomingRaces[0] 
-                })}
+              mode="text" 
+              onPress={() => navigation.navigate('Leagues' as any)}
+              compact
             >
-              Schiera Team
+              Vedi tutte
             </Button>
-          </Card.Actions>
-          <Card.Actions>
-            <Button mode="contained" icon="timer">
-              Countdown
-            </Button>
-          </Card.Actions>
-        </Card>
-      )}
+          </View>
 
-      {/* Statistiche rapide */}
-      <View style={styles.statsContainer}>
-        <Surface style={styles.statCard}>
-          <MaterialCommunityIcons name="trophy" size={30} color="#FFD700" />
-          <Text style={styles.statNumber}>{myStats?.wins || 0}</Text>
-          <Text style={styles.statLabel}>Vittorie</Text>
-        </Surface>
-
-        <Surface style={styles.statCard}>
-          <MaterialCommunityIcons name="podium" size={30} color="#C0C0C0" />
-          <Text style={styles.statNumber}>{myStats?.podiums || 0}</Text>
-          <Text style={styles.statLabel}>Podi</Text>
-        </Surface>
-
-        <Surface style={styles.statCard}>
-          <MaterialCommunityIcons name="chart-line" size={30} color="#FF6B00" />
-          <Text style={styles.statNumber}>{myStats?.totalPoints || 0}</Text>
-          <Text style={styles.statLabel}>Punti Totali</Text>
-        </Surface>
-      </View>
-
-      {/* I miei team */}
-      <Card style={styles.card}>
-        <Card.Title
-          title="I Miei Team"
-          subtitle={`${myTeams?.length || 0} team attivi`}
-          left={(props) => <Avatar.Icon {...props} icon="account-group" />}
-        />
-        <Card.Content>
-          {myTeams?.length > 0 ? (
-            <List.Section>
-              {myTeams.slice(0, 3).map((team: any) => (
-                <List.Item
-                  key={team.id}
-                  title={team.name}
-                  description={`Lega: ${team.league.name}`}
-                  left={(props) => <List.Icon {...props} icon="racing-helmet" />}
-                  right={() => (
-                    <Text style={styles.teamPoints}>
-                      {team.totalPoints || 0} pts
-                    </Text>
-                  )}
-                />
-              ))}
-            </List.Section>
+          {activeLeagues.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalScroll}
+            >
+              {activeLeagues.slice(0, 3).map((league: any) => {
+                const myTeamInLeague = myTeams.find((t: any) => t.leagueId === league.id);
+                return (
+                  <Card 
+                    key={league.id} 
+                    style={styles.leagueCard}
+                    onPress={() => navigation.navigate('LeagueDetail' as any, { leagueId: league.id })}
+                  >
+                    <Card.Content>
+                      <View style={styles.leagueCardHeader}>
+                        <Avatar.Icon 
+                          size={40} 
+                          icon="trophy" 
+                          style={{ backgroundColor: theme.colors.primaryContainer }}
+                        />
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text variant="titleMedium" numberOfLines={1}>
+                            {league.name}
+                          </Text>
+                          <Text variant="bodySmall" style={{ opacity: 0.7 }}>
+                            {league.teams?.length || 0}/{league.maxTeams} team
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      {myTeamInLeague ? (
+                        <View style={styles.teamInfo}>
+                          <Chip icon="shield-account" compact style={{ marginBottom: 4 }}>
+                            {myTeamInLeague.name}
+                          </Chip>
+                          <Text variant="bodySmall">
+                            Posizione: {myTeamInLeague.position || '-'}° • {myTeamInLeague.totalPoints || 0} punti
+                          </Text>
+                        </View>
+                      ) : (
+                        <Button 
+                          mode="outlined" 
+                          onPress={() => navigation.navigate('CreateTeam' as any, { leagueId: league.id })}
+                          compact
+                          style={{ marginTop: 8 }}
+                        >
+                          Crea Team
+                        </Button>
+                      )}
+                    </Card.Content>
+                  </Card>
+                );
+              })}
+              
+              <Card 
+                style={[styles.leagueCard, styles.createLeagueCard]}
+                onPress={() => navigation.navigate('Leagues' as any)}
+              >
+                <Card.Content style={styles.createLeagueContent}>
+                  <MaterialCommunityIcons 
+                    name="plus-circle-outline" 
+                    size={48} 
+                    color={theme.colors.primary} 
+                  />
+                  <Text variant="bodyMedium" style={{ marginTop: 8 }}>
+                    Crea o unisciti{'\n'}a una lega
+                  </Text>
+                </Card.Content>
+              </Card>
+            </ScrollView>
           ) : (
-            <Paragraph>Nessun team creato ancora</Paragraph>
+            <Card style={styles.emptyCard}>
+              <Card.Content style={styles.emptyContent}>
+                <MaterialCommunityIcons 
+                  name="trophy-outline" 
+                  size={64} 
+                  color={theme.colors.onSurfaceVariant} 
+                  style={{ opacity: 0.5 }}
+                />
+                <Text variant="bodyLarge" style={styles.emptyText}>
+                  Non sei ancora in nessuna lega
+                </Text>
+                <Button 
+                  mode="contained" 
+                  onPress={() => navigation.navigate('Leagues' as any)}
+                  style={{ marginTop: 16 }}
+                >
+                  Esplora Leghe
+                </Button>
+              </Card.Content>
+            </Card>
           )}
-        </Card.Content>
-        <Card.Actions>
-          <Button mode="text">Vedi tutti</Button>
-          <Button mode="contained" onPress={() => navigation.navigate('CreateTeam')}>Crea Team</Button>
-        </Card.Actions>
-      </Card>
+        </View>
 
-      {/* Notifiche recenti */}
-      <Card style={styles.card}>
-        <Card.Title
-          title="Attività Recenti"
-          left={(props) => <Avatar.Icon {...props} icon="bell" />}
-        />
-        <Card.Content>
-          <List.Item
-            title="Gara completata"
-            description="GP d'Italia - I tuoi team hanno totalizzato 145 punti"
-            left={(props) => <List.Icon {...props} icon="flag-checkered" />}
-          />
-          <Divider />
-          <List.Item
-            title="Nuovo pilota disponibile"
-            description="Marco Bezzecchi ha cambiato team"
-            left={(props) => <List.Icon {...props} icon="account-plus" />}
-          />
-        </Card.Content>
-      </Card>
-    </ScrollView>
+        {/* Azioni Rapide */}
+        <View style={styles.section}>
+          <Text variant="titleLarge" style={styles.sectionTitle}>
+            AZIONI RAPIDE
+          </Text>
+          
+          <View style={styles.quickActions}>
+            <Surface style={styles.actionCard} elevation={1}>
+              <IconButton
+                icon="calendar-check"
+                size={32}
+                iconColor={theme.colors.primary}
+                onPress={() => navigation.navigate('Calendar' as any)}
+              />
+              <Text variant="bodySmall">Calendario</Text>
+            </Surface>
+            
+            <Surface style={styles.actionCard} elevation={1}>
+              <IconButton
+                icon="account-group"
+                size={32}
+                iconColor={theme.colors.primary}
+                onPress={() => navigation.navigate('Riders' as any)}
+              />
+              <Text variant="bodySmall">Piloti</Text>
+            </Surface>
+            
+            <Surface style={styles.actionCard} elevation={1}>
+              <IconButton
+                icon="trophy"
+                size={32}
+                iconColor={theme.colors.primary}
+                onPress={() => navigation.navigate('Leagues' as any)}
+              />
+              <Text variant="bodySmall">Leghe</Text>
+            </Surface>
+            
+            <Surface style={styles.actionCard} elevation={1}>
+              <IconButton
+                icon="account"
+                size={32}
+                iconColor={theme.colors.primary}
+                onPress={() => navigation.navigate('Profile' as any)}
+              />
+              <Text variant="bodySmall">Profilo</Text>
+            </Surface>
+          </View>
+        </View>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -224,65 +296,85 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  contentContainer: {
-    paddingBottom: 20,
+  content: {
+    paddingBottom: 80,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerSurface: {
+    backgroundColor: 'white',
+    marginBottom: 16,
   },
-  headerCard: {
-    margin: 16,
-    backgroundColor: '#FF6B00',
-  },
-  headerContent: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 20,
   },
-  greeting: {
-    color: 'white',
-    fontSize: 24,
+  section: {
+    marginVertical: 8,
   },
-  credits: {
-    color: 'white',
-    fontSize: 16,
-    marginTop: 4,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
-  avatar: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  sectionTitle: {
+    fontWeight: 'bold',
   },
-  card: {
-    margin: 16,
-    marginTop: 0,
+  banner: {
+    marginHorizontal: 16,
+    marginTop: 8,
   },
-  statsContainer: {
+  horizontalScroll: {
+    paddingHorizontal: 16,
+  },
+  leagueCard: {
+    width: 280,
+    marginRight: 12,
+  },
+  leagueCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  teamInfo: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  createLeagueCard: {
+    width: 180,
+    backgroundColor: '#F5F5F5',
+  },
+  createLeagueContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  emptyCard: {
+    marginHorizontal: 16,
+  },
+  emptyContent: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    marginTop: 16,
+    opacity: 0.7,
+  },
+  quickActions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingHorizontal: 16,
-    marginVertical: 16,
   },
-  statCard: {
-    width: width / 3 - 24,
-    padding: 16,
+  actionCard: {
     alignItems: 'center',
-    elevation: 2,
-    borderRadius: 8,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  teamPoints: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FF6B00',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    width: 80,
+    height: 80,
   },
 });

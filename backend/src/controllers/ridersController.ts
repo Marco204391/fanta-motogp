@@ -97,101 +97,6 @@ export const getRiders = async (req: Request, res: Response) => {
   }
 };
 
-// GET /api/riders/:id - Dettaglio pilota
-export const getRiderById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const rider = await prisma.rider.findUnique({
-      where: { id },
-      include: {
-        statistics: {
-          orderBy: { season: 'desc' },
-          take: 3 // Ultime 3 stagioni
-        },
-        raceResults: {
-          orderBy: { race: { date: 'desc' } },
-          take: 5, // Ultime 5 gare
-          include: {
-            race: true
-          }
-        }
-      }
-    });
-
-    if (!rider) {
-      return res.status(404).json({ error: 'Pilota non trovato' });
-    }
-
-    res.json({ rider });
-  } catch (error) {
-    console.error('Errore recupero dettaglio pilota:', error);
-    res.status(500).json({ error: 'Errore nel recupero del pilota' });
-  }
-};
-
-// GET /api/riders/:id/stats - Statistiche pilota
-export const getRiderStats = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { season } = req.query;
-
-    const currentSeason = season ? Number(season) : new Date().getFullYear();
-
-    // Statistiche stagione corrente
-    const seasonStats = await prisma.riderStats.findFirst({
-      where: {
-        riderId: id,
-        season: currentSeason
-      }
-    });
-
-    // Risultati gare stagione corrente
-    const raceResults = await prisma.raceResult.findMany({
-      where: {
-        riderId: id,
-        race: {
-          season: currentSeason
-        }
-      },
-      include: {
-        race: true
-      },
-      orderBy: {
-        race: { date: 'desc' }
-      }
-    });
-
-    // Calcola statistiche aggiuntive
-    const positions = raceResults
-      .filter(r => r.position !== null)
-      .map(r => r.position!);
-
-    const stats = {
-      seasonStats,
-      totalRaces: raceResults.length,
-      finishedRaces: positions.length,
-      dnf: raceResults.filter(r => r.dnf).length,
-      averagePosition: positions.length > 0 
-        ? positions.reduce((a, b) => a + b, 0) / positions.length 
-        : null,
-      bestPosition: positions.length > 0 ? Math.min(...positions) : null,
-      worstPosition: positions.length > 0 ? Math.max(...positions) : null,
-      recentForm: raceResults.slice(0, 5).map(r => ({
-        race: r.race.name,
-        position: r.position,
-        points: r.points,
-        dnf: r.dnf
-      }))
-    };
-
-    res.json({ stats });
-  } catch (error) {
-    console.error('Errore recupero statistiche pilota:', error);
-    res.status(500).json({ error: 'Errore nel recupero delle statistiche' });
-  }
-};
-
 // GET /api/riders/values - Valori di mercato
 export const getRiderValues = async (req: Request, res: Response) => {
   try {
@@ -231,5 +136,159 @@ export const updateRiderValue = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Errore aggiornamento valore:', error);
     res.status(500).json({ error: 'Errore nell\'aggiornamento del valore' });
+  }
+};
+
+// GET /api/riders/:riderId - Ottieni dettagli di un pilota
+export const getRiderById = async (req: Request, res: Response) => {
+  const { riderId } = req.params;
+
+  try {
+    const rider = await prisma.rider.findUnique({
+      where: { id: riderId },
+      include: {
+        statistics: {
+          where: {
+            season: new Date().getFullYear(),
+          },
+        },
+        raceResults: {
+          take: 10,
+          orderBy: {
+            race: {
+              date: 'desc',
+            },
+          },
+          include: {
+            race: {
+              select: {
+                id: true,
+                name: true,
+                circuit: true,
+                date: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!rider) {
+      return res.status(404).json({ error: 'Pilota non trovato' });
+    }
+
+    res.json({ rider });
+  } catch (error) {
+    console.error('Errore recupero dettagli pilota:', error);
+    res.status(500).json({ error: 'Errore nel recupero dei dettagli del pilota' });
+  }
+};
+
+// GET /api/riders/:riderId/stats - Ottieni statistiche di un pilota
+export const getRiderStats = async (req: Request, res: Response) => {
+  const { riderId } = req.params;
+  const { season } = req.query;
+  const targetSeason = season ? parseInt(season as string) : new Date().getFullYear();
+
+  try {
+    // Statistiche stagionali
+    const seasonStats = await prisma.riderStats.findUnique({
+      where: {
+        riderId_season: {
+          riderId,
+          season: targetSeason,
+        },
+      },
+    });
+
+    // Risultati della stagione
+    const seasonResults = await prisma.raceResult.findMany({
+      where: {
+        riderId,
+        race: {
+          season: targetSeason,
+        },
+      },
+      include: {
+        race: {
+          select: {
+            id: true,
+            name: true,
+            circuit: true,
+            date: true,
+            round: true,
+          },
+        },
+      },
+      orderBy: {
+        race: {
+          round: 'asc',
+        },
+      },
+    });
+
+    // Calcola statistiche aggiuntive
+    const stats = {
+      season: targetSeason,
+      races: seasonResults.length,
+      wins: seasonResults.filter(r => r.position === 1).length,
+      podiums: seasonResults.filter(r => r.position && r.position <= 3).length,
+      top10: seasonResults.filter(r => r.position && r.position <= 10).length,
+      dnf: seasonResults.filter(r => r.status === 'DNF').length,
+      avgPosition: seasonStats?.avgPosition || 0,
+      points: seasonStats?.points || 0,
+      bestResult: Math.min(...seasonResults.filter(r => r.position).map(r => r.position!)),
+      worstResult: Math.max(...seasonResults.filter(r => r.position).map(r => r.position!)),
+    };
+
+    // Grafico posizioni
+    const positionChart = seasonResults.map(result => ({
+      round: result.race.round,
+      race: result.race.name,
+      position: result.position || null,
+      status: result.status,
+    }));
+
+    res.json({
+      rider: riderId,
+      season: targetSeason,
+      stats,
+      positionChart,
+      results: seasonResults,
+    });
+  } catch (error) {
+    console.error('Errore recupero statistiche pilota:', error);
+    res.status(500).json({ error: 'Errore nel recupero delle statistiche' });
+  }
+};
+
+// GET /api/riders/by-category/:category - Ottieni piloti per categoria
+export const getRidersByCategory = async (req: Request, res: Response) => {
+  const { category } = req.params;
+
+  if (!['MOTOGP', 'MOTO2', 'MOTO3'].includes(category)) {
+    return res.status(400).json({ error: 'Categoria non valida' });
+  }
+
+  try {
+    const riders = await prisma.rider.findMany({
+      where: {
+        category: category as any,
+        isActive: true,
+      },
+      orderBy: [
+        { value: 'desc' },
+        { number: 'asc' },
+      ],
+    });
+
+    res.json({ 
+      category,
+      riders,
+      total: riders.length,
+    });
+  } catch (error) {
+    console.error('Errore recupero piloti per categoria:', error);
+    res.status(500).json({ error: 'Errore nel recupero dei piloti' });
   }
 };

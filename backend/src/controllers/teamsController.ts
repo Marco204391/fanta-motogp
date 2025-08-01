@@ -292,3 +292,65 @@ export const getTeamStandings = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Errore nel recupero della classifica' });
   }
 };
+
+// GET /api/teams/my-team/:leagueId - Ottieni il mio team in una lega specifica
+export const getMyTeamInLeague = async (req: AuthRequest, res: Response) => {
+  const userId = req.userId!;
+  const { leagueId } = req.params;
+
+  try {
+    const team = await prisma.team.findFirst({
+      where: {
+        userId,
+        leagueId,
+      },
+      include: {
+        riders: {
+          include: {
+            rider: true,
+          },
+        },
+        scores: {
+          orderBy: { calculatedAt: 'desc' },
+          take: 5, // Ultimi 5 punteggi
+        },
+      },
+    });
+
+    if (!team) {
+      return res.status(404).json({ 
+        error: 'Non hai un team in questa lega',
+        hasTeam: false 
+      });
+    }
+
+    // Calcola posizione attuale
+    const allTeamScores = await prisma.teamScore.groupBy({
+      by: ['teamId'],
+      where: {
+        team: { leagueId }
+      },
+      _sum: {
+        totalPoints: true,
+      },
+    });
+
+    const sortedTeams = allTeamScores
+      .sort((a, b) => (a._sum.totalPoints || 0) - (b._sum.totalPoints || 0));
+    
+    const position = sortedTeams.findIndex(t => t.teamId === team.id) + 1;
+    const totalPoints = sortedTeams.find(t => t.teamId === team.id)?._sum.totalPoints || 0;
+
+    res.json({
+      team: {
+        ...team,
+        position,
+        totalPoints,
+      },
+      hasTeam: true,
+    });
+  } catch (error) {
+    console.error('Errore recupero team in lega:', error);
+    res.status(500).json({ error: 'Errore nel recupero del team' });
+  }
+};
