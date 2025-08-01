@@ -178,14 +178,15 @@ model RaceResult {
 }
 
 model TeamScore {
-  id            String    @id @default(uuid())
-  teamId        String
-  team          Team      @relation(fields: [teamId], references: [id])
-  raceId        String
-  race          Race      @relation(fields: [raceId], references: [id])
+  id           String   @id @default(cuid())
+  teamId       String
+  raceId       String
+  totalPoints  Int
+  calculatedAt DateTime @default(now())
+  notes        String?  // Campo opzionale per note sul calcolo
   
-  totalPoints   Int
-  calculatedAt  DateTime  @default(now())
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  race Race @relation(fields: [raceId], references: [id], onDelete: Cascade)
   
   @@unique([teamId, raceId])
 }

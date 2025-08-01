@@ -79,14 +79,27 @@ export default function LineupScreen() {
   const saveLineupMutation = useMutation({
       mutationFn: (data: { raceId: string; teamId: string; riders: any[] }) => setLineup(data.raceId, data),
       onSuccess: () => {
-          Alert.alert('Successo', 'Schieramento salvato con successo!');
-          queryClient.invalidateQueries({ queryKey: ['lineup', teamId, raceId] });
+          Alert.alert(
+            'Successo', 
+            'Schieramento salvato con successo!',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Invalida le query per aggiornare i dati
+                  queryClient.invalidateQueries({ queryKey: ['lineup', teamId, raceId] });
+                  queryClient.invalidateQueries({ queryKey: ['myTeams'] });
+                  // Torna alla schermata precedente
+                  navigation.goBack();
+                }
+              }
+            ]
+          );
       },
       onError: (error: any) => {
           Alert.alert('Errore', error.response?.data?.error || 'Impossibile salvare lo schieramento.');
       },
   });
-
 
   const deadline = upcomingRace?.sprintDate || upcomingRace?.date;
   const isDeadlinePassed = deadline ? new Date() > new Date(deadline) : false;
@@ -187,7 +200,6 @@ export default function LineupScreen() {
     saveLineupMutation.mutate({ raceId, teamId, riders: ridersToSave });
   };
 
-
   if (isLoadingTeam || isLoadingLineup) {
     return (
       <View style={styles.loader}>
@@ -270,6 +282,7 @@ export default function LineupScreen() {
     <Card style={[styles.summaryCard, lineupStats.isValid && styles.validSummary]}>
       <Card.Content>
         <Title>{upcomingRace?.name || "Riepilogo Schieramento"}</Title>
+        <Subheading style={{ marginBottom: 8 }}>Weekend di gara</Subheading>
         <View style={styles.deadlineRow}>
           <Icon name="clock-outline" size={20} color={isDeadlinePassed ? 'red' : 'green'} />
           <Text style={{color: isDeadlinePassed ? 'red' : 'green'}}>Deadline: {formatDate(deadline)}</Text>
@@ -277,6 +290,15 @@ export default function LineupScreen() {
             <Chip style={styles.expiredChip}>SCADUTA</Chip>
           )}
         </View>
+
+        {existingLineup?.lineup && (
+          <View style={styles.existingLineupInfo}>
+            <Icon name="information-outline" size={16} color="#2196F3" />
+            <Text style={styles.existingLineupText}>
+              Schieramento già salvato per questo weekend. Le modifiche sovrascriveranno quello esistente.
+            </Text>
+          </View>
+        )}
 
         {lineupStats.validationErrors.length > 0 && (
           <View style={styles.errorsContainer}>
@@ -293,7 +315,7 @@ export default function LineupScreen() {
           loading={saveLineupMutation.isPending}
           style={styles.saveButton}
         >
-          {isDeadlinePassed ? 'Deadline Scaduta' : 'Salva Schieramento'}
+          {isDeadlinePassed ? 'Deadline Scaduta' : existingLineup?.lineup ? 'Aggiorna Schieramento' : 'Salva Schieramento'}
         </Button>
       </Card.Content>
     </Card>
@@ -317,6 +339,16 @@ const styles = StyleSheet.create({
   validSummary: { backgroundColor: '#f0fff0' },
   deadlineRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 8 },
   expiredChip: { backgroundColor: 'red', marginLeft: 'auto' },
+  existingLineupInfo: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8, 
+    marginVertical: 8,
+    padding: 8,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+  },
+  existingLineupText: { flex: 1, fontSize: 12, color: '#1976D2' },
   errorsContainer: { marginVertical: 8 },
   errorText: { color: 'red' },
   saveButton: { marginTop: 8, padding: 4 },

@@ -246,49 +246,69 @@ export class MotoGPApiService {
     }
   }
 
-  // 5. Calcola punteggi fantacalcio
-  private async calculateTeamScores(raceId: string) {
-    // Ottieni tutti gli schieramenti per questa gara
+  async calculateTeamScores(raceId: string) {
+  try {
+    // 1. Ottieni tutti i risultati della gara
+    const raceResults = await prisma.raceResult.findMany({
+      where: { raceId },
+      include: { rider: true }
+    });
+
+    if (raceResults.length === 0) {
+      console.log('Nessun risultato trovato per la gara');
+      return;
+    }
+
+    // 2. Crea mappa dei risultati per un accesso rapido
+    const resultMap = new Map<string, number>();
+    raceResults.forEach(result => {
+      resultMap.set(result.riderId, result.position);
+    });
+
+    // 3. Ottieni tutti gli schieramenti per questa gara
     const lineups = await prisma.raceLineup.findMany({
       where: { raceId },
       include: {
         lineupRiders: {
-          include: {
-            rider: true
-          }
+          include: { rider: true }
         },
         team: true
       }
     });
 
-    // Ottieni i risultati della gara
-    const raceResults = await prisma.raceResult.findMany({
-      where: { raceId }
+    // 4. Ottieni anche tutti i team della lega per gestire quelli senza schieramento
+    const race = await prisma.race.findUnique({
+      where: { id: raceId }
     });
 
-    // Mappa riderId -> posizione reale (99 se non ha finito)
-    const resultMap = new Map<string, number>();
-    raceResults.forEach(result => {
-      if (result.status === 'FINISHED' && result.position) {
-        resultMap.set(result.riderId, result.position);
-      } else {
-        resultMap.set(result.riderId, 99);
+    if (!race) return;
+
+    // Trova tutti i team nelle leghe attive
+    const allTeams = await prisma.team.findMany({
+      include: {
+        league: true,
+        riders: {
+          include: { rider: true }
+        }
       }
     });
 
-    // Calcola punteggi per ogni team
-    for (const lineup of lineups) {
+    // 5. Calcola i punteggi per ogni team
+    for (const team of allTeams) {
       let totalPoints = 0;
-      let lineupToUse = lineup;
+      let lineupToUse = lineups.find(l => l.teamId === team.id);
+      let usedFallback = false;
 
-      // Se lo schieramento è vuoto, cerca l'ultimo valido
-      if (lineup.lineupRiders.length === 0) {
-        const currentRace = await prisma.race.findUnique({ where: { id: raceId } });
+      // Se non c'è uno schieramento per questa gara, usa l'ultimo valido
+      if (!lineupToUse) {
+        console.log(`Team ${team.name}: nessuno schieramento per questa gara, cerco il precedente...`);
+        
         const lastValidLineup = await prisma.raceLineup.findFirst({
-          where: {
-            teamId: lineup.teamId,
-            lineupRiders: { some: {} },
-            race: { date: { lt: currentRace!.date } }
+          where: { 
+            teamId: team.id,
+            race: {
+              date: { lt: race.date }
+            }
           },
           orderBy: { race: { date: 'desc' } },
           include: {
@@ -300,16 +320,27 @@ export class MotoGPApiService {
         });
         
         if (lastValidLineup) {
-          console.log(`Team ${lineup.team.name}: usa l'ultimo schieramento valido.`);
+          console.log(`Team ${team.name}: usa l'ultimo schieramento valido del ${lastValidLineup.race.date}.`);
           lineupToUse = lastValidLineup;
+          usedFallback = true;
         } else {
           // Nessuno schieramento trovato - penalità massima
-          totalPoints = 6 * 99; // 6 piloti * 99 punti
+          console.log(`Team ${team.name}: nessuno schieramento precedente, applico penalità massima.`);
+          totalPoints = 6 * 99; // 6 piloti * 99 punti (penalità massima)
           
           await prisma.teamScore.upsert({
-            where: { teamId_raceId: { teamId: lineup.teamId, raceId } },
-            update: { totalPoints, calculatedAt: new Date() },
-            create: { teamId: lineup.teamId, raceId, totalPoints }
+            where: { teamId_raceId: { teamId: team.id, raceId } },
+            update: { 
+              totalPoints, 
+              calculatedAt: new Date(),
+              notes: 'Penalità massima - nessuno schieramento'
+            },
+            create: { 
+              teamId: team.id, 
+              raceId, 
+              totalPoints,
+              notes: 'Penalità massima - nessuno schieramento'
+            }
           });
           continue;
         }
@@ -317,6 +348,15 @@ export class MotoGPApiService {
 
       // Calcola i punti per ogni pilota schierato
       for (const lineupRider of lineupToUse.lineupRiders) {
+        // Verifica che il pilota sia ancora nel team
+        const stillInTeam = team.riders.some(tr => tr.riderId === lineupRider.riderId);
+        
+        if (!stillInTeam) {
+          console.warn(`Pilota ${lineupRider.rider.name} non più nel team, penalità massima`);
+          totalPoints += 99;
+          continue;
+        }
+
         const actualPosition = resultMap.get(lineupRider.riderId);
         const predictedPosition = lineupRider.predictedPosition;
 
@@ -328,40 +368,83 @@ export class MotoGPApiService {
 
         let points: number;
         if (actualPosition === 99) {
-          // Non ha finito la gara
+          // Non ha finito la gara (DNF, DNS, DSQ)
           points = 99;
         } else {
-          // Punti = posizione arrivo + differenza assoluta
+          // Punti = posizione arrivo + differenza assoluta dalla previsione
           const basePoints = actualPosition;
           const difference = Math.abs(predictedPosition - actualPosition);
           points = basePoints + difference;
         }
 
         totalPoints += points;
+        console.log(`${lineupRider.rider.name}: previsto ${predictedPosition}°, arrivato ${actualPosition}° = ${points} punti`);
       }
 
       // Salva o aggiorna il punteggio del team
       await prisma.teamScore.upsert({
         where: {
           teamId_raceId: {
-            teamId: lineup.teamId,
+            teamId: team.id,
             raceId
           }
         },
         update: {
           totalPoints,
-          calculatedAt: new Date()
+          calculatedAt: new Date(),
+          notes: usedFallback ? 'Usato schieramento precedente' : null
         },
         create: {
-          teamId: lineup.teamId,
+          teamId: team.id,
           raceId,
-          totalPoints
+          totalPoints,
+          notes: usedFallback ? 'Usato schieramento precedente' : null
         }
       });
 
-      console.log(`Team ${lineup.team.name}: ${totalPoints} punti totali`);
+      console.log(`Team ${team.name}: ${totalPoints} punti totali${usedFallback ? ' (con schieramento precedente)' : ''}`);
     }
+
+    // 6. Aggiorna le classifiche delle leghe
+    await this.updateLeagueStandings(raceId);
+
+  } catch (error) {
+    console.error('Errore nel calcolo dei punteggi:', error);
+    throw error;
   }
+  }
+
+// Nuova funzione per aggiornare le classifiche
+private async updateLeagueStandings(raceId: string) {
+  try {
+    // Trova tutte le leghe con team che hanno punteggi per questa gara
+    const leagues = await prisma.league.findMany({
+      include: {
+        teams: {
+          include: {
+            scores: true
+          }
+        }
+      }
+    });
+
+    for (const league of leagues) {
+      // Calcola i punti totali per ogni team
+      const teamStandings = league.teams.map(team => {
+        const totalPoints = team.scores.reduce((sum, score) => sum + score.totalPoints, 0);
+        return {
+          teamId: team.id,
+          totalPoints,
+          raceCount: team.scores.length
+        };
+      }).sort((a, b) => a.totalPoints - b.totalPoints); // Ordinamento crescente (meno punti = meglio)
+
+      console.log(`Classifica aggiornata per lega ${league.name}`);
+    }
+  } catch (error) {
+    console.error('Errore aggiornamento classifiche:', error);
+  }
+}
 
   // Metodi helper
   private mapLegacyCategory(legacyId: number): Category | null {

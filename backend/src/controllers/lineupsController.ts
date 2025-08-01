@@ -226,3 +226,71 @@ export const getLastValidLineup = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Errore nel recupero dello schieramento' });
   }
 };
+
+// GET /api/lineups/weekend/:raceId?teamId=... - Recupera schieramenti per l'intero weekend
+export const getWeekendLineups = async (req: AuthRequest, res: Response) => {
+  const userId = req.userId!;
+  const { raceId } = req.params;
+  const { teamId } = req.query;
+
+  if (!teamId) {
+    return res.status(400).json({ error: 'ID del team mancante' });
+  }
+
+  try {
+    // Trova la gara principale
+    const race = await prisma.race.findUnique({
+      where: { id: raceId },
+      include: {
+        circuit: true
+      }
+    });
+
+    if (!race) {
+      return res.status(404).json({ error: 'Gara non trovata' });
+    }
+
+    // Trova tutte le gare dello stesso weekend (stesso circuito, date vicine)
+    const weekendRaces = await prisma.race.findMany({
+      where: {
+        circuitId: race.circuitId,
+        date: {
+          gte: new Date(race.date.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 giorni prima
+          lte: new Date(race.date.getTime() + 3 * 24 * 60 * 60 * 1000), // 3 giorni dopo
+        }
+      }
+    });
+
+    // Recupera gli schieramenti per tutte le gare del weekend
+    const lineups = await prisma.raceLineup.findMany({
+      where: {
+        teamId: String(teamId),
+        raceId: {
+          in: weekendRaces.map(r => r.id)
+        },
+        team: {
+          userId
+        }
+      },
+      include: {
+        lineupRiders: {
+          include: {
+            rider: true
+          }
+        },
+        race: true
+      }
+    });
+
+    res.json({ 
+      weekend: {
+        mainRace: race,
+        races: weekendRaces,
+        lineups
+      }
+    });
+  } catch (error) {
+    console.error("Errore nel recupero degli schieramenti del weekend:", error);
+    res.status(500).json({ error: "Errore nel recupero degli schieramenti" });
+  }
+};
