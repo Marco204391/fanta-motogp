@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import {
-  ActivityIndicator, Avatar, Banner, Button, Card, Chip, DataTable, 
+  ActivityIndicator, Avatar, Banner, Button, Card, Chip, DataTable,
   Divider, FAB, IconButton, List, Text, Title, useTheme
 } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format, isBefore } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { getLeagueDetails, getMyTeamInLeague, getUpcomingRaces } from '../../services/api';
+import { getLeagueDetails, getMyTeamInLeague, getUpcomingRaces, getLineup } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 import { useAuth } from '../../contexts/AuthContext';
 import RaceCard from '../../components/RaceCard';
@@ -34,7 +34,7 @@ export default function LeagueDetailScreen() {
   const theme = useTheme();
   const { user } = useAuth();
   const { leagueId } = route.params;
-  
+
   const [refreshing, setRefreshing] = useState(false);
 
   // Query per i dettagli della lega
@@ -57,9 +57,17 @@ export default function LeagueDetailScreen() {
   });
 
   const league = leagueData?.league;
-  const standings = leagueData?.standings || [];
+  const standings = league?.standings || [];
   const myTeam = myTeamData?.team;
   const nextRace = racesData?.races?.[0];
+
+  const { data: lineupData } = useQuery({
+      queryKey: ['lineup', myTeam?.id, nextRace?.id],
+      queryFn: () => getLineup(myTeam!.id, nextRace!.id),
+      enabled: !!myTeam && !!nextRace,
+  });
+
+  const hasLineup = !!lineupData?.lineup;
 
   // Calcola statistiche e posizioni
   const sortedStandings = [...standings].sort((a, b) => a.totalPoints - b.totalPoints);
@@ -85,8 +93,8 @@ export default function LeagueDetailScreen() {
   };
 
   const handleManageLineup = () => {
-    if (myTeam) {
-      navigation.navigate('Lineup', { teamId: myTeam.id });
+    if (myTeam && nextRace) {
+      navigation.navigate('Lineup', { teamId: myTeam.id, race: nextRace });
     }
   };
 
@@ -143,24 +151,24 @@ export default function LeagueDetailScreen() {
                 PROSSIMO GRAN PREMIO
               </Text>
               {myTeam && (
-                <Button 
-                  mode="text" 
+                <Button
+                  mode="text"
                   onPress={handleManageLineup}
-                  icon="pencil"
+                  icon={hasLineup ? "pencil" : "rocket-launch-outline"}
                   compact
                 >
-                  Schiera
+                  {hasLineup ? "Modifica Schieramento" : "Schiera Formazione"}
                 </Button>
               )}
             </View>
-            <RaceCard 
-              race={nextRace} 
+            <RaceCard
+              race={nextRace}
               variant="upcoming"
               onPress={() => navigation.navigate('RaceDetail', { raceId: nextRace.id })}
             />
             {myTeam && isBefore(new Date(), new Date(nextRace.sprintDate || nextRace.date)) && (
               <Banner
-                visible={true}
+                visible={!hasLineup}
                 icon="alert"
                 style={[styles.banner, { backgroundColor: theme.colors.warningContainer }]}
               >
@@ -189,15 +197,15 @@ export default function LeagueDetailScreen() {
                     {sortedStandings.find(s => s.userId === user?.id)?.totalPoints || 0} punti totali
                   </Text>
                 </View>
-                <Avatar.Icon 
-                  size={48} 
-                  icon={myPosition <= 3 ? 'trophy' : 'chevron-up'} 
-                  style={{ 
-                    backgroundColor: myPosition === 1 ? '#FFD700' : 
-                                   myPosition === 2 ? '#C0C0C0' : 
-                                   myPosition === 3 ? '#CD7F32' : 
-                                   theme.colors.primary 
-                  }} 
+                <Avatar.Icon
+                  size={48}
+                  icon={myPosition <= 3 ? 'trophy' : 'chevron-up'}
+                  style={{
+                    backgroundColor: myPosition === 1 ? '#FFD700' :
+                                   myPosition === 2 ? '#C0C0C0' :
+                                   myPosition === 3 ? '#CD7F32' :
+                                   theme.colors.primary
+                  }}
                 />
               </View>
             </Card.Content>
@@ -214,8 +222,8 @@ export default function LeagueDetailScreen() {
               <Text variant="bodyMedium" style={{ marginBottom: 16 }}>
                 Crea il tuo team per partecipare a questa lega!
               </Text>
-              <Button 
-                mode="contained" 
+              <Button
+                mode="contained"
                 onPress={handleCreateTeam}
                 icon="plus"
               >
@@ -227,12 +235,12 @@ export default function LeagueDetailScreen() {
 
         {/* Classifica completa */}
         <Card style={styles.card}>
-          <Card.Title 
-            title="CLASSIFICA" 
+          <Card.Title
+            title="CLASSIFICA"
             subtitle="Ricorda: vince chi fa meno punti!"
             left={(props) => <Avatar.Icon {...props} icon="podium" />}
           />
-          
+
           {sortedStandings.length > 0 ? (
             <DataTable>
               <DataTable.Header>
@@ -245,10 +253,10 @@ export default function LeagueDetailScreen() {
               {sortedStandings.map((item, index) => {
                 const isUserTeam = item.userId === user?.id;
                 const isPodium = index < 3;
-                
+
                 return (
-                  <DataTable.Row 
-                    key={item.teamId} 
+                  <DataTable.Row
+                    key={item.teamId}
                     style={[
                       isUserTeam && styles.userRow,
                       isPodium && styles.podiumRow
@@ -257,10 +265,10 @@ export default function LeagueDetailScreen() {
                     <DataTable.Cell style={{ flex: 0.5 }}>
                       <View style={styles.positionCell}>
                         {isPodium && (
-                          <MaterialCommunityIcons 
-                            name={index === 0 ? 'trophy' : index === 1 ? 'medal' : 'medal-outline'} 
-                            size={20} 
-                            color={index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'} 
+                          <MaterialCommunityIcons
+                            name={index === 0 ? 'trophy' : index === 1 ? 'medal' : 'medal-outline'}
+                            size={20}
+                            color={index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'}
                           />
                         )}
                         <Text variant="bodyMedium" style={{ fontWeight: isPodium ? 'bold' : 'normal' }}>
@@ -268,7 +276,7 @@ export default function LeagueDetailScreen() {
                         </Text>
                       </View>
                     </DataTable.Cell>
-                    
+
                     <DataTable.Cell style={{ flex: 2 }}>
                       <View>
                         <Text variant="bodyMedium" style={{ fontWeight: isUserTeam ? 'bold' : 'normal' }}>
@@ -279,13 +287,13 @@ export default function LeagueDetailScreen() {
                         </Text>
                       </View>
                     </DataTable.Cell>
-                    
+
                     <DataTable.Cell numeric style={{ flex: 1 }}>
                       <Text variant="bodyMedium" style={{ fontWeight: 'bold' }}>
                         {item.totalPoints}
                       </Text>
                     </DataTable.Cell>
-                    
+
                     <DataTable.Cell style={{ flex: 0.5 }}>
                       {item.trend === 'up' && <MaterialCommunityIcons name="trending-up" size={16} color="green" />}
                       {item.trend === 'down' && <MaterialCommunityIcons name="trending-down" size={16} color="red" />}
@@ -305,8 +313,8 @@ export default function LeagueDetailScreen() {
 
         {/* Info regolamento */}
         <Card style={styles.card}>
-          <Card.Title 
-            title="REGOLAMENTO" 
+          <Card.Title
+            title="REGOLAMENTO"
             left={(props) => <Avatar.Icon {...props} icon="book-open-variant" />}
           />
           <Card.Content>
@@ -337,10 +345,10 @@ export default function LeagueDetailScreen() {
       {/* FAB per azioni rapide */}
       {myTeam && (
         <FAB
-          icon="pencil"
+          icon={hasLineup ? "pencil" : "rocket-launch-outline"}
           style={styles.fab}
           onPress={handleManageLineup}
-          label="Schiera"
+          label={hasLineup ? "Modifica" : "Schiera"}
         />
       )}
     </View>

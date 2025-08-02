@@ -77,10 +77,11 @@ export default function LineupScreen() {
   }, [existingLineup]);
 
   const saveLineupMutation = useMutation({
-      mutationFn: (data: { raceId: string; teamId: string; riders: any[] }) => setLineup(data.raceId, data),
+      mutationFn: (data: { raceId: string; teamId: string; riders: any[] }) =>
+        setLineup(data.raceId, { teamId: data.teamId, riders: data.riders }),
       onSuccess: () => {
           Alert.alert(
-            'Successo', 
+            'Successo',
             'Schieramento salvato con successo!',
             [
               {
@@ -89,6 +90,7 @@ export default function LineupScreen() {
                   // Invalida le query per aggiornare i dati
                   queryClient.invalidateQueries({ queryKey: ['lineup', teamId, raceId] });
                   queryClient.invalidateQueries({ queryKey: ['myTeams'] });
+                  queryClient.invalidateQueries({queryKey: ['league', team?.leagueId]})
                   // Torna alla schermata precedente
                   navigation.goBack();
                 }
@@ -149,14 +151,11 @@ export default function LineupScreen() {
           const newLineup = { ...prev };
           const isCurrentlySelected = !!newLineup[riderId]?.selected;
 
-          // Se il pilota è già selezionato, lo deselezioniamo e basta.
           if (isCurrentlySelected) {
               delete newLineup[riderId];
               return newLineup;
           }
 
-          // Altrimenti, ricalcoliamo il conteggio PRIMA di aggiungerne un altro.
-          // Questo usa lo stato più recente (`prev`) per il controllo.
           const ridersInCategory = team.riders.filter((r: any) => r.rider.category === category);
           const selectedInCategoryCount = Object.keys(prev).filter(id =>
               prev[id]?.selected && ridersInCategory.some((r: any) => r.rider.id === id)
@@ -216,7 +215,7 @@ export default function LineupScreen() {
       </View>
     );
   }
-  
+
   const renderCategory = (category: 'MOTOGP' | 'MOTO2' | 'MOTO3') => {
     const riders = team?.riders.filter((r: any) => r.rider.category === category) || [];
     const selectedCount = lineupStats.categoryCounts[category];
@@ -339,10 +338,10 @@ const styles = StyleSheet.create({
   validSummary: { backgroundColor: '#f0fff0' },
   deadlineRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 8 },
   expiredChip: { backgroundColor: 'red', marginLeft: 'auto' },
-  existingLineupInfo: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8, 
+  existingLineupInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginVertical: 8,
     padding: 8,
     backgroundColor: '#E3F2FD',

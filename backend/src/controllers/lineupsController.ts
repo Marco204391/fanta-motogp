@@ -124,48 +124,42 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 6. Recupera schieramento precedente se esiste
-    const existingLineup = await prisma.raceLineup.findUnique({
-      where: {
-        teamId_raceId: { teamId, raceId }
-      }
-    });
-
-    // 7. Crea o aggiorna lo schieramento in una transazione
+    // 6. Crea o aggiorna lo schieramento in una transazione
     const lineup = await prisma.$transaction(async (tx) => {
-      // Se esiste già uno schieramento, elimina i piloti precedenti
-      if (existingLineup) {
-        await tx.lineupRider.deleteMany({
-          where: { lineupId: existingLineup.id }
-        });
-      }
-
-      // Crea o aggiorna lo schieramento
-      const raceLineup = await tx.raceLineup.upsert({
-        where: {
-          teamId_raceId: { teamId, raceId }
-        },
-        update: {
-          updatedAt: new Date()
-        },
-        create: {
-          teamId,
-          raceId
-        }
+      let raceLineup = await tx.raceLineup.findUnique({
+          where: {
+              teamId_raceId: { teamId, raceId }
+          }
       });
+
+      if (raceLineup) {
+          // Se esiste, aggiorna la data e cancella i piloti precedenti
+          await tx.raceLineup.update({
+              where: { id: raceLineup.id },
+              data: { updatedAt: new Date() }
+          });
+          await tx.lineupRider.deleteMany({
+              where: { lineupId: raceLineup.id }
+          });
+      } else {
+          // Altrimenti, crea un nuovo schieramento
+          raceLineup = await tx.raceLineup.create({
+              data: { teamId, raceId }
+          });
+      }
 
       // Aggiungi i nuovi piloti schierati
       await tx.lineupRider.createMany({
         data: riders.map((r: any) => ({
-          lineupId: raceLineup.id,
+          lineupId: raceLineup!.id,
           riderId: r.riderId,
           predictedPosition: r.predictedPosition
         }))
       });
 
-      // Recupera lo schieramento completo
+      // Recupera lo schieramento completo per restituirlo
       return tx.raceLineup.findUnique({
-        where: { id: raceLineup.id },
+        where: { id: raceLineup!.id },
         include: {
           lineupRiders: {
             include: { rider: true }
