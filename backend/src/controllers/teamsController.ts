@@ -11,41 +11,59 @@ export const getMyTeams = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!;
 
+    // Trova la prossima gara utile per controllare lo schieramento
+    const upcomingRace = await prisma.race.findFirst({
+      where: { date: { gte: new Date() } },
+      orderBy: { date: 'asc' },
+    });
+
     const teams = await prisma.team.findMany({
       where: { userId },
       include: {
         league: true,
         riders: {
           include: {
-            rider: true
-          }
+            rider: true,
+          },
         },
         scores: {
           orderBy: { race: { date: 'desc' } },
           take: 5,
           include: {
-            race: true
-          }
+            race: true,
+          },
+        },
+      },
+    });
+
+    // Per ogni team, aggiungi le statistiche e lo stato dello schieramento
+    const teamsWithData = await Promise.all(
+      teams.map(async (team) => {
+        let hasLineup = false;
+        // Controlla se esiste uno schieramento per la prossima gara
+        if (upcomingRace) {
+          const lineup = await prisma.raceLineup.findUnique({
+            where: { teamId_raceId: { teamId: team.id, raceId: upcomingRace.id } },
+          });
+          hasLineup = !!lineup;
         }
-      }
-    });
 
-    // Calcola statistiche per ogni team
-    const teamsWithStats = teams.map(team => {
-      const totalValue = team.riders.reduce((sum, tr) => sum + tr.rider.value, 0);
-      const totalPoints = team.scores.reduce((sum, score) => sum + score.totalPoints, 0);
-      const remainingBudget = team.league.budget - totalValue;
+        const totalValue = team.riders.reduce((sum, tr) => sum + tr.rider.value, 0);
+        const totalPoints = team.scores.reduce((sum, score) => sum + score.totalPoints, 0);
+        const remainingBudget = team.league.budget - totalValue;
 
-      return {
-        ...team,
-        totalValue,
-        totalPoints,
-        remainingBudget,
-        riderCount: team.riders.length
-      };
-    });
+        return {
+          ...team,
+          totalValue,
+          totalPoints,
+          remainingBudget,
+          riderCount: team.riders.length,
+          hasLineup,
+        };
+      })
+    );
 
-    res.json({ teams: teamsWithStats });
+    res.json({ teams: teamsWithData });
   } catch (error) {
     console.error('Errore recupero team:', error);
     res.status(500).json({ error: 'Errore nel recupero dei team' });

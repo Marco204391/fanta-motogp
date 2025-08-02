@@ -1,6 +1,6 @@
 // mobile-app/src/screens/main/TeamsScreen.tsx
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, FlatList, StyleSheet, RefreshControl, Alert, ScrollView } from 'react-native';
 import { 
   Card, 
   Text, 
@@ -21,7 +21,7 @@ import {
   Divider
 } from 'react-native-paper';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getMyTeams, getMyLeagues, getUpcomingRaces, getLineup } from '../../services/api';
+import { getMyTeams, getMyLeagues } from '../../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -49,6 +49,7 @@ interface Team {
   }>;
   totalPoints?: number;
   remainingBudget: number;
+  hasLineup: boolean;
 }
 
 interface League {
@@ -70,88 +71,43 @@ export default function TeamsScreen() {
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showLeagueSelector, setShowLeagueSelector] = useState(false);
-  const [teamLineupStatus, setTeamLineupStatus] = useState<Record<string, boolean>>({});
 
   const { data: teamsData, isLoading: loadingTeams, refetch: refetchTeams } = useQuery({
     queryKey: ['myTeams'],
     queryFn: getMyTeams,
   });
 
-  const { data: leaguesData } = useQuery({
+  const { data: leaguesData, refetch: refetchLeagues } = useQuery({
     queryKey: ['myLeagues'],
     queryFn: getMyLeagues,
   });
 
-  // Query per la prossima gara
-  const { data: raceData } = useQuery({
-    queryKey: ['upcomingRaces'],
-    queryFn: getUpcomingRaces,
-  });
-  const upcomingRace = raceData?.races?.[0];
+  const teams: Team[] = teamsData?.teams || [];
+  const leagues: League[] = leaguesData?.leagues || [];
 
-  const teams = teamsData?.teams || [];
-  const leagues = leaguesData?.leagues || [];
-
-  // Leghe in cui non ho ancora un team
   const leaguesWithoutTeam = leagues.filter(
     (league: League) => !teams.some((team: Team) => team.league.id === league.id)
   );
 
-  // Controlla lo stato dello schieramento per ogni team quando cambia la lista dei team o la gara
-  useEffect(() => {
-    const checkLineupStatus = async () => {
-      if (!upcomingRace || teams.length === 0) return;
-      
-      const statusMap: Record<string, boolean> = {};
-      
-      // Controlla lo schieramento per ogni team
-      for (const team of teams) {
-        try {
-          const response = await getLineup(team.id, upcomingRace.id);
-          statusMap[team.id] = !!response.lineup;
-        } catch (error) {
-          statusMap[team.id] = false;
-        }
-      }
-      
-      setTeamLineupStatus(statusMap);
-    };
-
-    checkLineupStatus();
-  }, [teams, upcomingRace]);
-
-  // Refresh automatico quando la schermata diventa attiva
   useFocusEffect(
     useCallback(() => {
-      queryClient.invalidateQueries({ queryKey: ['myTeams'] });
-      queryClient.invalidateQueries({ queryKey: ['myLeagues'] });
-      queryClient.invalidateQueries({ queryKey: ['upcomingRaces'] });
-    }, [queryClient])
+      refetchTeams();
+      refetchLeagues();
+    }, [refetchTeams, refetchLeagues])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    try {
-      await Promise.all([
-        refetchTeams(), 
-        queryClient.invalidateQueries({ queryKey: ['myLeagues'] }),
-        queryClient.invalidateQueries({ queryKey: ['upcomingRaces'] })
-      ]);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [refetchTeams, queryClient]);
-
-  const filteredTeams = teams.filter((team: Team) =>
-    team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    team.league.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    await refetchTeams();
+    await refetchLeagues();
+    setRefreshing(false);
+  }, [refetchTeams, refetchLeagues]);
 
   const handleCreateTeam = (leagueId: string) => {
     navigation.navigate('CreateTeam', { leagueId });
     setShowLeagueSelector(false);
   };
-
+  
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'MOTOGP': return '#FF6B00';
@@ -162,7 +118,7 @@ export default function TeamsScreen() {
   };
 
   const renderTeamCard = ({ item: team }: { item: Team }) => {
-    const hasLineup = teamLineupStatus[team.id];
+    const hasLineup = team.hasLineup;
     
     return (
       <Card 
@@ -171,14 +127,15 @@ export default function TeamsScreen() {
       >
         <Card.Title
           title={team.name}
+          titleStyle={{ fontWeight: 'bold' }}
           subtitle={
             <View style={styles.leagueInfoContainer}>
               <MaterialCommunityIcons 
                 name={team.league.isPrivate ? 'lock' : 'earth'} 
-                size={16} 
+                size={14} 
                 color="#666" 
               />
-              <Text style={styles.leagueName}>{team.league.name}</Text>
+              <Text style={styles.leagueName} numberOfLines={1}>{team.league.name}</Text>
               <Badge style={styles.leagueCode}>{team.league.code}</Badge>
             </View>
           }
@@ -189,9 +146,9 @@ export default function TeamsScreen() {
               style={{ backgroundColor: '#FF6B00' }} 
             />
           )}
-          right={() => (
+          right={(props) => (
             <View style={styles.rightContainer}>
-              {hasLineup && upcomingRace && (
+              {hasLineup && (
                 <Chip 
                   icon="check-circle" 
                   mode="flat"
@@ -201,33 +158,7 @@ export default function TeamsScreen() {
                   Schierato
                 </Chip>
               )}
-              <Menu 
-                visible={menuVisible === team.id} 
-                onDismiss={() => setMenuVisible(null)} 
-                anchor={
-                  <IconButton 
-                    icon="dots-vertical" 
-                    onPress={() => setMenuVisible(team.id)} 
-                  />
-                }
-              >
-                <Menu.Item 
-                  onPress={() => {
-                    setMenuVisible(null);
-                    navigation.navigate('Lineup', { teamId: team.id, race: null });
-                  }} 
-                  title={hasLineup ? "Modifica Schieramento" : "Schiera Formazione"} 
-                  leadingIcon={hasLineup ? "pencil" : "rocket-launch-outline"}
-                />
-                <Menu.Item 
-                  onPress={() => {
-                    setMenuVisible(null);
-                    // TODO: Implementare statistiche
-                  }} 
-                  title="Statistiche" 
-                  leadingIcon="chart-line" 
-                />
-              </Menu>
+              <IconButton {...props} icon="dots-vertical" onPress={() => {}} />
             </View>
           )}
         />
@@ -308,6 +239,11 @@ export default function TeamsScreen() {
     );
   }
 
+  const filteredTeams = teams.filter((team: Team) =>
+    team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    team.league.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <View style={styles.container}>
       <Searchbar 
@@ -332,7 +268,16 @@ export default function TeamsScreen() {
           }
         />
       ) : (
-        <View style={styles.emptyContainer}>
+        <ScrollView 
+          contentContainerStyle={styles.emptyContainer}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              colors={['#FF6B00']}
+            />
+          }
+        >
           <MaterialCommunityIcons name="account-group-outline" size={80} color="#ccc" />
           <Title style={styles.emptyTitle}>Nessun team trovato</Title>
           <Paragraph style={styles.emptyText}>
@@ -340,7 +285,7 @@ export default function TeamsScreen() {
               ? 'Non hai ancora creato nessun team. Unisciti a una lega per iniziare!'
               : 'Nessun risultato per la ricerca.'}
           </Paragraph>
-        </View>
+        </ScrollView>
       )}
 
       <FAB
@@ -380,31 +325,38 @@ export default function TeamsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  searchbar: { margin: 16 },
-  listContent: { padding: 16, paddingBottom: 80 },
-  teamCard: { marginBottom: 16 },
-  leagueInfoContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  leagueName: { marginLeft: 4, color: '#666', flex: 1 },
-  leagueCode: { marginLeft: 8, backgroundColor: '#e0e0e0' },
-  rightContainer: { flexDirection: 'row', alignItems: 'center' },
-  lineupChip: { marginRight: 8, backgroundColor: '#4CAF50', height: 28 },
-  lineupChipText: { fontSize: 12, color: 'white' },
-  budgetInfo: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  budgetLabel: { color: '#666' },
-  budgetValue: { fontWeight: 'bold' },
-  pointsInfo: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  pointsLabel: { color: '#666' },
-  pointsValue: { fontWeight: 'bold', color: '#FF6B00' },
-  expandedContent: { marginTop: 8 },
-  categorySection: { marginBottom: 12 },
-  categoryTitle: { fontWeight: 'bold', marginBottom: 4 },
-  riderName: { fontSize: 14 },
-  riderValue: { fontSize: 12 },
-  manageButton: { marginTop: 16 },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  emptyTitle: { marginTop: 16, color: '#666' },
-  emptyText: { textAlign: 'center', color: '#999', marginTop: 8 },
-  fab: { position: 'absolute', right: 16, bottom: 16 },
+    container: { flex: 1, backgroundColor: '#f5f5f5' },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    searchbar: { marginHorizontal: 16, marginTop: 16, marginBottom: 8 },
+    listContent: { paddingHorizontal: 16, paddingBottom: 100 },
+    teamCard: {
+       marginBottom: 16 
+    },
+    leagueInfoContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+    leagueName: { marginLeft: 6, color: '#666', flexShrink: 1 },
+    leagueCode: { marginLeft: 8, backgroundColor: '#e0e0e0' },
+    rightContainer: { flexDirection: 'row', alignItems: 'center', paddingRight: 8 },
+    lineupChip: { backgroundColor: '#E8F5E9', height: 28 },
+    lineupChipText: { fontSize: 12, color: '#4CAF50', fontWeight: 'bold' },
+    budgetInfo: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+    budgetLabel: { color: '#666' },
+    budgetValue: { fontWeight: 'bold' },
+    pointsInfo: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+    pointsLabel: { color: '#666' },
+    pointsValue: { fontWeight: 'bold', color: '#FF6B00' },
+    expandedContent: { marginTop: 8 },
+    categorySection: { marginBottom: 12 },
+    categoryTitle: { fontWeight: 'bold', marginBottom: 4 },
+    riderName: { fontSize: 14 },
+    riderValue: { fontSize: 12 },
+    manageButton: { marginTop: 16 },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+    emptyTitle: { marginTop: 16, color: '#666' },
+    emptyText: { textAlign: 'center', color: '#999', marginTop: 8 },
+    fab: { 
+      position: 'absolute', 
+      right: 16, 
+      bottom: 16, 
+      backgroundColor: '#FF6B00' 
+    },
 });
