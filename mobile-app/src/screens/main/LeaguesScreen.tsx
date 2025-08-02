@@ -61,7 +61,7 @@ export default function LeaguesScreen() {
   const [joinCode, setJoinCode] = useState('');
   const [viewType, setViewType] = useState<'my' | 'public'>('my');
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const { data: myLeaguesData, isLoading: loadingMy, refetch: refetchMy } = useQuery({
     queryKey: ['myLeagues'],
     queryFn: getMyLeagues,
@@ -147,7 +147,7 @@ export default function LeaguesScreen() {
           )}
         />
         {league.userPoints != null && (
-          <>
+          <View>
             <Divider />
             <Card.Content style={{ paddingTop: 16 }}>
               <View style={styles.userStats}>
@@ -159,7 +159,7 @@ export default function LeaguesScreen() {
                 )}
               </View>
             </Card.Content>
-          </>
+          </View>
         )}
       </Card>
     );
@@ -167,7 +167,7 @@ export default function LeaguesScreen() {
 
   const isLoading = viewType === 'my' ? loadingMy : loadingPublic;
   const leagues = viewType === 'my' ? myLeagues : publicLeagues;
-  const filteredLeagues = leagues.filter((league: League) => 
+  const filteredLeagues = leagues.filter((league: League) =>
     league.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     league.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -202,8 +202,8 @@ export default function LeaguesScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
+            <RefreshControl
+              refreshing={refreshing}
               onRefresh={onRefresh}
               colors={['#FF6B00']}
             />
@@ -213,38 +213,38 @@ export default function LeaguesScreen() {
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
           refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
+            <RefreshControl
+              refreshing={refreshing}
               onRefresh={onRefresh}
               colors={['#FF6B00']}
             />
           }
         >
-          <MaterialCommunityIcons 
-            name="trophy-outline" 
-            size={80} 
-            color="#ccc" 
+          <MaterialCommunityIcons
+            name="trophy-outline"
+            size={80}
+            color="#ccc"
           />
           <Title style={styles.emptyTitle}>
             {viewType === 'my' ? 'Nessuna lega trovata' : 'Nessuna lega pubblica'}
           </Title>
           <Paragraph style={styles.emptyText}>
-            {viewType === 'my' 
+            {viewType === 'my'
               ? 'Unisciti a una lega o creane una tua per iniziare a giocare!'
               : 'Non ci sono leghe pubbliche disponibili al momento.'
             }
           </Paragraph>
           {viewType === 'my' && (
             <View style={styles.emptyActions}>
-              <Button 
-                mode="outlined" 
+              <Button
+                mode="outlined"
                 style={styles.actionButton}
                 onPress={() => setShowJoinDialog(true)}
               >
                 Unisciti con codice
               </Button>
-              <Button 
-                mode="contained" 
+              <Button
+                mode="contained"
                 style={styles.actionButton}
                 onPress={() => navigation.navigate('CreateLeague')}
               >
@@ -263,7 +263,7 @@ export default function LeaguesScreen() {
           onPress={() => setShowActionsDialog(true)}
         />
       )}
-      
+
       <Portal>
         {/* Dialog per unirsi a una lega */}
         <Dialog visible={showJoinDialog} onDismiss={() => setShowJoinDialog(false)}>
@@ -274,15 +274,15 @@ export default function LeaguesScreen() {
               value={joinCode}
               onChangeText={setJoinCode}
               mode="outlined"
-              autoCapitalize="characters"
+              autoCapitalize="none"
               placeholder="ES: ABC123"
               maxLength={6}
             />
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setShowJoinDialog(false)}>Annulla</Button>
-            <Button 
-              onPress={handleJoinLeague} 
+            <Button
+              onPress={handleJoinLeague}
               disabled={!joinCode || joinCode.length < 6}
               mode="contained"
             >
