@@ -16,14 +16,12 @@ export const getLineup = async (req: AuthRequest, res: Response) => {
   }
 
   try {
-    const lineup = await prisma.raceLineup.findUnique({
+    const lineup = await prisma.raceLineup.findFirst({
       where: {
-        teamId_raceId: {
-          teamId: String(teamId),
-          raceId,
-        },
+        teamId: String(teamId),
+        raceId,
         team: {
-          userId, // Assicura che l'utente possieda il team
+          userId, 
         },
       },
       include: {
@@ -55,8 +53,8 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
   try {
     // 1. Validazione input base
     if (!teamId || !riders || !Array.isArray(riders) || riders.length !== 6) {
-      return res.status(400).json({ 
-        error: 'Dati dello schieramento non validi. Devi schierare 6 piloti (2 per categoria).' 
+      return res.status(400).json({
+        error: 'Dati dello schieramento non validi. Devi schierare 6 piloti (2 per categoria).'
       });
     }
 
@@ -74,12 +72,12 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
     // 3. Verifica che il team appartenga all'utente e ottieni i piloti
     const team = await prisma.team.findFirst({
       where: { id: teamId, userId },
-      include: { 
-        riders: { 
-          include: { 
-            rider: true 
-          } 
-        } 
+      include: {
+        riders: {
+          include: {
+            rider: true
+          }
+        }
       },
     });
 
@@ -88,41 +86,41 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
     }
 
     // 4. Validazione dettagliata dello schieramento
-    const schieratoPerCategoria: Record<Category, number> = { 
-      MOTOGP: 0, 
-      MOTO2: 0, 
-      MOTO3: 0 
+    const schieratoPerCategoria: Record<Category, number> = {
+      MOTOGP: 0,
+      MOTO2: 0,
+      MOTO3: 0
     };
-    
+
     // Verifica che tutti i piloti schierati appartengano al team
     for (const riderLineup of riders) {
       const teamRider = team.riders.find(tr => tr.riderId === riderLineup.riderId);
-      
+
       if (!teamRider) {
-        return res.status(400).json({ 
-          error: 'Uno dei piloti schierati non appartiene al tuo team' 
+        return res.status(400).json({
+          error: 'Uno dei piloti schierati non appartiene al tuo team'
         });
       }
-      
+
       // Conta piloti per categoria
       schieratoPerCategoria[teamRider.rider.category]++;
-      
+
       // Verifica posizione prevista valida
-      if (!riderLineup.predictedPosition || 
-          riderLineup.predictedPosition < 1 || 
+      if (!riderLineup.predictedPosition ||
+          riderLineup.predictedPosition < 1 ||
           riderLineup.predictedPosition > 30) {
-        return res.status(400).json({ 
-          error: `Posizione prevista non valida per ${teamRider.rider.name}. Deve essere tra 1 e 30.` 
+        return res.status(400).json({
+          error: `Posizione prevista non valida per ${teamRider.rider.name}. Deve essere tra 1 e 30.`
         });
       }
     }
 
     // 5. Verifica esattamente 2 piloti per categoria
-    if (schieratoPerCategoria.MOTOGP !== 2 || 
-        schieratoPerCategoria.MOTO2 !== 2 || 
+    if (schieratoPerCategoria.MOTOGP !== 2 ||
+        schieratoPerCategoria.MOTO2 !== 2 ||
         schieratoPerCategoria.MOTO3 !== 2) {
-      return res.status(400).json({ 
-        error: 'Devi schierare esattamente 2 piloti per ogni categoria (2 MotoGP, 2 Moto2, 2 Moto3)' 
+      return res.status(400).json({
+        error: 'Devi schierare esattamente 2 piloti per ogni categoria (2 MotoGP, 2 Moto2, 2 Moto3)'
       });
     }
 
@@ -177,10 +175,10 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
       });
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       lineup,
-      message: 'Schieramento salvato con successo!' 
+      message: 'Schieramento salvato con successo!'
     });
 
   } catch (error) {
@@ -279,7 +277,7 @@ export const getWeekendLineups = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    res.json({ 
+    res.json({
       weekend: {
         mainRace: race,
         races: weekendRaces,

@@ -15,7 +15,7 @@ import {
 } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createTeam, getRiders } from '../../services/api';
+import { createTeam, getRiders, getLeagueDetails } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 
 interface Rider {
@@ -39,10 +39,27 @@ export default function CreateTeamScreen() {
   const [teamName, setTeamName] = useState('');
 
   const { data: ridersData, isLoading: isLoadingRiders } = useQuery({
-    queryKey: ['riders', 'all'], 
-    queryFn: () => getRiders({ limit: 100 }),
+    queryKey: ['riders', 'all'],
+    queryFn: () => getRiders({ limit: 100 } as any),
   });
   const riders = ridersData?.riders || [];
+
+  const { data: leagueData, isLoading: isLoadingLeague } = useQuery({
+    queryKey: ['leagueDetails', leagueId],
+    queryFn: () => getLeagueDetails(leagueId),
+  });
+
+  const takenRiderIds = useMemo(() => {
+    if (!leagueData?.league?.teams) return new Set<string>();
+
+    const ids = new Set<string>();
+    leagueData.league.teams.forEach((team: any) => {
+      team.riders.forEach((teamRider: any) => {
+        ids.add(teamRider.riderId);
+      });
+    });
+    return ids;
+  }, [leagueData]);
 
   // TODO: Get budget from league details
   const budget = 1000;
@@ -138,6 +155,11 @@ export default function CreateTeamScreen() {
     const rider = riders.find((r: Rider) => r.id === riderId);
     if (!rider) return;
 
+    if (takenRiderIds.has(riderId)) {
+        Alert.alert('Pilota non disponibile', 'Questo pilota è già stato selezionato da un altro team in questa lega.');
+        return;
+    }
+
     const isSelected = selectedRiders.includes(riderId);
 
     if (isSelected) {
@@ -185,8 +207,10 @@ export default function CreateTeamScreen() {
         <Card.Content>
           {categoryRiders.map((rider: Rider) => {
             const isSelected = selectedRiders.includes(rider.id);
+            const isTaken = takenRiderIds.has(rider.id);
             const canSelect =
               !isSelected &&
+              !isTaken &&
               selectedCount < 3 &&
               selectionStats.totalCost + rider.value <= budget;
 
@@ -194,19 +218,20 @@ export default function CreateTeamScreen() {
               <List.Item
                 key={rider.id}
                 title={`${rider.number}. ${rider.name}`}
-                description={`${rider.team} - ${rider.value} crediti`}
+                description={isTaken ? 'Già selezionato' : `${rider.team} - ${rider.value} crediti`}
                 left={() => (
                   <Checkbox
                     status={isSelected ? 'checked' : 'unchecked'}
-                    disabled={!isSelected && !canSelect}
+                    disabled={!isSelected && (!canSelect || isTaken)}
                   />
                 )}
                 onPress={() => handleRiderToggle(rider.id)}
                 style={[
                   styles.riderItem,
                   isSelected && styles.selectedRider,
-                  !canSelect && !isSelected && styles.disabledRider,
+                  (isTaken || (!canSelect && !isSelected)) && styles.disabledRider,
                 ]}
+                titleStyle={isTaken ? { color: 'grey' } : {}}
               />
             );
           })}
@@ -254,7 +279,7 @@ export default function CreateTeamScreen() {
     </Card>
   );
 
-  if (isLoadingRiders) {
+  if (isLoadingRiders || isLoadingLeague) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" />

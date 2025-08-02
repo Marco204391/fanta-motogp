@@ -1,5 +1,6 @@
 // mobile-app/src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import * as SecureStore from 'expo-secure-store';
 import api from '../services/api';
 
@@ -35,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   // Carica token salvato all'avvio
   useEffect(() => {
@@ -130,6 +132,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Rimuovi header Authorization
       delete api.defaults.headers.common['Authorization'];
+
+      // !!! 3. SVUOTA LA CACHE DI REACT QUERY !!!
+      queryClient.clear();
+
     } catch (error) {
       console.error('Errore durante logout:', error);
     }
