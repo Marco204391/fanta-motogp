@@ -17,7 +17,8 @@ import {
   Chip,
   Badge,
   Portal,
-  Dialog
+  Dialog,
+  Divider
 } from 'react-native-paper';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getMyTeams, getMyLeagues, getUpcomingRaces, getLineup } from '../../services/api';

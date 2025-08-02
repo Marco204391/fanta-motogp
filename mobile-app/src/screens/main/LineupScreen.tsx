@@ -6,9 +6,10 @@ import {
 } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getTeamById, getLineup, setLineup, getUpcomingRaces } from '../../services/api';
+import { getTeamById, getLineup, setLineup as apiSetLineup, getUpcomingRaces } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+
 
 // Tipi
 type LineupScreenRouteProp = RouteProp<MainStackParamList, 'Lineup'>;
@@ -78,8 +79,8 @@ export default function LineupScreen() {
 
   const saveLineupMutation = useMutation({
       mutationFn: (data: { raceId: string; teamId: string; riders: any[] }) =>
-        setLineup(data.raceId, { teamId: data.teamId, riders: data.riders }),
-      onSuccess: () => {
+      apiSetLineup(raceId, { teamId: data.teamId, riders: data.riders }),
+        onSuccess: () => {
           Alert.alert(
             'Successo',
             'Schieramento salvato con successo!',
@@ -87,11 +88,9 @@ export default function LineupScreen() {
               {
                 text: 'OK',
                 onPress: () => {
-                  // Invalida le query per aggiornare i dati
                   queryClient.invalidateQueries({ queryKey: ['lineup', teamId, raceId] });
                   queryClient.invalidateQueries({ queryKey: ['myTeams'] });
                   queryClient.invalidateQueries({queryKey: ['league', team?.leagueId]})
-                  // Torna alla schermata precedente
                   navigation.goBack();
                 }
               }

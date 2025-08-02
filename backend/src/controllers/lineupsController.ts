@@ -48,7 +48,7 @@ export const getLineup = async (req: AuthRequest, res: Response) => {
 export const setLineup = async (req: AuthRequest, res: Response) => {
   const userId = req.userId!;
   const { raceId } = req.params;
-  const { teamId, riders } = req.body; // riders: [{ riderId: string, predictedPosition: number }]
+  const { teamId, riders } = req.body;
 
   try {
     // 1. Validazione input base
@@ -133,11 +133,6 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
       });
 
       if (raceLineup) {
-          // Se esiste, aggiorna la data e cancella i piloti precedenti
-          await tx.raceLineup.update({
-              where: { id: raceLineup.id },
-              data: { updatedAt: new Date() }
-          });
           await tx.lineupRider.deleteMany({
               where: { lineupId: raceLineup.id }
           });
@@ -149,15 +144,16 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
       }
 
       // Aggiungi i nuovi piloti schierati
-      await tx.lineupRider.createMany({
-        data: riders.map((r: any) => ({
-          lineupId: raceLineup!.id,
-          riderId: r.riderId,
-          predictedPosition: r.predictedPosition
-        }))
-      });
+      for (const r of riders) {
+        await tx.lineupRider.create({
+          data: {
+            lineupId: raceLineup!.id,
+            riderId: r.riderId,
+            predictedPosition: r.predictedPosition,
+          },
+        });
+      }
 
-      // Recupera lo schieramento completo per restituirlo
       return tx.raceLineup.findUnique({
         where: { id: raceLineup!.id },
         include: {
@@ -176,7 +172,7 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Errore salvataggio schieramento:', error);
+    console.error('❌ Errore critico durante il salvataggio dello schieramento:', error);
     res.status(500).json({ error: 'Errore nel salvataggio dello schieramento' });
   }
 };
