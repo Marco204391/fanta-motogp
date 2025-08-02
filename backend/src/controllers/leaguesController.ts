@@ -375,3 +375,69 @@ export const getLeagueStandings = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Errore nel recupero della classifica' });
   }
 };
+
+// GET /api/leagues/:id/race/:raceId/lineups - NUOVA FUNZIONE
+export const getLeagueRaceLineups = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id: leagueId, raceId } = req.params;
+
+    // Verifica se la gara è passata per decidere se mostrare gli schieramenti
+    const race = await prisma.race.findUnique({ where: { id: raceId } });
+    if (!race) {
+      return res.status(404).json({ error: 'Gara non trovata' });
+    }
+
+    const deadline = race.sprintDate || race.date;
+    if (new Date() < new Date(deadline)) {
+      return res.status(200).json({ lineups: [], message: 'Gli schieramenti saranno visibili dopo la deadline della gara.' });
+    }
+
+    // Trova tutti i team della lega
+    const teams = await prisma.team.findMany({
+      where: { leagueId },
+      include: {
+        user: { select: { username: true } },
+        scores: { where: { raceId } },
+        lineups: {
+          where: { raceId },
+          include: {
+            lineupRiders: {
+              include: {
+                rider: true,
+              },
+              orderBy: { rider: { category: 'asc' } },
+            },
+          },
+        },
+      },
+    });
+
+    // Recupera i risultati reali della gara per confrontarli
+    const raceResults = await prisma.raceResult.findMany({
+      where: { raceId },
+    });
+    const resultsMap = new Map(raceResults.map(r => [r.riderId, { position: r.position, status: r.status }]));
+
+    const formattedLineups = teams.map(team => {
+      const lineup = team.lineups[0];
+      const lineupRiders = lineup?.lineupRiders.map(lr => ({
+        ...lr,
+        actualPosition: resultsMap.get(lr.riderId)?.position,
+        actualStatus: resultsMap.get(lr.riderId)?.status,
+      }));
+
+      return {
+        teamId: team.id,
+        teamName: team.name,
+        userName: team.user.username,
+        totalPoints: team.scores[0]?.totalPoints ?? null,
+        lineup: lineupRiders || [],
+      };
+    });
+
+    res.json({ lineups: formattedLineups });
+  } catch (error) {
+    console.error('Errore recupero schieramenti di lega:', error);
+    res.status(500).json({ error: 'Errore nel recupero degli schieramenti' });
+  }
+};

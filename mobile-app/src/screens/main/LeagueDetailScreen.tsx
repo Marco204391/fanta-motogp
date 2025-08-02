@@ -1,6 +1,6 @@
 // mobile-app/src/screens/main/LeagueDetailScreen.tsx
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, ScrollView, StyleSheet, RefreshControl, FlatList, Dimensions, TouchableOpacity } from 'react-native';
 import {
   ActivityIndicator, Avatar, Banner, Button, Card, Chip, DataTable,
   Divider, FAB, IconButton, List, Text, Title, useTheme
@@ -8,9 +8,9 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { format, isBefore } from 'date-fns';
+import { format, isBefore, isPast } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { getLeagueDetails, getMyTeamInLeague, getUpcomingRaces, getLineup } from '../../services/api';
+import { getLeagueDetails, getMyTeamInLeague, getAllRaces, getLeagueRaceLineups } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 import { useAuth } from '../../contexts/AuthContext';
 import RaceCard from '../../components/RaceCard';
@@ -28,6 +28,40 @@ interface Standing {
   trend?: 'up' | 'down' | 'stable';
 }
 
+const { width: screenWidth } = Dimensions.get('window');
+
+// Componente per mostrare lo schieramento di un singolo team
+const TeamLineupCard = ({ lineupData }: { lineupData: any }) => {
+    const theme = useTheme();
+    const { teamName, userName, totalPoints, lineup } = lineupData;
+
+    return (
+        <Card style={styles.lineupCard}>
+            <Card.Title
+                title={teamName}
+                subtitle={`di ${userName}`}
+                left={(props) => <Avatar.Icon {...props} icon="account-helmet" />}
+                right={(props) => <Chip {...props} icon="star-circle" style={{ marginRight: 16 }}>{totalPoints ?? 'N/D'} pt</Chip>}
+            />
+            <Card.Content>
+                {lineup.length > 0 ? (
+                    lineup.map((lr: any) => (
+                        <View key={lr.id} style={styles.riderRow}>
+                            <Text style={styles.riderName}>{lr.rider.number}. {lr.rider.name}</Text>
+                            <View style={styles.riderPredictions}>
+                                <Text>Prev: <Text style={{ fontWeight: 'bold' }}>{lr.predictedPosition}°</Text></Text>
+                                <Text>Reale: <Text style={{ fontWeight: 'bold' }}>{lr.actualPosition ?? '-'}</Text></Text>
+                            </View>
+                        </View>
+                    ))
+                ) : (
+                    <Text style={{ textAlign: 'center', paddingVertical: 16, opacity: 0.7 }}>Schieramento non effettuato</Text>
+                )}
+            </Card.Content>
+        </Card>
+    );
+};
+
 export default function LeagueDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<LeagueDetailScreenRouteProp>();
@@ -36,6 +70,8 @@ export default function LeagueDetailScreen() {
   const { leagueId } = route.params;
 
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
+  const flatListRef = useRef<FlatList>(null);
 
   // Query per i dettagli della lega
   const { data: leagueData, isLoading: isLoadingLeague, refetch: refetchLeague } = useQuery({
@@ -50,26 +86,40 @@ export default function LeagueDetailScreen() {
     enabled: !!user,
   });
 
-  // Query per le prossime gare
-  const { data: racesData } = useQuery({
-    queryKey: ['upcomingRaces'],
-    queryFn: getUpcomingRaces,
+  // Query per il calendario completo della stagione
+  const { data: calendarData, isLoading: isLoadingCalendar } = useQuery({
+    queryKey: ['allRaces', new Date().getFullYear()],
+    queryFn: () => getAllRaces(new Date().getFullYear()),
+  });
+
+  const allRaces = calendarData?.races || [];
+
+  // Trova la prossima gara e imposta l'ID selezionato di default
+  useEffect(() => {
+    if (allRaces.length > 0 && !selectedRaceId) {
+      const nextRaceIndex = allRaces.findIndex((race: any) => !isPast(new Date(race.date)));
+      const initialIndex = nextRaceIndex !== -1 ? nextRaceIndex : allRaces.length - 1;
+      setSelectedRaceId(allRaces[initialIndex]?.id);
+
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false, viewPosition: 0.5 });
+      }, 100);
+    }
+  }, [allRaces, selectedRaceId]);
+
+  // Query per gli schieramenti della lega per la gara selezionata
+  const { data: lineupsData, isLoading: isLoadingLineups, isFetching: isFetchingLineups } = useQuery({
+    queryKey: ['leagueRaceLineups', leagueId, selectedRaceId],
+    queryFn: () => getLeagueRaceLineups(leagueId, selectedRaceId!),
+    enabled: !!selectedRaceId,
   });
 
   const league = leagueData?.league;
   const standings = league?.standings || [];
   const myTeam = myTeamData?.team;
-  const nextRace = racesData?.races?.[0];
+  const nextRace = allRaces.find((race: any) => !isPast(new Date(race.date)));
+  const hasLineup = !!lineupsData?.lineups?.find((l: any) => l.teamId === myTeam?.id)?.lineup.length;
 
-  const { data: lineupData } = useQuery({
-      queryKey: ['lineup', myTeam?.id, nextRace?.id],
-      queryFn: () => getLineup(myTeam!.id, nextRace!.id),
-      enabled: !!myTeam && !!nextRace,
-  });
-
-  const hasLineup = !!lineupData?.lineup;
-
-  // Calcola statistiche e posizioni
   const sortedStandings = [...standings].sort((a, b) => a.totalPoints - b.totalPoints);
   sortedStandings.forEach((team, index) => {
     team.position = index + 1;
@@ -77,14 +127,13 @@ export default function LeagueDetailScreen() {
 
   const myPosition = sortedStandings.findIndex(s => s.userId === user?.id) + 1;
   const isMember = league?.members?.some((m: any) => m.userId === user?.id);
-  const isAdmin = league?.members?.find((m: any) => m.userId === user?.id)?.role === 'ADMIN';
   const userHasTeamInLeague = !!myTeam;
   const memberCount = league?.teams?.length || 0;
   const isFull = memberCount >= (league?.maxTeams || 10);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchLeague()]);
+    await refetchLeague();
     setRefreshing(false);
   };
 
@@ -98,7 +147,7 @@ export default function LeagueDetailScreen() {
     }
   };
 
-  if (isLoadingLeague) {
+  if (isLoadingLeague || isLoadingCalendar) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" />
@@ -118,11 +167,8 @@ export default function LeagueDetailScreen() {
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Header con info lega */}
         <Card style={styles.headerCard}>
           <Card.Content>
             <View style={styles.leagueHeader}>
@@ -143,42 +189,43 @@ export default function LeagueDetailScreen() {
           </Card.Content>
         </Card>
 
-        {/* Prossimo GP */}
-        {nextRace && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                PROSSIMO GRAN PREMIO
-              </Text>
-              {myTeam && (
-                <Button
-                  mode="text"
-                  onPress={handleManageLineup}
-                  icon={hasLineup ? "pencil" : "rocket-launch-outline"}
-                  compact
-                >
-                  {hasLineup ? "Modifica Schieramento" : "Schiera Formazione"}
-                </Button>
-              )}
-            </View>
-            <RaceCard
-              race={nextRace}
-              variant="upcoming"
-              onPress={() => navigation.navigate('RaceDetail', { raceId: nextRace.id })}
-            />
-            {myTeam && isBefore(new Date(), new Date(nextRace.sprintDate || nextRace.date)) && (
-              <Banner
-                visible={!hasLineup}
-                icon="alert"
-                style={[styles.banner, { backgroundColor: theme.colors.warningContainer }]}
-              >
-                Ricorda di schierare i tuoi piloti prima della gara sprint!
-              </Banner>
+        <View style={styles.section}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>GIORNATE DI GARA</Text>
+          <FlatList
+            ref={flatListRef}
+            horizontal
+            data={allRaces}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => setSelectedRaceId(item.id)}>
+                <View style={[styles.raceCardContainer, item.id === selectedRaceId && { borderColor: theme.colors.primary }]}>
+                  <RaceCard race={item} variant={isPast(new Date(item.date)) ? 'past' : 'upcoming'} />
+                </View>
+              </TouchableOpacity>
             )}
-          </View>
-        )}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.raceCarousel}
+            getItemLayout={(data, index) => (
+              { length: screenWidth * 0.9, offset: (screenWidth * 0.9) * index, index }
+            )}
+          />
+        </View>
 
-        {/* La mia posizione */}
+        <View style={styles.section}>
+           <Text variant="titleMedium" style={styles.sectionTitle}>SCHIERAMENTI</Text>
+            {isFetchingLineups ? (
+                <ActivityIndicator style={{ marginTop: 20 }}/>
+            ) : lineupsData?.lineups ? (
+                lineupsData.lineups.length > 0 ? (
+                    lineupsData.lineups.map((lineup: any) => <TeamLineupCard key={lineup.teamId} lineupData={lineup} />)
+                ) : (
+                    <Card style={styles.card}><Card.Content><Text style={{textAlign: 'center'}}>{lineupsData.message || 'Nessuno schieramento per questa gara.'}</Text></Card.Content></Card>
+                )
+            ) : (
+                 <Card style={styles.card}><Card.Content><Text style={{textAlign: 'center'}}>Seleziona una gara per vedere gli schieramenti.</Text></Card.Content></Card>
+            )}
+        </View>
+
         {myTeam && myPosition > 0 && (
           <Card style={[styles.card, { backgroundColor: theme.colors.primaryContainer }]}>
             <Card.Content>
@@ -212,7 +259,6 @@ export default function LeagueDetailScreen() {
           </Card>
         )}
 
-        {/* Azioni disponibili */}
         {isMember && !userHasTeamInLeague && !isFull && (
           <Card style={styles.card}>
             <Card.Content>
@@ -233,27 +279,22 @@ export default function LeagueDetailScreen() {
           </Card>
         )}
 
-        {/* Classifica completa */}
         <Card style={styles.card}>
           <Card.Title
             title="CLASSIFICA"
             subtitle="Ricorda: vince chi fa meno punti!"
             left={(props) => <Avatar.Icon {...props} icon="podium" />}
           />
-
           {sortedStandings.length > 0 ? (
             <DataTable>
               <DataTable.Header>
                 <DataTable.Title style={{ flex: 0.5 }}>Pos</DataTable.Title>
                 <DataTable.Title style={{ flex: 2 }}>Team</DataTable.Title>
                 <DataTable.Title numeric style={{ flex: 1 }}>Punti</DataTable.Title>
-                <DataTable.Title style={{ flex: 0.5 }}></DataTable.Title>
               </DataTable.Header>
-
               {sortedStandings.map((item, index) => {
                 const isUserTeam = item.userId === user?.id;
                 const isPodium = index < 3;
-
                 return (
                   <DataTable.Row
                     key={item.teamId}
@@ -262,88 +303,23 @@ export default function LeagueDetailScreen() {
                       isPodium && styles.podiumRow
                     ]}
                   >
-                    <DataTable.Cell style={{ flex: 0.5 }}>
-                      <View style={styles.positionCell}>
-                        {isPodium && (
-                          <MaterialCommunityIcons
-                            name={index === 0 ? 'trophy' : index === 1 ? 'medal' : 'medal-outline'}
-                            size={20}
-                            color={index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'}
-                          />
-                        )}
-                        <Text variant="bodyMedium" style={{ fontWeight: isPodium ? 'bold' : 'normal' }}>
-                          {index + 1}
-                        </Text>
-                      </View>
-                    </DataTable.Cell>
-
-                    <DataTable.Cell style={{ flex: 2 }}>
-                      <View>
-                        <Text variant="bodyMedium" style={{ fontWeight: isUserTeam ? 'bold' : 'normal' }}>
-                          {item.teamName}
-                        </Text>
-                        <Text variant="bodySmall" style={{ opacity: 0.7 }}>
-                          {item.userName}
-                        </Text>
-                      </View>
-                    </DataTable.Cell>
-
-                    <DataTable.Cell numeric style={{ flex: 1 }}>
-                      <Text variant="bodyMedium" style={{ fontWeight: 'bold' }}>
-                        {item.totalPoints}
-                      </Text>
-                    </DataTable.Cell>
-
-                    <DataTable.Cell style={{ flex: 0.5 }}>
-                      {item.trend === 'up' && <MaterialCommunityIcons name="trending-up" size={16} color="green" />}
-                      {item.trend === 'down' && <MaterialCommunityIcons name="trending-down" size={16} color="red" />}
-                    </DataTable.Cell>
+                    <DataTable.Cell style={{ flex: 0.5 }}>{index + 1}</DataTable.Cell>
+                    <DataTable.Cell style={{ flex: 2 }}>{item.teamName}</DataTable.Cell>
+                    <DataTable.Cell numeric style={{ flex: 1 }}>{item.totalPoints}</DataTable.Cell>
                   </DataTable.Row>
                 );
               })}
             </DataTable>
           ) : (
             <Card.Content>
-              <Text style={{ textAlign: 'center', opacity: 0.6 }}>
-                Nessun team presente nella lega
-              </Text>
+              <Text style={{ textAlign: 'center', opacity: 0.6 }}>Nessun team presente</Text>
             </Card.Content>
           )}
         </Card>
 
-        {/* Info regolamento */}
-        <Card style={styles.card}>
-          <Card.Title
-            title="REGOLAMENTO"
-            left={(props) => <Avatar.Icon {...props} icon="book-open-variant" />}
-          />
-          <Card.Content>
-            <List.Item
-              title="Budget"
-              description={`${league.budget} crediti per creare il team`}
-              left={(props) => <List.Icon {...props} icon="currency-eur" />}
-            />
-            <List.Item
-              title="Composizione Team"
-              description="3 piloti MotoGP + 3 Moto2 + 3 Moto3"
-              left={(props) => <List.Icon {...props} icon="motorbike" />}
-            />
-            <List.Item
-              title="Schieramento"
-              description="2 piloti per categoria ogni GP"
-              left={(props) => <List.Icon {...props} icon="strategy" />}
-            />
-            <List.Item
-              title="Punteggio"
-              description="Vince chi fa meno punti totali"
-              left={(props) => <List.Icon {...props} icon="trophy-outline" />}
-            />
-          </Card.Content>
-        </Card>
       </ScrollView>
 
-      {/* FAB per azioni rapide */}
-      {myTeam && (
+      {myTeam && nextRace && (
         <FAB
           icon={hasLineup ? "pencil" : "rocket-launch-outline"}
           style={styles.fab}
@@ -356,81 +332,27 @@ export default function LeagueDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    paddingBottom: 80,
-  },
-  headerCard: {
-    margin: 16,
-    marginBottom: 8,
-  },
-  leagueHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  leagueInfo: {
-    flex: 1,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  section: {
-    marginVertical: 8,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontWeight: 'bold',
-  },
-  card: {
-    margin: 16,
-    marginTop: 8,
-  },
-  banner: {
-    marginHorizontal: 16,
-    marginTop: 8,
-  },
-  myPositionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  positionInfo: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginVertical: 4,
-  },
-  positionCell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  userRow: {
-    backgroundColor: 'rgba(103, 80, 164, 0.08)',
-  },
-  podiumRow: {
-    backgroundColor: 'rgba(255, 193, 7, 0.08)',
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  content: { paddingBottom: 80 },
+  headerCard: { margin: 16, marginBottom: 8 },
+  leagueHeader: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  leagueInfo: { flex: 1 },
+  statsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  section: { marginVertical: 8 },
+  sectionTitle: { fontWeight: 'bold', paddingHorizontal: 16, marginBottom: 8 },
+  card: { marginHorizontal: 16, marginTop: 8 },
+  banner: { marginHorizontal: 16, marginTop: 8 },
+  myPositionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  positionInfo: { flexDirection: 'row', alignItems: 'baseline', marginVertical: 4 },
+  userRow: { backgroundColor: 'rgba(103, 80, 164, 0.08)' },
+  podiumRow: { backgroundColor: 'rgba(255, 193, 7, 0.08)' },
+  fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
+  raceCarousel: { paddingHorizontal: 8, paddingVertical: 8 },
+  raceCardContainer: { width: screenWidth * 0.9, marginRight: 12, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
+  selectedRaceCard: { borderColor: '#FF6B00' },
+  lineupCard: { marginHorizontal: 16, marginBottom: 12 },
+  riderRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  riderName: { flex: 1 },
+  riderPredictions: { flexDirection: 'row', gap: 16 },
 });

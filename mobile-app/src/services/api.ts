@@ -120,6 +120,12 @@ export const getPastRaces = async () => {
   return response.data;
 };
 
+export const getAllRaces = async (season: number) => {
+  const response = await api.get(`/races/calendar/${season}`);
+  return response.data;
+};
+
+
 // Schieramenti
 export const getLineup = async (teamId: string, raceId: string) => {
   const response = await api.get(`/lineups/${raceId}`, { params: { teamId } });
@@ -129,6 +135,11 @@ export const getLineup = async (teamId: string, raceId: string) => {
 export const setLineup = async (raceId: string, lineupData: any) => {
   const response = await api.post(`/lineups/${raceId}`, lineupData);
   return response.data;
+};
+
+export const getLeagueRaceLineups = async (leagueId: string, raceId: string) => {
+    const response = await api.get(`/leagues/${leagueId}/race/${raceId}/lineups`);
+    return response.data;
 };
 
 

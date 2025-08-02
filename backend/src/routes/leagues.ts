@@ -68,5 +68,7 @@ router.get('/public', publicLeaguesValidation, leaguesController.getPublicLeague
 // Le rotte con parametri :id ora sono alla fine
 router.get('/:id', leagueIdValidation, optionalAuth, leaguesController.getLeagueById);
 router.get('/:id/standings', leagueIdValidation, leaguesController.getLeagueStandings);
+router.get('/:id/race/:raceId/lineups', authenticate, leaguesController.getLeagueRaceLineups);
+
 
 export default router;
