@@ -1,18 +1,18 @@
 // mobile-app/src/screens/main/TeamsScreen.tsx
 import React, { useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, Alert, ScrollView } from 'react-native';
-import { 
-  Card, 
-  Text, 
-  Title, 
-  Paragraph, 
-  Button, 
-  FAB, 
-  Avatar, 
-  List, 
-  ActivityIndicator, 
-  Searchbar, 
-  Menu, 
+import {
+  Card,
+  Text,
+  Title,
+  Paragraph,
+  Button,
+  FAB,
+  Avatar,
+  List,
+  ActivityIndicator,
+  Searchbar,
+  Menu,
   IconButton,
   Chip,
   Badge,
@@ -21,7 +21,7 @@ import {
   Divider
 } from 'react-native-paper';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getMyTeams, getMyLeagues } from '../../services/api';
+import { getMyTeams, getMyLeagues, getUpcomingRaces } from '../../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -82,8 +82,14 @@ export default function TeamsScreen() {
     queryFn: getMyLeagues,
   });
 
+  const { data: racesData } = useQuery({
+    queryKey: ['upcomingRaces'],
+    queryFn: getUpcomingRaces,
+  });
+
   const teams: Team[] = teamsData?.teams || [];
   const leagues: League[] = leaguesData?.leagues || [];
+  const nextRace = racesData?.races?.[0];
 
   const leaguesWithoutTeam = leagues.filter(
     (league: League) => !teams.some((team: Team) => team.league.id === league.id)
@@ -121,7 +127,7 @@ export default function TeamsScreen() {
     const hasLineup = team.hasLineup;
     
     return (
-      <Card 
+      <Card
         style={styles.teamCard}
         onPress={() => setSelectedTeam(team.id === selectedTeam ? null : team.id)}
       >
@@ -130,27 +136,27 @@ export default function TeamsScreen() {
           titleStyle={{ fontWeight: 'bold' }}
           subtitle={
             <View style={styles.leagueInfoContainer}>
-              <MaterialCommunityIcons 
-                name={team.league.isPrivate ? 'lock' : 'earth'} 
-                size={14} 
-                color="#666" 
+              <MaterialCommunityIcons
+                name={team.league.isPrivate ? 'lock' : 'earth'}
+                size={14}
+                color="#666"
               />
               <Text style={styles.leagueName} numberOfLines={1}>{team.league.name}</Text>
               <Badge style={styles.leagueCode}>{team.league.code}</Badge>
             </View>
           }
           left={(props) => (
-            <Avatar.Text 
-              {...props} 
-              label={team.name.substring(0, 2).toUpperCase()} 
-              style={{ backgroundColor: '#FF6B00' }} 
+            <Avatar.Text
+              {...props}
+              label={team.name.substring(0, 2).toUpperCase()}
+              style={{ backgroundColor: '#FF6B00' }}
             />
           )}
           right={(props) => (
             <View style={styles.rightContainer}>
               {hasLineup && (
-                <Chip 
-                  icon="check-circle" 
+                <Chip
+                  icon="check-circle"
                   mode="flat"
                   style={styles.lineupChip}
                   textStyle={styles.lineupChipText}
@@ -158,7 +164,43 @@ export default function TeamsScreen() {
                   Schierato
                 </Chip>
               )}
-              <IconButton {...props} icon="dots-vertical" onPress={() => {}} />
+              <Menu
+                visible={menuVisible === team.id}
+                onDismiss={() => setMenuVisible(null)}
+                anchor={
+                  <IconButton
+                    {...props}
+                    icon="dots-vertical"
+                    onPress={() => setMenuVisible(team.id)}
+                  />
+                }
+              >
+                <Menu.Item
+                  onPress={() => {
+                    setMenuVisible(null);
+                    navigation.navigate('Lineup', { teamId: team.id, race: nextRace });
+                  }}
+                  title="Gestisci Formazione"
+                  leadingIcon="rocket-launch-outline"
+                />
+                <Menu.Item
+                  onPress={() => {
+                    setMenuVisible(null);
+                    navigation.navigate('LeagueDetail', { leagueId: team.league.id });
+                  }}
+                  title="Vedi Dettagli Lega"
+                  leadingIcon="trophy"
+                />
+                <Divider />
+                <Menu.Item
+                  onPress={() => {
+                    setMenuVisible(null);
+                    setSelectedTeam(team.id === selectedTeam ? null : team.id)
+                  }}
+                  title={selectedTeam === team.id ? "Nascondi Piloti" : "Visualizza Piloti"}
+                  leadingIcon={selectedTeam === team.id ? "eye-off" : "eye"}
+                />
+              </Menu>
             </View>
           )}
         />
@@ -166,7 +208,7 @@ export default function TeamsScreen() {
           <View style={styles.budgetInfo}>
             <Text style={styles.budgetLabel}>Budget rimanente:</Text>
             <Text style={[
-              styles.budgetValue, 
+              styles.budgetValue,
               { color: team.remainingBudget >= 0 ? '#4CAF50' : '#F44336' }
             ]}>
               {team.remainingBudget} crediti
@@ -198,14 +240,14 @@ export default function TeamsScreen() {
                           title={`${teamRider.rider.number}. ${teamRider.rider.name}`}
                           description={`${teamRider.rider.value.toLocaleString()} crediti`}
                           left={(props) => (
-                            <Avatar.Text 
-                              {...props} 
-                              label={teamRider.rider.number.toString()} 
-                              size={36} 
-                              style={{ 
+                            <Avatar.Text
+                              {...props}
+                              label={teamRider.rider.number.toString()}
+                              size={36}
+                              style={{
                                 backgroundColor: getCategoryColor(category),
-                                marginRight: 8 
-                              }} 
+                                marginRight: 8
+                              }}
                             />
                           )}
                           titleStyle={styles.riderName}
@@ -216,10 +258,10 @@ export default function TeamsScreen() {
                   );
                 })}
               </View>
-              <Button 
-                mode="contained" 
+              <Button
+                mode="contained"
                 style={styles.manageButton}
-                onPress={() => navigation.navigate('Lineup', { teamId: team.id, race: null })}
+                onPress={() => navigation.navigate('Lineup', { teamId: team.id, race: nextRace })}
                 icon={hasLineup ? "pencil" : "rocket-launch-outline"}
               >
                 {hasLineup ? 'Modifica Schieramento' : 'Gestisci Schieramenti'}
@@ -246,11 +288,11 @@ export default function TeamsScreen() {
 
   return (
     <View style={styles.container}>
-      <Searchbar 
-        placeholder="Cerca team o lega" 
-        onChangeText={setSearchQuery} 
-        value={searchQuery} 
-        style={styles.searchbar} 
+      <Searchbar
+        placeholder="Cerca team o lega"
+        onChangeText={setSearchQuery}
+        value={searchQuery}
+        style={styles.searchbar}
       />
       
       {filteredTeams.length > 0 ? (
@@ -260,19 +302,19 @@ export default function TeamsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
+            <RefreshControl
+              refreshing={refreshing}
               onRefresh={onRefresh}
               colors={['#FF6B00']}
             />
           }
         />
       ) : (
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.emptyContainer}
           refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
+            <RefreshControl
+              refreshing={refreshing}
               onRefresh={onRefresh}
               colors={['#FF6B00']}
             />
@@ -281,7 +323,7 @@ export default function TeamsScreen() {
           <MaterialCommunityIcons name="account-group-outline" size={80} color="#ccc" />
           <Title style={styles.emptyTitle}>Nessun team trovato</Title>
           <Paragraph style={styles.emptyText}>
-            {teams.length === 0 
+            {teams.length === 0
               ? 'Non hai ancora creato nessun team. Unisciti a una lega per iniziare!'
               : 'Nessun risultato per la ricerca.'}
           </Paragraph>
@@ -333,8 +375,8 @@ const styles = StyleSheet.create({
     leagueInfoContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
     leagueName: { marginLeft: 6, color: '#666', flexShrink: 1 },
     leagueCode: { marginLeft: 8, backgroundColor: '#e0e0e0' },
-    rightContainer: { flexDirection: 'row', alignItems: 'center', paddingRight: 8 },
-    lineupChip: { backgroundColor: '#E8F5E9', height: 28 },
+    rightContainer: { flexDirection: 'row', alignItems: 'center', paddingRight: 0 },
+    lineupChip: { backgroundColor: '#E8F5E9', height: 28, marginRight: -8 },
     lineupChipText: { fontSize: 12, color: '#4CAF50', fontWeight: 'bold' },
     budgetInfo: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
     budgetLabel: { color: '#666' },
@@ -351,10 +393,10 @@ const styles = StyleSheet.create({
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
     emptyTitle: { marginTop: 16, color: '#666' },
     emptyText: { textAlign: 'center', color: '#999', marginTop: 8 },
-    fab: { 
-      position: 'absolute', 
-      right: 16, 
-      bottom: 16, 
-      backgroundColor: '#FF6B00' 
+    fab: {
+      position: 'absolute',
+      right: 16,
+      bottom: 16,
+      backgroundColor: '#FF6B00'
     },
 });

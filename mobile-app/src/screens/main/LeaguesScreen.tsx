@@ -23,14 +23,16 @@ import {
   Dialog,
   Portal,
   TextInput,
-  SegmentedButtons
+  SegmentedButtons,
+  Divider
 } from 'react-native-paper';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getMyLeagues, getPublicLeagues, joinLeague } from '../../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, CompositeNavigationProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MainStackParamList } from '../../../App';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { MainStackParamList, MainTabParamList } from '../../../App';
 
 interface League {
   id: string;
@@ -44,13 +46,18 @@ interface League {
   userPoints?: number;
 }
 
-type LeaguesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Leagues'>;
+type LeaguesScreenNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Leagues'>,
+  StackNavigationProp<MainStackParamList>
+>;
+
 
 export default function LeaguesScreen() {
   const navigation = useNavigation<LeaguesScreenNavigationProp>();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [showActionsDialog, setShowActionsDialog] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [viewType, setViewType] = useState<'my' | 'public'>('my');
   const [refreshing, setRefreshing] = useState(false);
@@ -58,7 +65,7 @@ export default function LeaguesScreen() {
   const { data: myLeaguesData, isLoading: loadingMy, refetch: refetchMy } = useQuery({
     queryKey: ['myLeagues'],
     queryFn: getMyLeagues,
-    staleTime: 1000, // 1 secondo di cache per permettere refresh più frequenti
+    staleTime: 1000,
   });
 
   const { data: publicLeaguesData, isLoading: loadingPublic, refetch: refetchPublic } = useQuery({
@@ -78,22 +85,17 @@ export default function LeaguesScreen() {
       } else {
         queryClient.invalidateQueries({ queryKey: ['publicLeagues'] });
       }
-      
-      // Cleanup function
-      return () => {
-        // Non fare nulla al cleanup
-      };
+      return () => {};
     }, [viewType, queryClient])
   );
 
-  // Effetto per il cambio di tab
   useEffect(() => {
     if (viewType === 'my') {
       refetchMy();
     } else {
       refetchPublic();
     }
-  }, [viewType]);
+  }, [viewType, refetchMy, refetchPublic]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -122,55 +124,50 @@ export default function LeaguesScreen() {
   };
 
   const renderLeagueCard = ({ item: league }: { item: League }) => {
-    const isFull = league.currentTeams >= league.maxTeams;
-
     return (
-      <Card 
+      <Card
         style={styles.leagueCard}
         onPress={() => navigation.navigate('LeagueDetail', { leagueId: league.id })}
       >
         <Card.Title
           title={league.name}
+          titleStyle={{ fontWeight: 'bold' }}
           subtitle={`${league.currentTeams}/${league.maxTeams} team`}
           left={(props) => (
-            <Avatar.Icon 
-              {...props} 
+            <Avatar.Icon
+              {...props}
               icon={league.isPrivate ? 'lock' : 'earth'}
               style={{ backgroundColor: league.isPrivate ? '#666' : '#4CAF50' }}
             />
           )}
-        />
-        <Card.Content>
-          <View style={styles.leagueInfo}>
-            <Chip icon="currency-eur" style={styles.chip}>{league.budget} crediti</Chip>
-            <Chip icon="key" style={styles.chip}>{league.code}</Chip>
-          </View>
-          {league.userPoints != null && (
-            <View style={styles.userStats}>
-              <Text variant="labelLarge">I tuoi punti: {league.userPoints}</Text>
-              {league.userPosition && (
-                <Text variant="bodyMedium" style={styles.position}>
-                  Posizione: {league.userPosition}°
-                </Text>
-              )}
+          right={() => (
+            <View style={styles.rightContainer}>
+              <Chip icon="key">{league.code}</Chip>
             </View>
           )}
-        </Card.Content>
-        <Card.Actions>
-          <Button onPress={() => navigation.navigate('LeagueDetail', { leagueId: league.id })}>
-            Vedi Dettagli
-          </Button>
-          {!isFull && viewType === 'public' && (
-            <Button mode="contained">Unisciti</Button>
-          )}
-        </Card.Actions>
+        />
+        {league.userPoints != null && (
+          <>
+            <Divider />
+            <Card.Content style={{ paddingTop: 16 }}>
+              <View style={styles.userStats}>
+                <Text variant="labelLarge">I tuoi punti: {league.userPoints}</Text>
+                {league.userPosition && (
+                  <Text variant="bodyMedium" style={styles.position}>
+                    Posizione: {league.userPosition}°
+                  </Text>
+                )}
+              </View>
+            </Card.Content>
+          </>
+        )}
       </Card>
     );
   };
 
   const isLoading = viewType === 'my' ? loadingMy : loadingPublic;
   const leagues = viewType === 'my' ? myLeagues : publicLeagues;
-  const filteredLeagues = leagues.filter(league => 
+  const filteredLeagues = leagues.filter((league: League) => 
     league.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     league.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -258,17 +255,19 @@ export default function LeaguesScreen() {
         </ScrollView>
       )}
 
-      {viewType === 'my' && filteredLeagues.length > 0 && (
+      {viewType === 'my' && (
         <FAB
           icon="plus"
           style={styles.fab}
-          onPress={() => navigation.navigate('CreateLeague')}
+          label="Aggiungi"
+          onPress={() => setShowActionsDialog(true)}
         />
       )}
       
       <Portal>
+        {/* Dialog per unirsi a una lega */}
         <Dialog visible={showJoinDialog} onDismiss={() => setShowJoinDialog(false)}>
-          <Dialog.Title>Unisciti a una Lega</Dialog.Title>
+          <Dialog.Title>Unisciti con Codice</Dialog.Title>
           <Dialog.Content>
             <TextInput
               label="Codice Lega"
@@ -290,6 +289,29 @@ export default function LeaguesScreen() {
               Unisciti
             </Button>
           </Dialog.Actions>
+        </Dialog>
+
+        {/* Dialog per scegliere tra crea e unisciti */}
+        <Dialog visible={showActionsDialog} onDismiss={() => setShowActionsDialog(false)}>
+          <Dialog.Title>Aggiungi Lega</Dialog.Title>
+          <Dialog.Content>
+            <List.Item
+              title="Crea una nuova lega"
+              left={props => <List.Icon {...props} icon="plus-circle" />}
+              onPress={() => {
+                setShowActionsDialog(false);
+                navigation.navigate('CreateLeague');
+              }}
+            />
+            <List.Item
+              title="Unisciti con un codice"
+              left={props => <List.Icon {...props} icon="key-variant" />}
+              onPress={() => {
+                setShowActionsDialog(false);
+                setShowJoinDialog(true);
+              }}
+            />
+          </Dialog.Content>
         </Dialog>
       </Portal>
     </View>
@@ -321,20 +343,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     elevation: 2,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0'
   },
-  leagueInfo: {
+  rightContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-    flexWrap: 'wrap',
-  },
-  chip: {
-    height: 28,
+    alignItems: 'center',
+    paddingRight: 16,
   },
   userStats: {
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    // paddingTop: 8,
   },
   position: {
     color: '#666',
