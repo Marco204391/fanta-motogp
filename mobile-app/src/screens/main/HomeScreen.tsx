@@ -148,7 +148,7 @@ export default function HomeScreen() {
               contentContainerStyle={styles.horizontalScroll}
             >
               {activeLeagues.slice(0, 3).map((league: any) => {
-                const myTeamInLeague = myTeams.find((t: any) => t.leagueId === league.id);
+                const myTeamInLeague = myTeams.find((t: any) => t.league.id === league.id);
                 return (
                   <Card 
                     key={league.id} 
@@ -167,7 +167,7 @@ export default function HomeScreen() {
                             {league.name}
                           </Text>
                           <Text variant="bodySmall" style={{ opacity: 0.7 }}>
-                            {league.teams?.length || 0}/{league.maxTeams} team
+                            {league.currentTeams}/{league.maxTeams} team
                           </Text>
                         </View>
                       </View>
@@ -178,7 +178,7 @@ export default function HomeScreen() {
                             {myTeamInLeague.name}
                           </Chip>
                           <Text variant="bodySmall">
-                            Posizione: {myTeamInLeague.position || '-'}° • {myTeamInLeague.totalPoints || 0} punti
+                            Posizione: {league.userPosition || '-'}° • {league.userPoints || 0} punti
                           </Text>
                         </View>
                       ) : (

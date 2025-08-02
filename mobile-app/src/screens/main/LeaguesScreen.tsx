@@ -27,7 +27,7 @@ import {
   Divider
 } from 'react-native-paper';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getMyLeagues, getPublicLeagues, joinLeague } from '../../services/api';
+import { getMyLeagues, getPublicLeagues, joinLeague, getMyTeams } from '../../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect, CompositeNavigationProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -45,6 +45,17 @@ interface League {
   userPosition?: number;
   userPoints?: number;
 }
+
+interface Team {
+    id: string;
+    name: string;
+    league: {
+      id: string;
+    };
+    totalPoints?: number;
+    position?: number;
+}
+
 
 type LeaguesScreenNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Leagues'>,
@@ -74,9 +85,17 @@ export default function LeaguesScreen() {
     enabled: viewType === 'public',
     staleTime: 5000,
   });
+  
+  // Aggiunta query per ottenere i dati dei team
+  const { data: myTeamsData } = useQuery({
+    queryKey: ['myTeams'],
+    queryFn: getMyTeams,
+  });
 
   const myLeagues = myLeaguesData?.leagues || [];
   const publicLeagues = publicLeaguesData?.leagues || [];
+  const myTeams: Team[] = myTeamsData?.teams || [];
+
 
   useFocusEffect(
     useCallback(() => {
@@ -124,43 +143,47 @@ export default function LeaguesScreen() {
   };
 
   const renderLeagueCard = ({ item: league }: { item: League }) => {
+    const myTeamInLeague = myTeams.find((t: any) => t.league.id === league.id);
+  
     return (
       <Card
         style={styles.leagueCard}
         onPress={() => navigation.navigate('LeagueDetail', { leagueId: league.id })}
       >
-        <Card.Title
-          title={league.name}
-          titleStyle={{ fontWeight: 'bold' }}
-          subtitle={`${league.currentTeams}/${league.maxTeams} team`}
-          left={(props) => (
+        <Card.Content>
+          <View style={styles.leagueCardHeader}>
             <Avatar.Icon
-              {...props}
+              size={40}
               icon={league.isPrivate ? 'lock' : 'earth'}
               style={{ backgroundColor: league.isPrivate ? '#666' : '#4CAF50' }}
             />
-          )}
-          right={() => (
-            <View style={styles.rightContainer}>
-              <Chip icon="key">{league.code}</Chip>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text variant="titleMedium" numberOfLines={1}>
+                {league.name}
+              </Text>
+              <Text variant="bodySmall" style={{ opacity: 0.7 }}>
+                {league.currentTeams}/{league.maxTeams} team
+              </Text>
             </View>
-          )}
-        />
-        {league.userPoints != null && (
-          <View>
-            <Divider />
-            <Card.Content style={{ paddingTop: 16 }}>
-              <View style={styles.userStats}>
-                <Text variant="labelLarge">I tuoi punti: {league.userPoints}</Text>
-                {league.userPosition && (
-                  <Text variant="bodyMedium" style={styles.position}>
-                    Posizione: {league.userPosition}°
-                  </Text>
-                )}
-              </View>
-            </Card.Content>
           </View>
-        )}
+  
+          {myTeamInLeague ? (
+            <View style={styles.teamInfo}>
+              <Chip icon="shield-account" compact style={{ marginBottom: 4 }}>
+                {myTeamInLeague.name}
+              </Chip>
+              <Text variant="bodySmall">
+                Posizione: {league.userPosition || '-'}° • {league.userPoints || 0} punti
+              </Text>
+            </View>
+          ) : (
+            viewType === 'public' && (
+              <Button mode="outlined" compact style={{ marginTop: 8 }}>
+                Visualizza
+              </Button>
+            )
+          )}
+        </Card.Content>
       </Card>
     );
   };
@@ -353,13 +376,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingRight: 16,
   },
-  userStats: {
-    // paddingTop: 8,
-  },
-  position: {
-    color: '#666',
-    marginTop: 4,
-  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -390,5 +406,17 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: '#FF6B00',
+  },
+  leagueCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  teamInfo: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    minHeight: 60, 
   },
 });
