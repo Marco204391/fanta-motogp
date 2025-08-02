@@ -329,9 +329,7 @@ const styles = StyleSheet.create({
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     searchbar: { marginHorizontal: 16, marginTop: 16, marginBottom: 8 },
     listContent: { paddingHorizontal: 16, paddingBottom: 100 },
-    teamCard: {
-       marginBottom: 16 
-    },
+    teamCard: { marginBottom: 16,  elevation: 2, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e0e0e0'},
     leagueInfoContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
     leagueName: { marginLeft: 6, color: '#666', flexShrink: 1 },
     leagueCode: { marginLeft: 8, backgroundColor: '#e0e0e0' },
