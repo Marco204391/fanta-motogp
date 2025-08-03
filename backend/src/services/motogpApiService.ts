@@ -55,46 +55,65 @@ export class MotoGPApiService {
       console.log('🏍️ Sincronizzazione piloti in corso...');
       const response = await this.axiosInstance.get('/riders');
       const riders = response.data;
+      
+      console.log(`🔎 Trovati ${riders.length} piloti totali dall'API.`);
+      let syncedCount = 0;
+      let skippedCount = 0;
 
       for (const apiRider of riders) {
+        const riderFullName = `${apiRider.name} ${apiRider.surname}`;
         const careerStep = apiRider.current_career_step;
-        if (!careerStep?.category?.legacy_id) continue;
+
+        if (!careerStep?.category?.legacy_id) {
+          console.log(`🟡 SKIPPATO: ${riderFullName} - Nessun career step valido.`);
+          skippedCount++;
+          continue;
+        }
         
         const category = this.mapLegacyCategory(careerStep.category.legacy_id);
-        if (!category) continue;
+        
+        if (!category) {
+          console.log(`🟡 SKIPPATO: ${riderFullName} - Categoria non gestita (${careerStep.category.name}).`);
+          skippedCount++;
+          continue;
+        }
 
         const value = this.calculateRiderValue(apiRider);
         const riderType = getRiderType(apiRider);
-        
         const photoUrl = careerStep.pictures?.profile?.main ?? careerStep.pictures?.portrait;
+        const isActive = !!careerStep;
 
         await prisma.rider.upsert({
-          where: { number: careerStep.number },
+          where: { apiRiderId: apiRider.id }, // Usa l'ID univoco dell'API
           update: {
-            name: `${apiRider.name} ${apiRider.surname}`,
+            name: riderFullName,
             team: careerStep.sponsored_team,
+            number: careerStep.number,
             category,
             nationality: apiRider.country.iso,
             value,
-            isActive: careerStep.in_grid || careerStep.type?.toLowerCase() === 'test',
+            isActive,
             photoUrl: photoUrl,
             riderType,
           },
           create: {
-            name: `${apiRider.name} ${apiRider.surname}`,
+            name: riderFullName,
             number: careerStep.number,
             team: careerStep.sponsored_team,
             category,
             nationality: apiRider.country.iso,
             value,
-            isActive: careerStep.in_grid || careerStep.type?.toLowerCase() === 'test',
+            isActive,
             photoUrl: photoUrl,
             riderType,
+            apiRiderId: apiRider.id,
           }
         });
-        console.log(`✅ Sincronizzato: ${apiRider.name} ${apiRider.surname}`);
+        syncedCount++;
       }
+      
       console.log('🎉 Sincronizzazione piloti completata!');
+      console.log(`📊 Riepilogo: ${syncedCount} piloti sincronizzati, ${skippedCount} piloti scartati.`);
     } catch (error) {
       console.error('❌ Errore sincronizzazione piloti:', error);
       throw error;

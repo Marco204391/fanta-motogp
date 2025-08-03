@@ -34,15 +34,14 @@ model User {
 model Rider {
   id            String    @id @default(uuid())
   name          String
-  number        Int       @unique
+  number        Int
   team          String
   category      Category
   nationality   String
   value         Int
   photoUrl      String?
   isActive      Boolean   @default(true)
-  riderType     RiderType @default(OFFICIAL) // Campo per classificare i piloti
-  apiLegacyId   Int?      @unique
+  riderType     RiderType @default(OFFICIAL)
   apiRiderId    String?   @unique
   
   statistics      RiderStats[]

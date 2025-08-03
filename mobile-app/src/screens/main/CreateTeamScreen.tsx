@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTeam, getRiders, getLeagueDetails } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 
+// Tipi definiti per una maggiore sicurezza del codice
 interface Rider {
   id: string;
   name: string;
@@ -25,6 +26,11 @@ interface Rider {
   team: string;
   category: 'MOTOGP' | 'MOTO2' | 'MOTO3';
   value: number;
+  riderType: 'OFFICIAL' | 'REPLACEMENT' | 'WILDCARD' | 'TEST_RIDER';
+}
+
+interface RidersResponse {
+  riders: Rider[];
 }
 
 type CreateTeamScreenRouteProp = RouteProp<MainStackParamList, 'CreateTeam'>;
@@ -38,11 +44,15 @@ export default function CreateTeamScreen() {
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
   const [teamName, setTeamName] = useState('');
 
-  const { data: ridersData, isLoading: isLoadingRiders } = useQuery({
+  const { data: ridersData, isLoading: isLoadingRiders } = useQuery<RidersResponse>({
     queryKey: ['riders', 'all'],
     queryFn: () => getRiders({ limit: 100 } as any),
   });
   const riders = ridersData?.riders || [];
+
+  const officialRiders = useMemo(() => 
+    riders.filter((r: Rider) => r.riderType === 'OFFICIAL'), 
+  [riders]);
 
   const { data: leagueData, isLoading: isLoadingLeague } = useQuery({
     queryKey: ['leagueDetails', leagueId],
@@ -51,7 +61,6 @@ export default function CreateTeamScreen() {
 
   const takenRiderIds = useMemo(() => {
     if (!leagueData?.league?.teams) return new Set<string>();
-
     const ids = new Set<string>();
     leagueData.league.teams.forEach((team: any) => {
       team.riders.forEach((teamRider: any) => {
@@ -61,8 +70,7 @@ export default function CreateTeamScreen() {
     return ids;
   }, [leagueData]);
 
-  // TODO: Get budget from league details
-  const budget = 1000;
+  const budget = leagueData?.league?.budget || 1000;
 
   const createTeamMutation = useMutation({
     mutationFn: createTeam,
@@ -72,7 +80,7 @@ export default function CreateTeamScreen() {
       navigation.goBack();
     },
     onError: (error: any) => {
-      Alert.alert('Errore', error.message || 'Impossibile creare il team.');
+      Alert.alert('Errore', error.response?.data?.error || 'Impossibile creare il team.');
     },
   });
 
@@ -82,8 +90,7 @@ export default function CreateTeamScreen() {
         name: teamName,
         leagueId,
         riderIds: selectedRiders,
-        // TODO: Add captain selection
-        captainId: selectedRiders[0],
+        captainId: selectedRiders[0], // Placeholder per il capitano
       });
     }
   };
@@ -96,7 +103,7 @@ export default function CreateTeamScreen() {
         MOTOGP: 0,
         MOTO2: 0,
         MOTO3: 0,
-      },
+      } as Record<Rider['category'], number>, // Tipo esplicito per le chiavi
       isValid: false,
       validationErrors: [] as string[],
     };
@@ -106,7 +113,7 @@ export default function CreateTeamScreen() {
     }
 
     selectedRiders.forEach((riderId) => {
-      const rider = riders.find((r: Rider) => r.id === riderId);
+      const rider = riders.find((r) => r.id === riderId);
       if (rider) {
         stats.totalCost += rider.value;
         stats.ridersByCategory[rider.category]++;
@@ -114,35 +121,20 @@ export default function CreateTeamScreen() {
     });
 
     if (stats.totalRiders !== 9) {
-      stats.validationErrors.push(
-        `Seleziona 9 piloti (attualmente: ${stats.totalRiders})`
-      );
+      stats.validationErrors.push(`Seleziona 9 piloti (attualmente: ${stats.totalRiders})`);
     }
-
     if (stats.ridersByCategory.MOTOGP !== 3) {
-      stats.validationErrors.push(
-        `MotoGP: ${stats.ridersByCategory.MOTOGP}/3 piloti`
-      );
+      stats.validationErrors.push(`MotoGP: ${stats.ridersByCategory.MOTOGP}/3 piloti`);
     }
-
     if (stats.ridersByCategory.MOTO2 !== 3) {
-      stats.validationErrors.push(
-        `Moto2: ${stats.ridersByCategory.MOTO2}/3 piloti`
-      );
+      stats.validationErrors.push(`Moto2: ${stats.ridersByCategory.MOTO2}/3 piloti`);
     }
-
     if (stats.ridersByCategory.MOTO3 !== 3) {
-      stats.validationErrors.push(
-        `Moto3: ${stats.ridersByCategory.MOTO3}/3 piloti`
-      );
+      stats.validationErrors.push(`Moto3: ${stats.ridersByCategory.MOTO3}/3 piloti`);
     }
-
     if (stats.totalCost > budget) {
-      stats.validationErrors.push(
-        `Budget superato: ${stats.totalCost}/${budget} crediti`
-      );
+      stats.validationErrors.push(`Budget superato: ${stats.totalCost}/${budget} crediti`);
     }
-
     if (!teamName.trim()) {
       stats.validationErrors.push('Inserisci un nome per il team');
     }
@@ -152,51 +144,43 @@ export default function CreateTeamScreen() {
   }, [selectedRiders, teamName, riders, budget]);
 
   const handleRiderToggle = (riderId: string) => {
-    const rider = riders.find((r: Rider) => r.id === riderId);
+    const rider = riders.find((r) => r.id === riderId);
     if (!rider) return;
-
-    if (takenRiderIds.has(riderId)) {
-        Alert.alert('Pilota non disponibile', 'Questo pilota è già stato selezionato da un altro team in questa lega.');
-        return;
+    if (rider.riderType !== 'OFFICIAL') {
+      Alert.alert('Pilota non selezionabile', 'Puoi scegliere solo piloti ufficiali per il tuo team.');
+      return;
     }
-
+    if (takenRiderIds.has(riderId)) {
+      Alert.alert('Pilota non disponibile', 'Questo pilota è già stato selezionato da un altro team in questa lega.');
+      return;
+    }
     const isSelected = selectedRiders.includes(riderId);
-
     if (isSelected) {
       setSelectedRiders((prev) => prev.filter((id) => id !== riderId));
     } else {
       const currentInCategory = selectedRiders.filter((id) => {
-        const r = riders.find((r: Rider) => r.id === id);
+        const r = riders.find((r) => r.id === id);
         return r?.category === rider.category;
       }).length;
-
       if (currentInCategory >= 3) {
-        Alert.alert(
-          'Limite raggiunto',
-          `Hai già selezionato 3 piloti per la categoria ${rider.category}`
-        );
+        Alert.alert('Limite raggiunto', `Hai già selezionato 3 piloti per la categoria ${rider.category}`);
         return;
       }
-
       const newTotalCost = selectionStats.totalCost + rider.value;
       if (newTotalCost > budget) {
-        Alert.alert(
-          'Budget insufficiente',
-          `Aggiungendo ${rider.name} supereresti il budget di ${budget} crediti`
-        );
+        Alert.alert('Budget insufficiente', `Aggiungendo ${rider.name} supereresti il budget di ${budget} crediti`);
         return;
       }
-
       setSelectedRiders((prev) => [...prev, riderId]);
     }
   };
 
-  const renderCategory = (category: 'MOTOGP' | 'MOTO2' | 'MOTO3') => {
-    const categoryRiders = riders.filter((r: Rider) => r.category === category);
+  const renderCategory = (category: Rider['category']) => {
+    const categoryRiders = officialRiders.filter((r) => r.category === category);
     const selectedCount = selectionStats.ridersByCategory[category];
 
     return (
-      <Card style={styles.categoryCard}>
+      <Card style={styles.categoryCard} key={category}>
         <Card.Title
           title={`${category} (${selectedCount}/3)`}
           titleStyle={[
@@ -205,7 +189,7 @@ export default function CreateTeamScreen() {
           ]}
         />
         <Card.Content>
-          {categoryRiders.map((rider: Rider) => {
+          {categoryRiders.map((rider) => {
             const isSelected = selectedRiders.includes(rider.id);
             const isTaken = takenRiderIds.has(rider.id);
             const canSelect =
@@ -252,7 +236,7 @@ export default function CreateTeamScreen() {
         <View style={styles.statsRow}>
           <Text>Piloti selezionati: {selectionStats.totalRiders}/9</Text>
           <Text>
-            Budget utilizzato: {selectionStats.totalCost}/{budget}
+            Budget: {selectionStats.totalCost}/{budget}
           </Text>
         </View>
 
@@ -269,7 +253,7 @@ export default function CreateTeamScreen() {
         <Button
           mode="contained"
           onPress={handleCreateTeam}
-          disabled={!selectionStats.isValid}
+          disabled={!selectionStats.isValid || createTeamMutation.isPending}
           style={styles.createButton}
           loading={createTeamMutation.isPending}
         >
@@ -296,9 +280,7 @@ export default function CreateTeamScreen() {
         style={styles.teamNameInput}
         mode="outlined"
       />
-
       {renderSummary()}
-
       {renderCategory('MOTOGP')}
       {renderCategory('MOTO2')}
       {renderCategory('MOTO3')}

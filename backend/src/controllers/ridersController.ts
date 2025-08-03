@@ -1,89 +1,73 @@
 // backend/src/controllers/ridersController.ts
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { validationResult } from 'express-validator';
 
 const prisma = new PrismaClient();
 
-// GET /api/riders - Lista piloti con filtri
+// GET /api/riders - Lista piloti con filtri e ordinamento personalizzato
 export const getRiders = async (req: Request, res: Response) => {
   try {
-    const { 
-      category, 
-      search, 
+    const {
+      category,
+      search,
       sortBy = 'value',
       sortOrder = 'desc',
       page = 1,
-      limit = 20 
+      limit = 20
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
 
     // Costruisci filtri
-    const where: any = {
-      isActive: true
-    };
-
+    const whereClauses: Prisma.Sql[] = [Prisma.sql`"isActive" = true`];
     if (category) {
-      where.category = category;
+      whereClauses.push(Prisma.sql`"category" = ${category}`);
     }
-
     if (search) {
-      where.OR = [
-        { name: { contains: String(search), mode: 'insensitive' } },
-        { team: { contains: String(search), mode: 'insensitive' } },
-        { number: Number(search) || undefined }
-      ].filter(Boolean);
+      const searchString = `%${String(search)}%`;
+      whereClauses.push(Prisma.sql`("name" ILIKE ${searchString} OR "team" ILIKE ${searchString})`);
     }
 
-    // Determina ordinamento
-    let orderBy: any = {};
-    switch (sortBy) {
-      case 'value':
-        orderBy = { value: sortOrder };
-        break;
-      case 'points':
-        orderBy = { statistics: { _max: { points: sortOrder } } };
-        break;
-      case 'name':
-        orderBy = { name: sortOrder };
-        break;
-      default:
-        orderBy = { value: 'desc' };
-    }
+    const where = Prisma.sql`WHERE ${Prisma.join(whereClauses, ' AND ')}`;
 
-    // Query piloti
-    const [riders, total] = await Promise.all([
-      prisma.rider.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy,
-        include: {
-          statistics: {
-            where: { season: new Date().getFullYear() },
-            take: 1
-          }
+    // Ordinamento personalizzato per riderType
+    const riderTypeOrder = Prisma.sql`
+      CASE "riderType"
+        WHEN 'OFFICIAL' THEN 1
+        WHEN 'REPLACEMENT' THEN 2
+        WHEN 'WILDCARD' THEN 3
+        WHEN 'TEST_RIDER' THEN 4
+        ELSE 5
+      END
+    `;
+
+    const orderBy = Prisma.sql`ORDER BY ${riderTypeOrder} ASC, "value" DESC, "number" ASC`;
+
+    // Query piloti con ordinamento personalizzato
+    const riders = await prisma.$queryRaw`
+      SELECT * FROM "Rider"
+      ${where}
+      ${orderBy}
+      LIMIT ${Number(limit)}
+      OFFSET ${skip}
+    `;
+
+    const total = await prisma.rider.count({
+        where: {
+            isActive: true,
+            ...(category && { category: category as any }),
+            ...(search && {
+                OR: [
+                    { name: { contains: String(search), mode: 'insensitive' } },
+                    { team: { contains: String(search), mode: 'insensitive' } },
+                ]
+            })
         }
-      }),
-      prisma.rider.count({ where })
-    ]);
-
-    // Formatta risposta
-    const formattedRiders = riders.map(rider => ({
-      id: rider.id,
-      name: rider.name,
-      number: rider.number,
-      team: rider.team,
-      category: rider.category,
-      nationality: rider.nationality,
-      value: rider.value,
-      photoUrl: rider.photoUrl,
-      statistics: rider.statistics[0] || null
-    }));
+    });
 
     res.json({
-      riders: formattedRiders,
+      riders,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -129,9 +113,9 @@ export const updateRiderValue = async (req: Request, res: Response) => {
       data: { value: Number(value) }
     });
 
-    res.json({ 
+    res.json({
       success: true,
-      rider: updatedRider 
+      rider: updatedRider
     });
   } catch (error) {
     console.error('Errore aggiornamento valore:', error);
@@ -139,13 +123,13 @@ export const updateRiderValue = async (req: Request, res: Response) => {
   }
 };
 
-// GET /api/riders/:riderId - Ottieni dettagli di un pilota
+// GET /api/riders/:id - Ottieni dettagli di un pilota
 export const getRiderById = async (req: Request, res: Response) => {
-  const { riderId } = req.params;
+  const { id } = req.params; // Corretto: usa 'id'
 
   try {
     const rider = await prisma.rider.findUnique({
-      where: { id: riderId },
+      where: { id }, // Corretto: usa 'id'
       include: {
         statistics: {
           where: {
@@ -184,9 +168,9 @@ export const getRiderById = async (req: Request, res: Response) => {
   }
 };
 
-// GET /api/riders/:riderId/stats - Ottieni statistiche di un pilota
+// GET /api/riders/:id/stats - Ottieni statistiche di un pilota
 export const getRiderStats = async (req: Request, res: Response) => {
-  const { riderId } = req.params;
+  const { id: riderId } = req.params; // Corretto: usa 'id' e rinominalo in riderId
   const { season } = req.query;
   const targetSeason = season ? parseInt(season as string) : new Date().getFullYear();
 
@@ -282,7 +266,7 @@ export const getRidersByCategory = async (req: Request, res: Response) => {
       ],
     });
 
-    res.json({ 
+    res.json({
       category,
       riders,
       total: riders.length,

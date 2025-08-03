@@ -1,6 +1,6 @@
 // mobile-app/src/components/RaceCard.tsx
 import React from 'react';
-import { View, StyleSheet, ImageBackground } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Card, Text, Chip, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format, differenceInDays, differenceInHours, differenceInMinutes } from 'date-fns';
@@ -63,7 +63,7 @@ export default function RaceCard({ race, variant = 'upcoming', onPress }: RaceCa
   const getStatusChip = () => {
     switch (variant) {
       case 'past':
-        return <Chip style={styles.statusChip} textStyle={styles.statusText}>✓ Terminato</Chip>;
+        return <Chip style={[styles.statusChip, styles.finishedChip]} textStyle={styles.statusText}>✓ Terminato</Chip>;
       case 'current':
         return <Chip style={[styles.statusChip, { backgroundColor: theme.colors.error }]} textStyle={styles.statusText}>● LIVE</Chip>;
       case 'upcoming':
@@ -94,15 +94,23 @@ export default function RaceCard({ race, variant = 'upcoming', onPress }: RaceCa
     >
       <View style={styles.header}>
         <View style={styles.roundInfo}>
-          <Text variant="titleLarge" style={styles.roundNumber}>
-            {race.round.toString().padStart(2, '0')}
-          </Text>
+          {race.round > 0 ? (
+            <Text variant="titleLarge" style={styles.roundNumber}>
+              {race.round.toString().padStart(2, '0')}
+            </Text>
+          ) : (
+            <MaterialCommunityIcons 
+              name="flag-variant-outline" 
+              size={32} 
+              color={theme.colors.onSurfaceDisabled} 
+            />
+          )}
           <Text variant="labelSmall" style={styles.roundLabel}>ROUND</Text>
         </View>
         
         <View style={styles.raceInfo}>
           <View style={styles.titleRow}>
-            <Text variant="titleMedium" style={styles.country}>
+            <Text variant="titleMedium" style={styles.country} numberOfLines={1}>
               {countryFlags[race.country] || '🏁'} {race.country.toUpperCase()}
             </Text>
             {getStatusChip()}
@@ -170,22 +178,27 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     padding: 16,
+    alignItems: 'center',
   },
   roundInfo: {
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 16,
     minWidth: 60,
+    height: 50,
   },
   roundNumber: {
     fontWeight: 'bold',
     fontSize: 32,
+    lineHeight: 34,
   },
   roundLabel: {
     opacity: 0.6,
-    marginTop: -4,
+    marginTop: -2,
   },
   raceInfo: {
     flex: 1,
+    overflow: 'hidden',
   },
   titleRow: {
     flexDirection: 'row',
@@ -195,6 +208,8 @@ const styles = StyleSheet.create({
   },
   country: {
     fontWeight: 'bold',
+    flexShrink: 1, // Permette al testo di restringersi
+    marginRight: 8, // Aggiunge spazio tra il testo e il badge
   },
   raceName: {
     marginBottom: 2,
@@ -204,7 +219,10 @@ const styles = StyleSheet.create({
   },
   statusChip: {
     height: 24,
-    backgroundColor: '#4CAF50',
+    paddingHorizontal: 4, // Aggiunge un po' di padding orizzontale
+  },
+  finishedChip: {
+    backgroundColor: '#388E3C',
   },
   statusText: {
     fontSize: 11,

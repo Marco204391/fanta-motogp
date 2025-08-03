@@ -1,6 +1,6 @@
 // backend/src/controllers/teamsController.ts
 import { Request, Response } from 'express';
-import { PrismaClient, Category } from '@prisma/client';
+import { PrismaClient, Category, RiderType } from '@prisma/client';
 import { validationResult } from 'express-validator';
 import { AuthRequest } from '../middleware/auth';
 
@@ -179,6 +179,12 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
       if (riders.length !== riderIds.length) {
         throw new Error('Uno o più piloti non trovati');
       }
+      
+      // Assicura che tutti i piloti siano 'OFFICIAL'
+      const nonOfficialRiders = riders.filter(r => r.riderType !== RiderType.OFFICIAL);
+      if (nonOfficialRiders.length > 0) {
+          throw new Error(`Puoi selezionare solo piloti ufficiali. I seguenti non sono validi: ${nonOfficialRiders.map(r => r.name).join(', ')}`);
+      }
 
       // 3.1 Verifica che ci siano esattamente 3 piloti per categoria
       const ridersByCategory = riders.reduce((acc, rider) => {
@@ -233,8 +239,6 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
         },
       });
       
-      // 6. Non è più necessario usare LeagueRider, la logica al punto 3.2 è sufficiente
-
       return tx.team.findUnique({
         where: { id: team.id },
         include: {
