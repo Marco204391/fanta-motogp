@@ -5,7 +5,7 @@ import { motogpApi } from '../src/services/motogpApiService';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🏍️  Inizio seed del database Fanta MotoGP tramite API ufficiali...');
+  console.log('🏍️  Inizio seed del database Fanta MotoGP per la stagione corrente...');
   
   try {
     // 1. Sincronizzazione Piloti
@@ -13,10 +13,16 @@ async function main() {
     await motogpApi.syncRiders();
     console.log('✅ Piloti sincronizzati con successo.');
 
-    // 2. Sincronizzazione Calendario Gare (per la stagione corrente)
-    console.log('📅 Sincronizzazione calendario gare in corso...');
-    await motogpApi.syncRaceCalendar();
-    console.log('✅ Calendario gare sincronizzato con successo.');
+    // 2. Sincronizzazione Calendario Gare per la stagione corrente
+    const currentYear = new Date().getFullYear();
+
+    console.log(`📅 Sincronizzazione gare già disputate per la stagione ${currentYear}...`);
+    await motogpApi.syncRaceCalendar(currentYear, true); // Carica le gare concluse (finished = true)
+
+    console.log(`📅 Sincronizzazione gare in programma per la stagione ${currentYear}...`);
+    await motogpApi.syncRaceCalendar(currentYear, false); // Carica le gare future (finished = false)
+    
+    console.log(`✅ Calendario completo per la stagione ${currentYear} sincronizzato.`);
 
   } catch (error) {
     console.error('❌ Errore durante il processo di seed:', error);

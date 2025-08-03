@@ -1,8 +1,8 @@
 // mobile-app/src/screens/main/RidersScreen.tsx
-import React, { useState } from 'react';
-import { View, FlatList, StyleSheet } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, SectionList, StyleSheet, FlatList } from 'react-native';
 import { 
-  ActivityIndicator, Chip, Searchbar, SegmentedButtons, Text, useTheme 
+  ActivityIndicator, Searchbar, SegmentedButtons, Text, useTheme, Title 
 } from 'react-native-paper';
 import { useQuery } from '@tanstack/react-query';
 import { getRiders } from '../../services/api';
@@ -17,6 +17,7 @@ interface Rider {
   nationality: string;
   value: number;
   photoUrl?: string | null;
+  riderType: 'OFFICIAL' | 'REPLACEMENT' | 'WILDCARD' | 'TEST_RIDER';
 }
 
 export default function RidersScreen() {
@@ -26,32 +27,47 @@ export default function RidersScreen() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['riders'],
-    queryFn: () => getRiders({ limit: 100 } as any),
+    queryFn: () => getRiders({ limit: 200 } as any),
   });
 
   const riders = data?.riders || [];
 
-  // Filtra i piloti per categoria e ricerca
-  const filteredRiders = riders.filter((rider: Rider) => {
-    const matchesCategory = selectedCategory === 'ALL' || rider.category === selectedCategory;
-    const matchesSearch = rider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         rider.team.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         rider.number.toString().includes(searchQuery);
-    return matchesCategory && matchesSearch;
-  });
+  const processedRiders = useMemo(() => {
+    const filtered = riders.filter((rider: Rider) => {
+      const matchesCategory = selectedCategory === 'ALL' || rider.category === selectedCategory;
+      const matchesSearch = rider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           rider.team.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           rider.number.toString().includes(searchQuery);
+      return matchesCategory && matchesSearch;
+    });
 
-  // Ordina i piloti per valore (decrescente) e poi per numero
-  const sortedRiders = [...filteredRiders].sort((a, b) => {
-    if (b.value !== a.value) return b.value - a.value;
-    return a.number - b.number;
-  });
+    const grouped: { [key: string]: Rider[] } = {
+      'Piloti Ufficiali': [],
+      'Altri Piloti (Sostituti, Wildcard, Collaudatori)': [],
+    };
+    
+    filtered.forEach((rider: Rider) => {
+      if (rider.riderType === 'OFFICIAL') {
+        grouped['Piloti Ufficiali'].push(rider);
+      } else {
+        grouped['Altri Piloti (Sostituti, Wildcard, Collaudatori)'].push(rider);
+      }
+    });
+    
+    return Object.keys(grouped)
+      .map(title => ({
+        title,
+        data: [grouped[title].sort((a, b) => b.value - a.value || a.number - b.number)]
+      }))
+      .filter(section => section.data[0].length > 0);
+      
+  }, [riders, selectedCategory, searchQuery]);
 
-  // Conta piloti per categoria
-  const categoryCounts = riders.reduce((acc: Record<string, number>, rider: Rider) => {
+  const categoryCounts = useMemo(() => riders.reduce((acc: Record<string, number>, rider: Rider) => {
     acc[rider.category] = (acc[rider.category] || 0) + 1;
     acc['ALL'] = (acc['ALL'] || 0) + 1;
     return acc;
-  }, { ALL: 0, MOTOGP: 0, MOTO2: 0, MOTO3: 0 });
+  }, { ALL: 0, MOTOGP: 0, MOTO2: 0, MOTO3: 0 }), [riders]);
 
   if (isLoading) {
     return (
@@ -72,8 +88,7 @@ export default function RidersScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Barra di ricerca */}
-      <View style={styles.searchContainer}>
+      <View style={styles.headerContainer}>
         <Searchbar
           placeholder="Cerca pilota, team o numero..."
           onChangeText={setSearchQuery}
@@ -81,52 +96,42 @@ export default function RidersScreen() {
           style={styles.searchBar}
           icon="magnify"
         />
-      </View>
-
-      {/* Filtri categoria */}
-      <View style={styles.filterContainer}>
         <SegmentedButtons
           value={selectedCategory}
           onValueChange={(value) => setSelectedCategory(value as any)}
           buttons={[
-            {
-              value: 'ALL',
-              label: `Tutti (${categoryCounts.ALL})`,
-            },
-            {
-              value: 'MOTOGP',
-              label: `MotoGP (${categoryCounts.MOTOGP})`,
-            },
-            {
-              value: 'MOTO2',
-              label: `Moto2 (${categoryCounts.MOTO2})`,
-            },
-            {
-              value: 'MOTO3',
-              label: `Moto3 (${categoryCounts.MOTO3})`,
-            },
+            { value: 'ALL', label: `Tutti (${categoryCounts.ALL})`},
+            { value: 'MOTOGP', label: `MotoGP`},
+            { value: 'MOTO2', label: `Moto2`},
+            { value: 'MOTO3', label: `Moto3`},
           ]}
           style={styles.segmentedButtons}
         />
       </View>
 
-      {/* Lista piloti */}
-      <FlatList
-        data={sortedRiders}
-        keyExtractor={(item) => item.id}
+      <SectionList
+        sections={processedRiders}
+        keyExtractor={(item, index) => 'section-' + index}
         renderItem={({ item }) => (
-          <RiderCard
-            rider={item}
-            onPress={() => {
-              // Navigazione ai dettagli del pilota
-              console.log('Navigate to rider details:', item.id);
-            }}
+          <FlatList
+            data={item}
+            numColumns={2}
+            keyExtractor={(rider) => rider.id}
+            renderItem={({ item: rider }) => (
+              <View style={{ flex: 1/2, margin: 4 }}>
+                <RiderCard
+                  rider={rider}
+                  onPress={() => console.log('Navigate to rider details:', rider.id)}
+                />
+              </View>
+            )}
+            style={{ paddingHorizontal: 8 }}
           />
         )}
+        renderSectionHeader={({ section: { title } }) => (
+          <Title style={styles.sectionHeader}>{title}</Title>
+        )}
         contentContainerStyle={styles.listContent}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text variant="bodyLarge" style={{ opacity: 0.6 }}>
@@ -149,33 +154,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchContainer: {
+  headerContainer: {
     backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    padding: 16,
     elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee'
   },
   searchBar: {
     elevation: 0,
     backgroundColor: '#F5F5F5',
-  },
-  filterContainer: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    elevation: 2,
+    marginBottom: 12
   },
   segmentedButtons: {
     backgroundColor: 'transparent',
   },
   listContent: {
-    paddingHorizontal: 16, // Use padding on the container
-    paddingVertical: 8,
     paddingBottom: 100,
   },
-  row: {
-    gap: 16, // Use gap for consistent spacing
+  sectionHeader: {
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    backgroundColor: '#f5f5f5',
   },
   emptyState: {
     flex: 1,

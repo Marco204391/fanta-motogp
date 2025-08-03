@@ -1,6 +1,6 @@
 // backend/src/services/motogpApiService.ts
 import axios from 'axios';
-import { Category, PrismaClient } from '@prisma/client';
+import { Category, PrismaClient, RiderType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -16,72 +16,77 @@ const config: MotoGPApiConfig = {
   broadcastApi: 'https://api.motogp.pulselive.com/motogp/v1'
 };
 
-// Mappatura categorie API -> Database
 const CATEGORY_MAPPING: Record<string, Category> = {
   'e8c110ad-64aa-4e8e-8a86-f2f152f6a942': Category.MOTOGP,
   '549640b8-fd9c-4245-acfd-60e4bc38b25c': Category.MOTO2,
   '954f7e65-2ef2-4423-b949-4961cc603e45': Category.MOTO3,
 };
 
+const getRiderType = (apiRider: any): RiderType => {
+    const careerStep = apiRider.current_career_step;
+    if (!careerStep) return RiderType.TEST_RIDER;
+
+    if (careerStep.in_grid) {
+        if (apiRider.wildcard) return RiderType.WILDCARD;
+        if (apiRider.replacement) return RiderType.REPLACEMENT;
+        return RiderType.OFFICIAL;
+    }
+    
+    return RiderType.TEST_RIDER;
+};
+
 export class MotoGPApiService {
   private axiosInstance = axios.create({
     baseURL: config.baseUrl,
-    timeout: 10000,
+    timeout: 15000,
     headers: {
       'Accept': 'application/json',
       'User-Agent': 'FantaMotoGP/1.0'
     }
   });
 
-  // 1. Sincronizza i piloti dal MotoGP API
   async syncRiders() {
     try {
       console.log('🏍️ Sincronizzazione piloti in corso...');
-      
-      // Ottieni tutti i piloti dalla API
       const response = await this.axiosInstance.get('/riders');
       const riders = response.data;
 
       for (const apiRider of riders) {
-        // Solo piloti attivi nelle categorie che ci interessano
-        if (!apiRider.current_career_step?.in_grid) continue;
+        const careerStep = apiRider.current_career_step;
+        if (!careerStep?.category?.legacy_id) continue;
         
-        const categoryId = apiRider.current_career_step?.category?.legacy_id;
-        const category = this.mapLegacyCategory(categoryId);
-        
+        const category = this.mapLegacyCategory(careerStep.category.legacy_id);
         if (!category) continue;
 
-        // Calcola il valore del pilota basato su vari fattori
         const value = this.calculateRiderValue(apiRider);
+        const riderType = getRiderType(apiRider);
 
         await prisma.rider.upsert({
-          where: { 
-            number: apiRider.current_career_step.number 
-          },
+          where: { number: careerStep.number },
           update: {
             name: `${apiRider.name} ${apiRider.surname}`,
-            team: apiRider.current_career_step.sponsored_team,
+            team: careerStep.sponsored_team,
             category,
             nationality: apiRider.country.iso,
             value,
-            isActive: true,
-            photoUrl: apiRider.current_career_step.pictures?.portrait
+            isActive: careerStep.in_grid || careerStep.type?.toLowerCase() === 'test',
+            photoUrl: careerStep.pictures?.portrait,
+            riderType,
           },
           create: {
             name: `${apiRider.name} ${apiRider.surname}`,
-            number: apiRider.current_career_step.number,
-            team: apiRider.current_career_step.sponsored_team,
+            number: careerStep.number,
+            team: careerStep.sponsored_team,
             category,
             nationality: apiRider.country.iso,
             value,
-            isActive: true,
-            photoUrl: apiRider.current_career_step.pictures?.portrait
+            isActive: careerStep.in_grid || careerStep.type?.toLowerCase() === 'test',
+            photoUrl: careerStep.pictures?.portrait,
+            riderType,
           }
         });
-
-        console.log(`✅ Sincronizzato: ${apiRider.name} ${apiRider.surname} (#${apiRider.current_career_step.number})`);
+        console.log(`✅ Sincronizzato: ${apiRider.name} ${apiRider.surname}`);
       }
-
       console.log('🎉 Sincronizzazione piloti completata!');
     } catch (error) {
       console.error('❌ Errore sincronizzazione piloti:', error);
@@ -89,29 +94,25 @@ export class MotoGPApiService {
     }
   }
 
-  // 2. Sincronizza calendario gare
-  async syncRaceCalendar(season: number = new Date().getFullYear()) {
+  async syncRaceCalendar(season: number = new Date().getFullYear(), isFinished?: boolean) {
     try {
-      console.log(`📅 Sincronizzazione calendario ${season}...`);
+      console.log(`📅 Sincronizzazione calendario ${season} (isFinished: ${isFinished})...`);
       
-      // Prima ottieni l'ID della stagione
       const seasonsResponse = await this.axiosInstance.get('/results/seasons');
-      const currentSeason = seasonsResponse.data.find((s: any) => s.year === season);
+      const seasonData = seasonsResponse.data.find((s: any) => s.year === season);
       
-      if (!currentSeason) {
-        throw new Error(`Stagione ${season} non trovata`);
+      if (!seasonData) throw new Error(`Stagione ${season} non trovata`);
+
+      let url = `/results/events?seasonUuid=${seasonData.id}`;
+      if (typeof isFinished === 'boolean') {
+        url += `&isFinished=${isFinished}`;
       }
 
-      // Ottieni gli eventi della stagione
-      const eventsResponse = await this.axiosInstance.get(
-        `/results/events?seasonUuid=${currentSeason.id}&isFinished=false`
-      );
+      const eventsResponse = await this.axiosInstance.get(url);
 
       for (const event of eventsResponse.data) {
         await prisma.race.upsert({
-          where: {
-            apiEventId: event.id,
-          },
+          where: { apiEventId: event.id },
           update: {
             name: event.name,
             circuit: event.circuit.name,
@@ -119,7 +120,7 @@ export class MotoGPApiService {
             date: new Date(event.date_end),
             sprintDate: event.date_start ? new Date(event.date_start) : null,
             round: event.number || 0,
-            season: season,
+            season,
           },
           create: {
             name: event.name,
@@ -128,17 +129,15 @@ export class MotoGPApiService {
             date: new Date(event.date_end),
             sprintDate: event.date_start ? new Date(event.date_start) : null,
             round: event.number || 0,
-            season: season,
+            season,
             apiEventId: event.id,
           }
         });
-
         console.log(`✅ Sincronizzato evento: ${event.name}`);
       }
-
-      console.log('🎉 Calendario sincronizzato!');
+      console.log(`🎉 Calendario per la stagione ${season} (isFinished: ${isFinished}) sincronizzato!`);
     } catch (error) {
-      console.error('❌ Errore sincronizzazione calendario:', error);
+      console.error(`❌ Errore sincronizzazione calendario ${season}:`, error);
       throw error;
     }
   }
