@@ -7,6 +7,9 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { getRiders } from '../../services/api';
 import RiderCard from '../../components/RiderCard';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { MainStackParamList } from '../../../App';
 
 interface Rider {
   id: string;
@@ -20,8 +23,11 @@ interface Rider {
   riderType: 'OFFICIAL' | 'REPLACEMENT' | 'WILDCARD' | 'TEST_RIDER';
 }
 
+type RidersScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Riders'>;
+
 export default function RidersScreen() {
   const theme = useTheme();
+  const navigation = useNavigation<RidersScreenNavigationProp>();
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'MOTOGP' | 'MOTO2' | 'MOTO3'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -121,7 +127,7 @@ export default function RidersScreen() {
               <View style={{ flex: 1/2, margin: 4 }}>
                 <RiderCard
                   rider={rider}
-                  onPress={() => console.log('Navigate to rider details:', rider.id)}
+                  onPress={() => navigation.navigate('RiderDetail', { riderId: rider.id })}
                 />
               </View>
             )}

@@ -24,15 +24,20 @@ const CATEGORY_MAPPING: Record<string, Category> = {
 
 const getRiderType = (apiRider: any): RiderType => {
     const careerStep = apiRider.current_career_step;
-    if (!careerStep) return RiderType.TEST_RIDER;
+    if (!careerStep || !careerStep.type) return RiderType.TEST_RIDER;
 
-    if (careerStep.in_grid) {
-        if (apiRider.wildcard) return RiderType.WILDCARD;
-        if (apiRider.replacement) return RiderType.REPLACEMENT;
-        return RiderType.OFFICIAL;
+    switch (careerStep.type.toUpperCase()) {
+        case 'OFFICIAL':
+            return RiderType.OFFICIAL;
+        case 'WILDCARD':
+            return RiderType.WILDCARD;
+        case 'REPLACEMENT':
+        case 'SUBSTITUTE':
+            return RiderType.REPLACEMENT;
+        case 'TEST':
+        default:
+            return RiderType.TEST_RIDER;
     }
-    
-    return RiderType.TEST_RIDER;
 };
 
 export class MotoGPApiService {
@@ -60,6 +65,8 @@ export class MotoGPApiService {
 
         const value = this.calculateRiderValue(apiRider);
         const riderType = getRiderType(apiRider);
+        
+        const photoUrl = careerStep.pictures?.profile?.main ?? careerStep.pictures?.portrait;
 
         await prisma.rider.upsert({
           where: { number: careerStep.number },
@@ -70,7 +77,7 @@ export class MotoGPApiService {
             nationality: apiRider.country.iso,
             value,
             isActive: careerStep.in_grid || careerStep.type?.toLowerCase() === 'test',
-            photoUrl: careerStep.pictures?.portrait,
+            photoUrl: photoUrl,
             riderType,
           },
           create: {
@@ -81,7 +88,7 @@ export class MotoGPApiService {
             nationality: apiRider.country.iso,
             value,
             isActive: careerStep.in_grid || careerStep.type?.toLowerCase() === 'test',
-            photoUrl: careerStep.pictures?.portrait,
+            photoUrl: photoUrl,
             riderType,
           }
         });
