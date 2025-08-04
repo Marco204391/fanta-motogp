@@ -1,8 +1,8 @@
 // mobile-app/src/screens/main/RidersScreen.tsx
 import React, { useState, useMemo } from 'react';
 import { View, SectionList, StyleSheet, FlatList } from 'react-native';
-import { 
-  ActivityIndicator, Searchbar, SegmentedButtons, Text, useTheme, Title 
+import {
+  ActivityIndicator, Searchbar, SegmentedButtons, Text, useTheme, Title
 } from 'react-native-paper';
 import { useQuery } from '@tanstack/react-query';
 import { getRiders } from '../../services/api';
@@ -23,7 +23,7 @@ interface Rider {
   riderType: 'OFFICIAL' | 'REPLACEMENT' | 'WILDCARD' | 'TEST_RIDER';
 }
 
-type RidersScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Riders'>;
+type RidersScreenNavigationProp = StackNavigationProp<MainStackParamList>;
 
 export default function RidersScreen() {
   const theme = useTheme();
@@ -51,7 +51,7 @@ export default function RidersScreen() {
       'Piloti Ufficiali': [],
       'Altri Piloti (Sostituti, Wildcard, Collaudatori)': [],
     };
-    
+
     filtered.forEach((rider: Rider) => {
       if (rider.riderType === 'OFFICIAL') {
         grouped['Piloti Ufficiali'].push(rider);
@@ -59,14 +59,14 @@ export default function RidersScreen() {
         grouped['Altri Piloti (Sostituti, Wildcard, Collaudatori)'].push(rider);
       }
     });
-    
+
     return Object.keys(grouped)
       .map(title => ({
         title,
         data: [grouped[title].sort((a, b) => b.value - a.value || a.number - b.number)]
       }))
       .filter(section => section.data[0].length > 0);
-      
+
   }, [riders, selectedCategory, searchQuery]);
 
   const categoryCounts = useMemo(() => riders.reduce((acc: Record<string, number>, rider: Rider) => {

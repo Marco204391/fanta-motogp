@@ -1,14 +1,17 @@
 // mobile-app/src/screens/main/RaceCalendarScreen.tsx
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { 
-  ActivityIndicator, Divider, SegmentedButtons, Text, useTheme 
+import {
+  ActivityIndicator, Divider, SegmentedButtons, Text, useTheme
 } from 'react-native-paper';
 import { useQuery } from '@tanstack/react-query';
 import { format, isBefore, isAfter, startOfDay, endOfDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { getUpcomingRaces, getPastRaces } from '../../services/api';
 import RaceCard from '../../components/RaceCard';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { MainStackParamList } from '../../../App';
 
 interface Race {
   id: string;
@@ -21,26 +24,29 @@ interface Race {
   season: number;
 }
 
+type RaceCalendarScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Calendar'>;
+
 export default function RaceCalendarScreen() {
   const theme = useTheme();
+  const navigation = useNavigation<RaceCalendarScreenNavigationProp>();
   const [selectedTab, setSelectedTab] = useState<'upcoming' | 'past' | 'all'>('upcoming');
   const [refreshing, setRefreshing] = useState(false);
 
   // Query per gare future
-  const { 
-    data: upcomingData, 
+  const {
+    data: upcomingData,
     isLoading: isLoadingUpcoming,
-    refetch: refetchUpcoming 
+    refetch: refetchUpcoming
   } = useQuery({
     queryKey: ['upcomingRaces'],
     queryFn: getUpcomingRaces,
   });
 
   // Query per gare passate
-  const { 
-    data: pastData, 
+  const {
+    data: pastData,
     isLoading: isLoadingPast,
-    refetch: refetchPast 
+    refetch: refetchPast
   } = useQuery({
     queryKey: ['pastRaces'],
     queryFn: getPastRaces,
@@ -63,7 +69,7 @@ export default function RaceCalendarScreen() {
   // Raggruppa le gare per mese
   const groupRacesByMonth = (races: Race[]) => {
     const grouped: Record<string, Race[]> = {};
-    
+
     races.forEach(race => {
       const monthKey = format(new Date(race.gpDate), 'MMMM yyyy', { locale: it });
       if (!grouped[monthKey]) {
@@ -92,17 +98,17 @@ export default function RaceCalendarScreen() {
     const now = new Date();
     const raceDate = new Date(race.gpDate);
     const raceStart = race.sprintDate ? new Date(race.sprintDate) : raceDate;
-    
+
     // Se la gara è in corso (tra inizio sprint/gara e fine gara)
     if (isAfter(now, startOfDay(raceStart)) && isBefore(now, endOfDay(raceDate))) {
       return 'current';
     }
-    
+
     // Se la gara è passata
     if (isBefore(raceDate, now)) {
       return 'past';
     }
-    
+
     return 'upcoming';
   };
 
@@ -159,16 +165,13 @@ export default function RaceCalendarScreen() {
               </Text>
               <View style={styles.monthDivider} />
             </View>
-            
+
             {races.map((race) => (
               <RaceCard
                 key={race.id}
                 race={race}
                 variant={getRaceVariant(race)}
-                onPress={() => {
-                  // Navigazione ai dettagli della gara
-                  console.log('Navigate to race details:', race.id);
-                }}
+                onPress={() => navigation.navigate('RaceDetail', { raceId: race.id })}
               />
             ))}
           </View>

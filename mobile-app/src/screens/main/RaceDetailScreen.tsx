@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import {
-  ActivityIndicator, Avatar, Card, Chip, DataTable, Divider, 
+  ActivityIndicator, Avatar, Card, Chip, DataTable, Divider,
   FAB, List, SegmentedButtons, Surface, Text, Title, useTheme
 } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -13,8 +13,11 @@ import { it } from 'date-fns/locale';
 import { getRaceById, getRaceResults } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 import { useAuth } from '../../contexts/AuthContext';
+import { StackNavigationProp } from '@react-navigation/stack';
 
 type RaceDetailScreenRouteProp = RouteProp<MainStackParamList, 'RaceDetail'>;
+type RaceDetailScreenNavigationProp = StackNavigationProp<MainStackParamList, 'RaceDetail'>;
+
 
 // Mappatura bandiere
 const countryFlags: Record<string, string> = {
@@ -45,12 +48,13 @@ const categoryColors = {
 };
 
 export default function RaceDetailScreen() {
-  const navigation = useNavigation();
+  // *** FIX: Applied the correct type to useNavigation ***
+  const navigation = useNavigation<RaceDetailScreenNavigationProp>();
   const route = useRoute<RaceDetailScreenRouteProp>();
   const theme = useTheme();
   const { user } = useAuth();
   const { raceId } = route.params;
-  
+
   const [selectedCategory, setSelectedCategory] = useState<'MOTOGP' | 'MOTO2' | 'MOTO3'>('MOTOGP');
 
   // Query per i dettagli della gara
@@ -73,9 +77,9 @@ export default function RaceDetailScreen() {
   const getRaceStatus = () => {
     if (!race) return 'upcoming';
     const now = new Date();
-    const raceDate = new Date(race.date);
+    const raceDate = new Date(race.gpDate);
     const sprintDate = race.sprintDate ? new Date(race.sprintDate) : null;
-    
+
     if (hasResults) return 'completed';
     if (isBefore(raceDate, now)) return 'past';
     if (sprintDate && isAfter(now, sprintDate) && isBefore(now, raceDate)) return 'ongoing';
@@ -112,7 +116,7 @@ export default function RaceDetailScreen() {
               </Text>
               <Text variant="labelSmall">ROUND</Text>
             </View>
-            
+
             <View style={styles.raceInfo}>
               <Text variant="headlineSmall" style={styles.raceName}>
                 {countryFlags[race.country] || '🏁'} {race.country.toUpperCase()}
@@ -121,11 +125,11 @@ export default function RaceDetailScreen() {
               <Text variant="bodyMedium" style={{ opacity: 0.7 }}>
                 {race.circuit}
               </Text>
-              
+
               <View style={styles.dateRow}>
                 <MaterialCommunityIcons name="calendar" size={16} color={theme.colors.onSurface} />
                 <Text variant="bodySmall" style={{ marginLeft: 4 }}>
-                  {format(new Date(race.date), 'dd MMMM yyyy', { locale: it })}
+                  {format(new Date(race.gpDate), 'dd MMMM yyyy', { locale: it })}
                 </Text>
               </View>
             </View>
@@ -145,8 +149,8 @@ export default function RaceDetailScreen() {
 
         {/* Info Gara */}
         <Card style={styles.card}>
-          <Card.Title 
-            title="Informazioni Gara" 
+          <Card.Title
+            title="Informazioni Gara"
             left={(props) => <Avatar.Icon {...props} icon="information" />}
           />
           <Card.Content>
@@ -157,7 +161,7 @@ export default function RaceDetailScreen() {
             />
             <List.Item
               title="Data Gara Principale"
-              description={format(new Date(race.date), 'dd MMMM yyyy HH:mm', { locale: it })}
+              description={format(new Date(race.gpDate), 'dd MMMM yyyy HH:mm', { locale: it })}
               left={(props) => <List.Icon {...props} icon="flag-checkered" />}
             />
             <List.Item
@@ -171,8 +175,8 @@ export default function RaceDetailScreen() {
         {/* Risultati o Messaggio */}
         {hasResults ? (
           <Card style={styles.card}>
-            <Card.Title 
-              title="Risultati Gara" 
+            <Card.Title
+              title="Risultati Gara"
               left={(props) => <Avatar.Icon {...props} icon="podium" />}
             />
             <Card.Content>
@@ -215,12 +219,13 @@ export default function RaceDetailScreen() {
                   {(results[selectedCategory] || []).map((result: any, index: number) => {
                     const isPodium = result.position <= 3;
                     const isDNF = result.status !== 'FINISHED';
-                    
+
                     return (
-                      <DataTable.Row 
+                      <DataTable.Row
                         key={result.id}
                         style={isPodium ? styles.podiumRow : undefined}
-                        onPress={() => navigation.navigate('RiderDetail' as any, { riderId: result.rider.id })}
+                        // *** FIX: Removed 'as any' for type safety ***
+                        onPress={() => navigation.navigate('RiderDetail', { riderId: result.rider.id })}
                       >
                         <DataTable.Cell style={{ flex: 0.5 }}>
                           {isDNF ? (
@@ -230,10 +235,10 @@ export default function RaceDetailScreen() {
                           ) : (
                             <View style={styles.positionCell}>
                               {isPodium && (
-                                <MaterialCommunityIcons 
-                                  name={result.position === 1 ? 'trophy' : 'medal'} 
-                                  size={16} 
-                                  color={result.position === 1 ? '#FFD700' : result.position === 2 ? '#C0C0C0' : '#CD7F32'} 
+                                <MaterialCommunityIcons
+                                  name={result.position === 1 ? 'trophy' : 'medal'}
+                                  size={16}
+                                  color={result.position === 1 ? '#FFD700' : result.position === 2 ? '#C0C0C0' : '#CD7F32'}
                                 />
                               )}
                               <Text variant="bodyMedium" style={{ fontWeight: isPodium ? 'bold' : 'normal' }}>
@@ -242,19 +247,19 @@ export default function RaceDetailScreen() {
                             </View>
                           )}
                         </DataTable.Cell>
-                        
+
                         <DataTable.Cell style={{ flex: 0.5 }}>
                           <Text variant="bodyMedium" style={{ fontWeight: 'bold' }}>
                             {result.rider.number}
                           </Text>
                         </DataTable.Cell>
-                        
+
                         <DataTable.Cell style={{ flex: 2 }}>
                           <Text variant="bodyMedium" numberOfLines={1}>
                             {result.rider.name}
                           </Text>
                         </DataTable.Cell>
-                        
+
                         <DataTable.Cell style={{ flex: 1 }}>
                           <Text variant="bodySmall" numberOfLines={1} style={{ opacity: 0.7 }}>
                             {result.rider.team}
@@ -270,18 +275,18 @@ export default function RaceDetailScreen() {
         ) : (
           <Card style={styles.card}>
             <Card.Content style={styles.noResultsContent}>
-              <MaterialCommunityIcons 
-                name="flag-outline" 
-                size={64} 
-                color={theme.colors.onSurfaceVariant} 
+              <MaterialCommunityIcons
+                name="flag-outline"
+                size={64}
+                color={theme.colors.onSurfaceVariant}
                 style={{ opacity: 0.5 }}
               />
               <Text variant="titleMedium" style={styles.noResultsText}>
                 {raceStatus === 'upcoming' ? 'Gara non ancora disputata' : 'Risultati non ancora disponibili'}
               </Text>
               <Text variant="bodyMedium" style={{ opacity: 0.7, textAlign: 'center' }}>
-                {raceStatus === 'upcoming' 
-                  ? 'I risultati saranno disponibili dopo la gara' 
+                {raceStatus === 'upcoming'
+                  ? 'I risultati saranno disponibili dopo la gara'
                   : 'I risultati verranno sincronizzati automaticamente'}
               </Text>
             </Card.Content>
@@ -291,8 +296,8 @@ export default function RaceDetailScreen() {
         {/* Statistiche Gara */}
         {race.stats && (
           <Card style={styles.card}>
-            <Card.Title 
-              title="Statistiche" 
+            <Card.Title
+              title="Statistiche"
               left={(props) => <Avatar.Icon {...props} icon="chart-bar" />}
             />
             <Card.Content>

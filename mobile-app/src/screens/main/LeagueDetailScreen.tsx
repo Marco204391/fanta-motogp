@@ -212,7 +212,10 @@ export default function LeagueDetailScreen() {
               data={allRaces}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => setSelectedRaceId(item.id)}>
+                <TouchableOpacity onPress={() => {
+                  setSelectedRaceId(item.id);
+                  navigation.navigate('RaceDetail', { raceId: item.id });
+                }}>
                   <View style={[styles.raceCardContainer, item.id === selectedRaceId && { borderColor: theme.colors.primary }]}>
                     <RaceCard race={item} variant={isPast(new Date(item.gpDate)) ? 'past' : 'upcoming'} />
                   </View>
