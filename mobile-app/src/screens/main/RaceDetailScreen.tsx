@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format, isBefore, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { getRaceById, getRaceResults } from '../../services/api';
+import { getRaceById, getRaceResults, getQualifyingResults } from '../../services/api'; // getQualifyingResults è una nuova funzione da implementare
 import { MainStackParamList } from '../../../App';
 import { useAuth } from '../../contexts/AuthContext';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -48,7 +48,6 @@ const categoryColors = {
 };
 
 export default function RaceDetailScreen() {
-  // *** FIX: Applied the correct type to useNavigation ***
   const navigation = useNavigation<RaceDetailScreenNavigationProp>();
   const route = useRoute<RaceDetailScreenRouteProp>();
   const theme = useTheme();
@@ -56,6 +55,8 @@ export default function RaceDetailScreen() {
   const { raceId } = route.params;
 
   const [selectedCategory, setSelectedCategory] = useState<'MOTOGP' | 'MOTO2' | 'MOTO3'>('MOTOGP');
+  const [selectedResultType, setSelectedResultType] = useState<'race' | 'sprint' | 'qualifying'>('race');
+
 
   // Query per i dettagli della gara
   const { data: raceData, isLoading: isLoadingRace } = useQuery({
@@ -70,9 +71,22 @@ export default function RaceDetailScreen() {
     enabled: !!raceData?.race?.stats?.hasResults,
   });
 
+  // Nuova query per i risultati delle qualifiche
+  const { data: qualifyingData, isLoading: isLoadingQualifying } = useQuery({
+    queryKey: ['qualifyingResults', raceId],
+    queryFn: () => getQualifyingResults(raceId), // Da implementare in api.ts
+    enabled: !!raceData?.race,
+  });
+
+
   const race = raceData?.race;
   const results = resultsData?.results || {};
   const hasResults = race?.stats?.hasResults || false;
+  const raceResults = results?.RACE || [];
+  const sprintResults = results?.SPRINT || [];
+  const qualifyingResults = qualifyingData?.results || [];
+  const hasSprint = sprintResults.length > 0;
+
 
   const getRaceStatus = () => {
     if (!race) return 'upcoming';
@@ -87,6 +101,68 @@ export default function RaceDetailScreen() {
   };
 
   const raceStatus = getRaceStatus();
+
+  // Funzione per renderizzare una riga di risultato di gara/sprint
+  const renderResultRow = (result: any, index: number) => {
+    const isPodium = result.position <= 3;
+    const isDNF = result.status !== 'FINISHED';
+
+    return (
+        <DataTable.Row
+            key={result.id}
+            style={isPodium ? styles.podiumRow : undefined}
+            onPress={() => navigation.navigate('RiderDetail', { riderId: result.rider.id })}
+        >
+            <DataTable.Cell style={{ flex: 0.5 }}>
+                {isDNF ? (
+                    <Text variant="bodyMedium" style={{ color: theme.colors.error }}>
+                        {result.status}
+                    </Text>
+                ) : (
+                    <View style={styles.positionCell}>
+                        {isPodium && (
+                            <MaterialCommunityIcons
+                                name={result.position === 1 ? 'trophy' : 'medal'}
+                                size={16}
+                                color={result.position === 1 ? '#FFD700' : result.position === 2 ? '#C0C0C0' : '#CD7F32'}
+                            />
+                        )}
+                        <Text variant="bodyMedium" style={{ fontWeight: isPodium ? 'bold' : 'normal' }}>
+                            {result.position}
+                        </Text>
+                    </View>
+                )}
+            </DataTable.Cell>
+
+            <DataTable.Cell style={{ flex: 0.5 }}>
+                <Text variant="bodyMedium" style={{ fontWeight: 'bold' }}>
+                    {result.rider.number}
+                </Text>
+            </DataTable.Cell>
+
+            <DataTable.Cell style={{ flex: 2 }}>
+                <Text variant="bodyMedium" numberOfLines={1}>
+                    {result.rider.name}
+                </Text>
+            </DataTable.Cell>
+
+            <DataTable.Cell style={{ flex: 1 }}>
+                <Text variant="bodySmall" numberOfLines={1} style={{ opacity: 0.7 }}>
+                    {result.rider.team}
+                </Text>
+            </DataTable.Cell>
+        </DataTable.Row>
+    );
+  };
+
+  // Nuova funzione per renderizzare una riga di qualifica
+  const renderQualifyingRow = (result: any, index: number) => (
+      <DataTable.Row key={result.rider.id}>
+          <DataTable.Cell style={{ flex: 0.5 }}>{result.position}</DataTable.Cell>
+          <DataTable.Cell style={{ flex: 2 }}>{result.rider.name}</DataTable.Cell>
+          <DataTable.Cell numeric>{result.time}</DataTable.Cell>
+      </DataTable.Row>
+  );
 
   if (isLoadingRace) {
     return (
@@ -176,11 +252,20 @@ export default function RaceDetailScreen() {
         {hasResults ? (
           <Card style={styles.card}>
             <Card.Title
-              title="Risultati Gara"
+              title="Risultati"
               left={(props) => <Avatar.Icon {...props} icon="podium" />}
             />
             <Card.Content>
-              {/* Selezione categoria */}
+            <SegmentedButtons
+                value={selectedResultType}
+                onValueChange={(value) => setSelectedResultType(value as any)}
+                buttons={[
+                  { value: 'race', label: 'Gara' },
+                  ...(hasSprint ? [{ value: 'sprint', label: 'Sprint' }] : []),
+                  { value: 'qualifying', label: 'Qualifiche' },
+                ]}
+                style={styles.categoryButtons}
+              />
               <SegmentedButtons
                 value={selectedCategory}
                 onValueChange={(value) => setSelectedCategory(value as any)}
@@ -205,69 +290,23 @@ export default function RaceDetailScreen() {
               />
 
               {/* Tabella risultati */}
-              {isLoadingResults ? (
+              {isLoadingResults || isLoadingQualifying ? (
                 <ActivityIndicator style={{ marginTop: 20 }} />
               ) : (
                 <DataTable style={styles.resultsTable}>
                   <DataTable.Header>
                     <DataTable.Title style={{ flex: 0.5 }}>Pos</DataTable.Title>
-                    <DataTable.Title style={{ flex: 0.5 }}>#</DataTable.Title>
                     <DataTable.Title style={{ flex: 2 }}>Pilota</DataTable.Title>
-                    <DataTable.Title style={{ flex: 1 }}>Team</DataTable.Title>
+                    {selectedResultType === 'qualifying' ? (
+                      <DataTable.Title numeric>Tempo</DataTable.Title>
+                    ) : (
+                      <DataTable.Title numeric>Punti</DataTable.Title>
+                    )}
                   </DataTable.Header>
 
-                  {(results[selectedCategory] || []).map((result: any, index: number) => {
-                    const isPodium = result.position <= 3;
-                    const isDNF = result.status !== 'FINISHED';
-
-                    return (
-                      <DataTable.Row
-                        key={result.id}
-                        style={isPodium ? styles.podiumRow : undefined}
-                        // *** FIX: Removed 'as any' for type safety ***
-                        onPress={() => navigation.navigate('RiderDetail', { riderId: result.rider.id })}
-                      >
-                        <DataTable.Cell style={{ flex: 0.5 }}>
-                          {isDNF ? (
-                            <Text variant="bodyMedium" style={{ color: theme.colors.error }}>
-                              {result.status}
-                            </Text>
-                          ) : (
-                            <View style={styles.positionCell}>
-                              {isPodium && (
-                                <MaterialCommunityIcons
-                                  name={result.position === 1 ? 'trophy' : 'medal'}
-                                  size={16}
-                                  color={result.position === 1 ? '#FFD700' : result.position === 2 ? '#C0C0C0' : '#CD7F32'}
-                                />
-                              )}
-                              <Text variant="bodyMedium" style={{ fontWeight: isPodium ? 'bold' : 'normal' }}>
-                                {result.position}
-                              </Text>
-                            </View>
-                          )}
-                        </DataTable.Cell>
-
-                        <DataTable.Cell style={{ flex: 0.5 }}>
-                          <Text variant="bodyMedium" style={{ fontWeight: 'bold' }}>
-                            {result.rider.number}
-                          </Text>
-                        </DataTable.Cell>
-
-                        <DataTable.Cell style={{ flex: 2 }}>
-                          <Text variant="bodyMedium" numberOfLines={1}>
-                            {result.rider.name}
-                          </Text>
-                        </DataTable.Cell>
-
-                        <DataTable.Cell style={{ flex: 1 }}>
-                          <Text variant="bodySmall" numberOfLines={1} style={{ opacity: 0.7 }}>
-                            {result.rider.team}
-                          </Text>
-                        </DataTable.Cell>
-                      </DataTable.Row>
-                    );
-                  })}
+                  {selectedResultType === 'race' && raceResults.map(renderResultRow)}
+                  {selectedResultType === 'sprint' && sprintResults.map(renderResultRow)}
+                  {selectedResultType === 'qualifying' && qualifyingResults.map(renderQualifyingRow)}
                 </DataTable>
               )}
             </Card.Content>

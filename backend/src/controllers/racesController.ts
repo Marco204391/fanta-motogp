@@ -78,37 +78,15 @@ export const getRaceById = async (req: Request, res: Response) => {
             position: 'asc',
           },
         },
-        lineups: {
-          select: {
-            id: true,
-            teamId: true,
-          },
-        },
       },
     });
 
     if (!race) {
       return res.status(404).json({ error: 'Gara non trovata' });
     }
+    
+    res.json({ race });
 
-    // Calcola statistiche
-    const stats = {
-      totalLineups: race.lineups.length,
-      hasResults: race.results.length > 0,
-      categories: {
-        MOTOGP: race.results.filter(r => r.rider.category === 'MOTOGP').length,
-        MOTO2: race.results.filter(r => r.rider.category === 'MOTO2').length,
-        MOTO3: race.results.filter(r => r.rider.category === 'MOTO3').length,
-      },
-    };
-
-    res.json({ 
-      race: {
-        ...race,
-        lineups: undefined, // Non inviare dettagli lineup
-        stats,
-      }
-    });
   } catch (error) {
     console.error('Errore recupero dettagli gara:', error);
     res.status(500).json({ error: 'Errore nel recupero dei dettagli della gara' });
@@ -118,20 +96,10 @@ export const getRaceById = async (req: Request, res: Response) => {
 // GET /api/races/:raceId/results
 export const getRaceResults = async (req: Request, res: Response) => {
   const { raceId } = req.params;
-  const { category } = req.query;
 
   try {
-    const whereClause: any = { raceId };
-    
-    // Filtra per categoria se specificata
-    if (category && ['MOTOGP', 'MOTO2', 'MOTO3'].includes(category as string)) {
-      whereClause.rider = {
-        category: category as string,
-      };
-    }
-
     const results = await prisma.raceResult.findMany({
-      where: whereClause,
+      where: { raceId },
       include: {
         rider: {
           select: {
@@ -151,16 +119,23 @@ export const getRaceResults = async (req: Request, res: Response) => {
       ],
     });
 
-    // Raggruppa per categoria
-    const resultsByCategory = results.reduce((acc: any, result) => {
+    // Raggruppa per sessione (RACE, SPRINT) e poi per categoria
+    const resultsBySession = results.reduce((acc: any, result) => {
+      const session = result.session;
       const cat = result.rider.category;
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(result);
+      if (!acc[session]) {
+        acc[session] = {};
+      }
+      if (!acc[session][cat]) {
+        acc[session][cat] = [];
+      }
+      acc[session][cat].push(result);
       return acc;
     }, {});
 
-    res.json({ 
-      results: category ? results : resultsByCategory,
+
+    res.json({
+      results: resultsBySession,
       total: results.length,
     });
   } catch (error) {

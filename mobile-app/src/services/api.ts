@@ -101,6 +101,8 @@ export const joinLeague = async (code: string) => {
 };
 
 export const getLeagueDetails = async (leagueId: string) => {
+  // NOTA: Il backend dovrebbe essere aggiornato per calcolare
+  // e includere `lastRacePoints` e `trend` nella classifica.
   const response = await api.get(`/leagues/${leagueId}`);
   return response.data;
 };
@@ -126,7 +128,6 @@ export const getAllRaces = async (season: number) => {
   return response.data;
 };
 
-
 // Schieramenti
 export const getLineup = async (teamId: string, raceId: string) => {
   const response = await api.get(`/lineups/${raceId}`, { params: { teamId } });
@@ -142,7 +143,6 @@ export const getLeagueRaceLineups = async (leagueId: string, raceId: string) => 
     const response = await api.get(`/leagues/${leagueId}/race/${raceId}/lineups`);
     return response.data;
 };
-
 
 // Statistiche
 export const getMyStats = async () => {
@@ -168,8 +168,15 @@ export const getRaceById = async (raceId: string) => {
 };
 
 // Ottieni risultati di una gara
-export const getRaceResults = async (raceId: string) => {
-  const response = await api.get(`/races/${raceId}/results`);
+export const getRaceResults = async (raceId: string, session?: 'RACE' | 'SPRINT') => {
+    const response = await api.get(`/races/${raceId}/results`, { params: { session } });
+    return response.data;
+};
+
+// Nuova funzione per i risultati delle qualifiche
+export const getQualifyingResults = async (raceId: string) => {
+  // Questo endpoint è ipotetico e andrebbe implementato nel backend
+  const response = await api.get(`/races/${raceId}/qualifying`);
   return response.data;
 };
 

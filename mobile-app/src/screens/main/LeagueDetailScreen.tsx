@@ -161,6 +161,27 @@ export default function LeagueDetailScreen() {
         }
     };
 
+    const renderStandingRow = (item: Standing, index: number) => {
+        const isUserTeam = item.userId === user?.id;
+        const trendIcon = item.trend === 'up' ? 'arrow-up-bold-circle' : item.trend === 'down' ? 'arrow-down-bold-circle' : 'minus-circle';
+        const trendColor = item.trend === 'up' ? 'green' : item.trend === 'down' ? 'red' : 'grey';
+
+        return (
+            <DataTable.Row key={item.teamId} style={isUserTeam && styles.userRow}>
+                <DataTable.Cell style={{ flex: 0.5 }}>{index + 1}</DataTable.Cell>
+                <DataTable.Cell style={{ flex: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <MaterialCommunityIcons name={trendIcon} color={trendColor} size={16} style={{ marginRight: 8 }} />
+                        <Text>{item.teamName}</Text>
+                    </View>
+                </DataTable.Cell>
+                <DataTable.Cell numeric style={{ flex: 1 }}>{item.totalPoints}</DataTable.Cell>
+                <DataTable.Cell numeric style={{ flex: 1 }}>{item.lastRacePoints || '-'}</DataTable.Cell>
+            </DataTable.Row>
+        );
+    };
+
+
     if (isLoadingLeague || isLoadingCalendar) {
         return <View style={styles.loader}><ActivityIndicator size="large" /></View>;
     }
@@ -319,27 +340,12 @@ export default function LeagueDetailScreen() {
             {sortedStandings.length > 0 ? (
               <DataTable>
                 <DataTable.Header>
-                  <DataTable.Title style={{ flex: 0.5 }}>Pos</DataTable.Title>
-                  <DataTable.Title style={{ flex: 2 }}>Team</DataTable.Title>
-                  <DataTable.Title numeric style={{ flex: 1 }}>Punti</DataTable.Title>
+                    <DataTable.Title style={{ flex: 0.5 }}>Pos</DataTable.Title>
+                    <DataTable.Title style={{ flex: 2 }}>Team</DataTable.Title>
+                    <DataTable.Title numeric style={{ flex: 1 }}>Punti Tot.</DataTable.Title>
+                    <DataTable.Title numeric style={{ flex: 1 }}>Ultima Gara</DataTable.Title>
                 </DataTable.Header>
-                {sortedStandings.map((item, index) => {
-                  const isUserTeam = item.userId === user?.id;
-                  const isPodium = index < 3;
-                  return (
-                    <DataTable.Row
-                      key={item.teamId}
-                      style={[
-                        isUserTeam && styles.userRow,
-                        isPodium && styles.podiumRow
-                      ]}
-                    >
-                      <DataTable.Cell style={{ flex: 0.5 }}>{index + 1}</DataTable.Cell>
-                      <DataTable.Cell style={{ flex: 2 }}>{item.teamName}</DataTable.Cell>
-                      <DataTable.Cell numeric style={{ flex: 1 }}>{item.totalPoints}</DataTable.Cell>
-                    </DataTable.Row>
-                  );
-                })}
+                {sortedStandings.map(renderStandingRow)}
               </DataTable>
             ) : (
               <Card.Content>
