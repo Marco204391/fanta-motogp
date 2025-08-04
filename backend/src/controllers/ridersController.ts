@@ -140,7 +140,7 @@ export const getRiderById = async (req: Request, res: Response) => {
           take: 10,
           orderBy: {
             race: {
-              date: 'desc',
+              gpDate: 'desc',
             },
           },
           include: {
@@ -149,7 +149,7 @@ export const getRiderById = async (req: Request, res: Response) => {
                 id: true,
                 name: true,
                 circuit: true,
-                date: true,
+                gpDate: true,
               },
             },
           },
@@ -199,7 +199,7 @@ export const getRiderStats = async (req: Request, res: Response) => {
             id: true,
             name: true,
             circuit: true,
-            date: true,
+            gpDate: true,
             round: true,
           },
         },

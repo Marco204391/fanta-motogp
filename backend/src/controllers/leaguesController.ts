@@ -1,6 +1,6 @@
 // backend/src/controllers/leaguesController.ts
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, TeamScore } from '@prisma/client';
 import { validationResult } from 'express-validator';
 import crypto from 'crypto';
 import { AuthRequest } from '../middleware/auth';
@@ -38,7 +38,7 @@ export const getMyLeagues = async (req: AuthRequest, res: Response) => {
 
     const formattedLeagues = leagues.map(league => {
       const userTeam = league.teams[0];
-      const userPoints = userTeam ? userTeam.scores.reduce((sum, s) => sum + s.totalPoints, 0) : 0;
+      const userPoints = userTeam ? userTeam.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0) : 0;
 
       return {
         id: league.id,
@@ -168,7 +168,7 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
         teamName: team.name,
         userId: team.userId,
         username: team.user.username,
-        totalPoints: team.scores.reduce((sum, s) => sum + s.totalPoints, 0),
+        totalPoints: team.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0),
       }))
       .sort((a, b) => a.totalPoints - b.totalPoints); // Corretto per Fanta-MotoGP (meno punti è meglio)
 
@@ -350,12 +350,12 @@ export const getLeagueStandings = async (req: Request, res: Response) => {
       where: { leagueId: id },
       include: {
         user: { select: { id: true, username: true } },
-        scores: { include: { race: true }, orderBy: { race: { date: 'desc' } } }
+        scores: { include: { race: true }, orderBy: { race: { gpDate: 'desc' } } }
       }
     });
 
     const standings = teams.map(team => {
-      const totalPoints = team.scores.reduce((sum, s) => sum + s.totalPoints, 0);
+      const totalPoints = team.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0);
       return {
         teamId: team.id,
         teamName: team.name,
@@ -398,7 +398,7 @@ export const getLeagueRaceLineups = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Gara non trovata' });
     }
 
-    const deadline = race.sprintDate || race.date;
+    const deadline = race.sprintDate || race.gpDate;
     if (league.lineupVisibility === 'AFTER_DEADLINE' && new Date() < new Date(deadline)) {
       return res.status(200).json({ lineups: [], message: 'Gli schieramenti saranno visibili dopo la deadline della gara.' });
     }

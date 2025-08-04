@@ -197,18 +197,18 @@ export const getSyncStatus = async (req: AuthRequest, res: Response) => {
     // Prossima gara
     const nextRace = await prisma.race.findFirst({
       where: {
-        date: { gte: new Date() }
+        gpDate: { gte: new Date() }
       },
-      orderBy: { date: 'asc' }
+      orderBy: { gpDate: 'asc' }
     });
 
     // Gare senza risultati
     const racesWithoutResults = await prisma.race.findMany({
       where: {
-        date: { lt: new Date() },
+        gpDate: { lt: new Date() },
         results: { none: {} }
       },
-      orderBy: { date: 'desc' },
+      orderBy: { gpDate: 'desc' },
       take: 5
     });
 

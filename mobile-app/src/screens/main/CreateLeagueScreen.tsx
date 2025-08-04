@@ -139,7 +139,7 @@ export default function CreateLeagueScreen() {
             value={lineupVisibility}
             onValueChange={setLineupVisibility}
             buttons={[
-              { value: 'AFTER_DEADLINE', label: 'Dopo Deadline', icon: 'clock-lock-outline' },
+              { value: 'AFTER_DEADLINE', label: 'Dopo Deadline', icon: 'lock-clock' },
               { value: 'ALWAYS_VISIBLE', label: 'Sempre', icon: 'eye-outline' },
             ]}
             style={styles.input}

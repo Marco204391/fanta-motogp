@@ -41,7 +41,7 @@ const TeamLineupCard = ({ lineupData }: { lineupData: any }) => {
             <Card.Title
                 title={teamName}
                 subtitle={`di ${userName}`}
-                left={(props) => <Avatar.Icon {...props} icon="account-helmet" />}
+                left={(props) => <Avatar.Icon {...props} icon="racing-helmet" />}
                 right={(props) => <Chip {...props} icon="star-circle" style={{ marginRight: 16 }}>{totalPoints ?? 'N/D'} pt</Chip>}
             />
             <Card.Content>
