@@ -30,7 +30,11 @@ const createLeagueValidation = [
   body('endDate')
     .optional()
     .isISO8601()
-    .withMessage('Data fine non valida')
+    .withMessage('Data fine non valida'),
+  body('lineupVisibility')
+    .optional()
+    .isIn(['ALWAYS_VISIBLE', 'AFTER_DEADLINE'])
+    .withMessage('Valore non valido per la visibilità dello schieramento'),
 ];
 
 const joinLeagueValidation = [
@@ -69,6 +73,5 @@ router.get('/public', publicLeaguesValidation, leaguesController.getPublicLeague
 router.get('/:id', leagueIdValidation, optionalAuth, leaguesController.getLeagueById);
 router.get('/:id/standings', leagueIdValidation, leaguesController.getLeagueStandings);
 router.get('/:id/race/:raceId/lineups', authenticate, leaguesController.getLeagueRaceLineups);
-
 
 export default router;

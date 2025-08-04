@@ -1,13 +1,13 @@
 // mobile-app/src/screens/main/LeagueDetailScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl, FlatList, Dimensions, TouchableOpacity } from 'react-native';
 import {
   ActivityIndicator, Avatar, Banner, Button, Card, Chip, DataTable,
   Divider, FAB, IconButton, List, Text, Title, useTheme
 } from 'react-native-paper';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format, isPast } from 'date-fns';
 import { getLeagueDetails, getMyTeamInLeague, getAllRaces, getLeagueRaceLineups } from '../../services/api';
@@ -70,16 +70,24 @@ export default function LeagueDetailScreen() {
     const theme = useTheme();
     const { user } = useAuth();
     const { leagueId } = route.params;
+    const queryClient = useQueryClient();
 
     const [refreshing, setRefreshing] = useState(false);
     const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
     const flatListRef = useRef<FlatList>(null);
-    
+
     // Query per i dettagli della lega
     const { data: leagueData, isLoading: isLoadingLeague, refetch: refetchLeague } = useQuery({
         queryKey: ['league', leagueId],
         queryFn: () => getLeagueDetails(leagueId),
     });
+
+    // AGGIUNTO: Invalida i dati della lega ogni volta che la schermata ottiene il focus
+    useFocusEffect(
+      useCallback(() => {
+        queryClient.invalidateQueries({ queryKey: ['league', leagueId] });
+      }, [queryClient, leagueId])
+    );
 
     // Query per il mio team nella lega
     const { data: myTeamData } = useQuery({
@@ -108,14 +116,14 @@ export default function LeagueDetailScreen() {
             }, 100);
         }
     }, [allRaces, selectedRaceId]);
-    
+
     // Query per gli schieramenti della lega per la gara selezionata
     const { data: lineupsData, isLoading: isLoadingLineups, isFetching: isFetchingLineups } = useQuery({
         queryKey: ['leagueRaceLineups', leagueId, selectedRaceId],
         queryFn: () => getLeagueRaceLineups(leagueId, selectedRaceId!),
         enabled: !!selectedRaceId,
     });
-    
+
     const league = leagueData?.league;
     const standings = league?.standings || [];
     const myTeam = myTeamData?.team;
@@ -160,7 +168,7 @@ export default function LeagueDetailScreen() {
         </View>
         );
     }
-    
+
     return (
       <View style={styles.container}>
         <ScrollView
@@ -186,7 +194,7 @@ export default function LeagueDetailScreen() {
               </View>
             </Card.Content>
           </Card>
-  
+
           <View style={styles.section}>
             <Text variant="titleMedium" style={styles.sectionTitle}>GIORNATE DI GARA</Text>
             <FlatList
@@ -208,7 +216,7 @@ export default function LeagueDetailScreen() {
               )}
             />
           </View>
-  
+
           <View style={styles.section}>
              <Text variant="titleMedium" style={styles.sectionTitle}>
                 SCHIERAMENTI
@@ -225,7 +233,7 @@ export default function LeagueDetailScreen() {
                  <Card style={styles.card}><Card.Content><Text style={{textAlign: 'center'}}>Seleziona una gara per vedere gli schieramenti.</Text></Card.Content></Card>
             )}
           </View>
-  
+
           {myTeam && myPosition > 0 && (
             <Card style={[styles.card, { backgroundColor: theme.colors.primaryContainer }]}>
               <Card.Content>

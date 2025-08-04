@@ -89,6 +89,7 @@ export const createLeague = async (data: {
   maxTeams: number;
   budget: number;
   scoringRules?: any;
+  lineupVisibility?: 'ALWAYS_VISIBLE' | 'AFTER_DEADLINE';
 }) => {
   const response = await api.post('/leagues', data);
   return response.data;

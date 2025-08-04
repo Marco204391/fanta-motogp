@@ -10,6 +10,7 @@ import {
   HelperText,
   Card,
   List,
+  SegmentedButtons,
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +27,7 @@ export default function CreateLeagueScreen() {
   const [isPrivate, setIsPrivate] = useState(true);
   const [maxTeams, setMaxTeams] = useState('10');
   const [budget, setBudget] = useState('1000');
+  const [lineupVisibility, setLineupVisibility] = useState('AFTER_DEADLINE');
 
   const mutation = useMutation({
     mutationFn: createLeague,
@@ -81,6 +83,7 @@ export default function CreateLeagueScreen() {
       isPrivate,
       maxTeams: parsedMaxTeams,
       budget: parsedBudget,
+      lineupVisibility: lineupVisibility as 'ALWAYS_VISIBLE' | 'AFTER_DEADLINE',
     });
   };
 
@@ -130,6 +133,21 @@ export default function CreateLeagueScreen() {
             style={styles.input}
           />
           <HelperText type="info">Crediti disponibili per ogni team (min. 500).</HelperText>
+
+          <Text style={styles.label}>Visibilità Schieramenti</Text>
+          <SegmentedButtons
+            value={lineupVisibility}
+            onValueChange={setLineupVisibility}
+            buttons={[
+              { value: 'AFTER_DEADLINE', label: 'Dopo Deadline', icon: 'clock-lock-outline' },
+              { value: 'ALWAYS_VISIBLE', label: 'Sempre', icon: 'eye-outline' },
+            ]}
+            style={styles.input}
+          />
+          <HelperText type="info">
+            Scegli se gli schieramenti degli avversari saranno visibili sempre o solo dopo la deadline della gara.
+          </HelperText>
+
         </Card.Content>
       </Card>
 
@@ -160,6 +178,12 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 8,
+  },
+  label: {
+    fontSize: 16,
+    marginTop: 16,
+    marginBottom: 8,
+    color: '#333'
   },
   createButton: {
     margin: 16,

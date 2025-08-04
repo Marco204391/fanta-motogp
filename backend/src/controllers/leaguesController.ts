@@ -202,7 +202,8 @@ export const createLeague = async (req: AuthRequest, res: Response) => {
       budget = 1000,
       scoringRules,
       startDate,
-      endDate
+      endDate,
+      lineupVisibility
     } = req.body;
 
     let code = generateLeagueCode();
@@ -226,6 +227,7 @@ export const createLeague = async (req: AuthRequest, res: Response) => {
         scoringRules: scoringRules || {},
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
+        lineupVisibility: lineupVisibility || 'AFTER_DEADLINE',
         members: {
           create: {
             userId,
@@ -381,14 +383,23 @@ export const getLeagueRaceLineups = async (req: AuthRequest, res: Response) => {
   try {
     const { id: leagueId, raceId } = req.params;
 
-    // Verifica se la gara è passata per decidere se mostrare gli schieramenti
+    // Controlla la regola di visibilità della lega prima di verificare la deadline
+    const league = await prisma.league.findUnique({
+      where: { id: leagueId },
+      select: { lineupVisibility: true },
+    });
+
+    if (!league) {
+      return res.status(404).json({ error: 'Lega non trovata' });
+    }
+
     const race = await prisma.race.findUnique({ where: { id: raceId } });
     if (!race) {
       return res.status(404).json({ error: 'Gara non trovata' });
     }
 
     const deadline = race.sprintDate || race.date;
-    if (new Date() < new Date(deadline)) {
+    if (league.lineupVisibility === 'AFTER_DEADLINE' && new Date() < new Date(deadline)) {
       return res.status(200).json({ lineups: [], message: 'Gli schieramenti saranno visibili dopo la deadline della gara.' });
     }
 

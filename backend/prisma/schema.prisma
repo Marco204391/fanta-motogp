@@ -56,6 +56,7 @@ model Team {
   name          String
   userId        String
   user          User      @relation(fields: [userId], references: [id])
+  
   leagueId      String
   league        League    @relation(fields: [leagueId], references: [id])
   
@@ -70,6 +71,7 @@ model Team {
 
 model TeamRider {
   id            String    @id @default(uuid())
+  
   teamId        String
   team          Team      @relation(fields: [teamId], references: [id])
   riderId       String
@@ -98,7 +100,8 @@ model League {
   maxTeams      Int       @default(10)
   budget        Int       @default(1000)
   scoringRules  Json
-  
+  lineupVisibility LineupVisibility @default(AFTER_DEADLINE)
+
   teams         Team[]
   members       LeagueMember[]
   races         Race[]
@@ -115,6 +118,7 @@ model LeagueMember {
   leagueId      String
   league        League    @relation(fields: [leagueId], references: [id])
   role          LeagueRole @default(MEMBER)
+  
   joinedAt      DateTime  @default(now())
   
   @@unique([userId, leagueId])
@@ -133,7 +137,6 @@ model Race {
   apiEventId      String?   @unique
   apiBroadcastId  String?   @unique
   apiSessionIds   Json?
-  
   results       RaceResult[]
   teamScores    TeamScore[]
   lineups       RaceLineup[]
@@ -192,7 +195,6 @@ model TeamScore {
   totalPoints  Int
   calculatedAt DateTime @default(now())
   notes        String?
-  
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   race Race @relation(fields: [raceId], references: [id], onDelete: Cascade)
   
@@ -276,4 +278,10 @@ enum NotificationType {
   TRADE_OFFER
   RACE_RESULTS
   SYSTEM
+}
+
+// NUOVO ENUM
+enum LineupVisibility {
+  ALWAYS_VISIBLE
+  AFTER_DEADLINE
 }
