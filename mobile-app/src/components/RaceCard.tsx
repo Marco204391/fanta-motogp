@@ -201,15 +201,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 4,
+  gap: 8,
   },
   country: {
     fontWeight: 'bold',
-    flexShrink: 1, // Permette al testo di restringersi
-    marginRight: 8, // Aggiunge spazio tra il testo e il badge
+    flexShrink: 1,
+    flex: 1, 
+    marginRight: 8,
+  },
+  statusChip: {
+    height: 26,
+    paddingHorizontal: 8,
+    minWidth: 85,
+    flexShrink: 0,
+  },
+  statusText: {
+    fontSize: 11,
+    color: 'white',
+    fontWeight: 'bold',
+    lineHeight: 14,
   },
   raceName: {
     marginBottom: 2,
@@ -217,17 +231,8 @@ const styles = StyleSheet.create({
   circuit: {
     opacity: 0.7,
   },
-  statusChip: {
-    height: 24,
-    paddingHorizontal: 4, // Aggiunge un po' di padding orizzontale
-  },
   finishedChip: {
     backgroundColor: '#388E3C',
-  },
-  statusText: {
-    fontSize: 11,
-    color: 'white',
-    fontWeight: 'bold',
   },
   dateSection: {
     paddingHorizontal: 16,
