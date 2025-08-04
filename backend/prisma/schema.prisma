@@ -8,6 +8,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum SessionType {
+  SPRINT
+  RACE
+}
+
 // ENUM per il tipo di pilota
 enum RiderType {
   OFFICIAL
@@ -169,6 +174,8 @@ model LineupRider {
   
   predictedPosition Int
   
+  scores    TeamScore[]
+  
   @@unique([lineupId, riderId])
 }
 
@@ -180,6 +187,7 @@ model RaceResult {
   riderId       String
   rider         Rider     @relation(fields: [riderId], references: [id])
   
+  session       SessionType
   position      Int?
   points        Int       @default(0)
   fastestLap    Boolean   @default(false)
@@ -187,22 +195,36 @@ model RaceResult {
   dnf           Boolean   @default(false)
   
   fantasyPoints Int       @default(0)
-
   status        RaceStatus @default(FINISHED)
+
+  // Aggiunta chiave unica per evitare duplicati
+  @@unique([raceId, riderId, session])
 }
 
 model TeamScore {
   id           String   @id @default(cuid())
   teamId       String
   raceId       String
+  
+  // MODIFICA: Aggiunto tipo di sessione
+  session      SessionType
+
   totalPoints  Int
   calculatedAt DateTime @default(now())
   notes        String?
+  
+  // MODIFICA: Aggiunto dettaglio punteggi per pilota
+  riderScores  Json? 
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   race Race @relation(fields: [raceId], references: [id], onDelete: Cascade)
   
-  @@unique([teamId, raceId])
+  // Riferimento opzionale a LineupRider per il dettaglio
+  lineupRiderId String?
+  lineupRider   LineupRider? @relation(fields: [lineupRiderId], references: [id])
+
+  // Aggiunta chiave unica
+  @@unique([teamId, raceId, session])
 }
 
 model RiderStats {
@@ -227,10 +249,10 @@ model Notification {
   userId        String
   user          User      @relation(fields: [userId], references: [id])
   title         String
-  message         String
-  type            NotificationType
+  message       String
+  type          NotificationType
   read          Boolean   @default(false)
-  createdAt       DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 }
 
 // ENUMS
@@ -284,7 +306,6 @@ enum NotificationType {
   SYSTEM
 }
 
-// NUOVO ENUM
 enum LineupVisibility {
   ALWAYS_VISIBLE
   AFTER_DEADLINE

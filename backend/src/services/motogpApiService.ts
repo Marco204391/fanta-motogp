@@ -1,6 +1,6 @@
 // backend/src/services/motogpApiService.ts
 import axios from 'axios';
-import { Category, PrismaClient, RiderType } from '@prisma/client';
+import { Category, PrismaClient, RiderType, SessionType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -84,7 +84,7 @@ export class MotoGPApiService {
         const isActive = !!careerStep;
 
         await prisma.rider.upsert({
-          where: { apiRiderId: apiRider.id }, // Usa l'ID univoco dell'API
+          where: { apiRiderId: apiRider.id },
           update: {
             name: riderFullName,
             team: careerStep.sponsored_team,
@@ -137,18 +137,15 @@ export class MotoGPApiService {
       const eventsResponse = await this.axiosInstance.get(url);
       
       for (const event of eventsResponse.data) {
-        // --- MODIFICA 1: Esclusione dei test utilizzando il flag 'test' ---
         if (event.test) {
           console.log(`🟡 SKIPPATO: ${event.name} (evento di test)`);
           continue;
         }
 
-        // --- MODIFICA 2: Recupero date precise dall'endpoint dell'evento specifico ---
         let raceDate: Date | null = null;
         let sprintDate: Date | null = null;
 
         try {
-          // L'ID dell'evento dalla prima chiamata viene usato qui
           const eventDetailsResponse = await this.axiosInstance.get(`/events/${event.toad_api_uuid}`);
           const broadcasts = eventDetailsResponse.data?.broadcasts || [];
           
@@ -200,44 +197,39 @@ export class MotoGPApiService {
     }
   }
 
-  // 3. Sincronizza risultati di una gara
   async syncRaceResults(raceId: string) {
     try {
-      const race = await prisma.race.findUnique({
-        where: { id: raceId }
-      });
+      const race = await prisma.race.findUnique({ where: { id: raceId } });
+      if (!race || !race.apiEventId) throw new Error('Gara non trovata o mancano dati API');
 
-      if (!race || !race.apiEventId) {
-        throw new Error('Gara non trovata o mancano dati API');
-      }
-
-      // Per ogni categoria, ottieni i risultati
       for (const [categoryId, category] of Object.entries(CATEGORY_MAPPING)) {
         try {
-          // Prima ottieni le sessioni per trovare l'ID della gara
-          const sessionsResponse = await this.axiosInstance.get(
-            `/results/sessions?eventUuid=${race.apiEventId}&categoryUuid=${categoryId}`
-          );
-
-          // Trova la sessione della gara (tipo 'RAC')
+          const sessionsResponse = await this.axiosInstance.get(`/results/sessions?eventUuid=${race.apiEventId}&categoryUuid=${categoryId}`);
+          
           const raceSession = sessionsResponse.data.find((s: any) => s.type === 'RAC');
-          if (!raceSession) continue;
+          const sprintSession = sessionsResponse.data.find((s: any) => s.type === 'SPR');
 
-          // Ottieni i risultati della gara
-          const resultsResponse = await this.axiosInstance.get(
-            `/results/session/${raceSession.id}/classification`
-          );
-
-          if (resultsResponse.data?.classification) {
-            await this.saveRaceResults(raceId, category, resultsResponse.data.classification);
+          if (raceSession) {
+            const resultsResponse = await this.axiosInstance.get(`/results/session/${raceSession.id}/classification`);
+            if (resultsResponse.data?.classification) {
+              await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.RACE);
+            }
+          }
+          if (sprintSession) {
+            const resultsResponse = await this.axiosInstance.get(`/results/session/${sprintSession.id}/classification`);
+            if (resultsResponse.data?.classification) {
+              await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.SPRINT);
+            }
           }
         } catch (error) {
           console.error(`Errore sync risultati ${category}:`, error);
         }
       }
 
-      // Dopo aver salvato tutti i risultati, calcola i punteggi
-      await this.calculateTeamScores(raceId);
+      await this.calculateTeamScores(raceId, SessionType.RACE);
+      if (race.sprintDate) {
+        await this.calculateTeamScores(raceId, SessionType.SPRINT);
+      }
 
       console.log(`✅ Risultati sincronizzati per gara ${race.name}`);
       return { success: true, message: 'Risultati sincronizzati con successo' };
@@ -248,263 +240,151 @@ export class MotoGPApiService {
     }
   }
 
-  // 4. Salva risultati nel database
-  private async saveRaceResults(raceId: string, category: Category, classification: any[]) {
+  private async saveRaceResults(raceId: string, category: Category, classification: any[], session: SessionType) {
     for (const result of classification) {
-      // Trova il pilota nel database
       const rider = await prisma.rider.findFirst({
-        where: {
-          name: {
-            contains: result.rider.full_name
-          },
-          category
-        }
+        where: { name: { contains: result.rider.full_name }, category }
       });
 
       if (!rider) {
         console.warn(`⚠️ Pilota non trovato: ${result.rider.full_name}`);
         continue;
       }
-
-      // Determina lo stato
+      
       let status: 'FINISHED' | 'DNF' | 'DNS' | 'DSQ' = 'FINISHED';
       if (result.status === 'DNS') status = 'DNS';
       else if (result.status === 'DNF' || !result.position) status = 'DNF';
       else if (result.status === 'DSQ') status = 'DSQ';
 
-      // Usa una query diretta invece di upsert con chiave composta
-      const existingResult = await prisma.raceResult.findFirst({
-        where: {
-          raceId,
-          riderId: rider.id
-        }
-      });
-
-      if (existingResult) {
-        await prisma.raceResult.update({
-          where: { id: existingResult.id },
-          data: {
-            position: result.position || null,
-            status,
-            points: 0
-          }
-        });
-      } else {
-        await prisma.raceResult.create({
-          data: {
-            raceId,
-            riderId: rider.id,
-            position: result.position || null,
-            status,
-            points: 0
-          }
-        });
-      }
-    }
-  }
-
-  async calculateTeamScores(raceId: string) {
-  try {
-    // 1. Ottieni tutti i risultati della gara
-    const raceResults = await prisma.raceResult.findMany({
-      where: { raceId },
-      include: { rider: true }
-    });
-
-    if (raceResults.length === 0) {
-      console.log('Nessun risultato trovato per la gara');
-      return;
-    }
-
-    // 2. Crea mappa dei risultati per un accesso rapido
-    const resultMap = new Map<string, number>();
-    raceResults.forEach(result => {
-      resultMap.set(result.riderId, result.position ?? 99 );
-    });
-
-    // 3. Ottieni tutti gli schieramenti per questa gara
-    const lineups = await prisma.raceLineup.findMany({
-      where: { raceId },
-      include: {
-        lineupRiders: {
-          include: { rider: true }
-        },
-        team: true
-      }
-    });
-
-    // 4. Ottieni anche tutti i team della lega per gestire quelli senza schieramento
-    const race = await prisma.race.findUnique({
-      where: { id: raceId }
-    });
-
-    if (!race) return;
-
-    // Trova tutti i team nelle leghe attive
-    const allTeams = await prisma.team.findMany({
-      include: {
-        league: true,
-        riders: {
-          include: { rider: true }
-        }
-      }
-    });
-
-    // 5. Calcola i punteggi per ogni team
-    for (const team of allTeams) {
-      let totalPoints = 0;
-      let lineupToUse = lineups.find(l => l.teamId === team.id);
-      let usedFallback = false;
-
-      // Se non c'è uno schieramento per questa gara, usa l'ultimo valido
-      if (!lineupToUse) {
-        console.log(`Team ${team.name}: nessuno schieramento per questa gara, cerco il precedente...`);
-        
-        const lastValidLineup = await prisma.raceLineup.findFirst({
-          where: {
-              teamId: team.id,
-              race: {
-                  gpDate: { lt: race.gpDate }
-              }
-          },
-          orderBy: { race: { gpDate: 'desc' } },
-          include: {
-              lineupRiders: {
-                  include: { rider: true }
-              },
-              team: true,
-              race: true // Add this line
-          }
-        });
-        
-        if (lastValidLineup) {
-          console.log(`Team ${team.name}: usa l'ultimo schieramento valido del ${lastValidLineup.race.gpDate}.`);
-          lineupToUse = lastValidLineup;
-          usedFallback = true;
-        } else {
-          // Nessuno schieramento trovato - penalità massima
-          console.log(`Team ${team.name}: nessuno schieramento precedente, applico penalità massima.`);
-          totalPoints = 6 * 99; // 6 piloti * 99 punti (penalità massima)
-          
-          await prisma.teamScore.upsert({
-            where: { teamId_raceId: { teamId: team.id, raceId } },
-            update: { 
-              totalPoints, 
-              calculatedAt: new Date(),
-              notes: 'Penalità massima - nessuno schieramento'
-            },
-            create: { 
-              teamId: team.id, 
-              raceId, 
-              totalPoints,
-              notes: 'Penalità massima - nessuno schieramento'
-            }
-          });
-          continue;
-        }
-      }
-
-      // Calcola i punti per ogni pilota schierato
-      for (const lineupRider of lineupToUse.lineupRiders) {
-        // Verifica che il pilota sia ancora nel team
-        const stillInTeam = team.riders.some(tr => tr.riderId === lineupRider.riderId);
-        
-        if (!stillInTeam) {
-          console.warn(`Pilota ${lineupRider.rider.name} non più nel team, penalità massima`);
-          totalPoints += 99;
-          continue;
-        }
-
-        const actualPosition = resultMap.get(lineupRider.riderId);
-        const predictedPosition = lineupRider.predictedPosition;
-
-        if (actualPosition === undefined) {
-          console.warn(`Nessun risultato per ${lineupRider.rider.name}`);
-          totalPoints += 99;
-          continue;
-        }
-
-        let points: number;
-        if (actualPosition === 99) {
-          // Non ha finito la gara (DNF, DNS, DSQ)
-          points = 99;
-        } else {
-          // Punti = posizione arrivo + differenza assoluta dalla previsione
-          const basePoints = actualPosition;
-          const difference = Math.abs(predictedPosition - actualPosition);
-          points = basePoints + difference;
-        }
-
-        totalPoints += points;
-        console.log(`${lineupRider.rider.name}: previsto ${predictedPosition}°, arrivato ${actualPosition}° = ${points} punti`);
-      }
-
-      // Salva o aggiorna il punteggio del team
-      await prisma.teamScore.upsert({
-        where: {
-          teamId_raceId: {
-            teamId: team.id,
-            raceId
-          }
-        },
+      await prisma.raceResult.upsert({
+        where: { raceId_riderId_session: { raceId, riderId: rider.id, session } },
         update: {
-          totalPoints,
-          calculatedAt: new Date(),
-          notes: usedFallback ? 'Usato schieramento precedente' : null
+          position: result.position || null,
+          status,
         },
         create: {
-          teamId: team.id,
           raceId,
-          totalPoints,
-          notes: usedFallback ? 'Usato schieramento precedente' : null
+          riderId: rider.id,
+          session,
+          position: result.position || null,
+          status,
+        },
+      });
+    }
+  }
+
+  async calculateTeamScores(raceId: string, session: SessionType) {
+    console.log(`-- Inizio calcolo punteggi per ${session} della gara ${raceId} --`);
+    try {
+      const raceResults = await prisma.raceResult.findMany({
+        where: { raceId, session },
+        include: { rider: true },
+      });
+
+      if (raceResults.length === 0) {
+        console.log(`Nessun risultato ${session} trovato per la gara.`);
+        return;
+      }
+
+      const maxPositions = raceResults.reduce((acc, result) => {
+        const category = result.rider.category;
+        if (result.position && result.position > (acc[category] || 0)) {
+          acc[category] = result.position;
+        }
+        return acc;
+      }, {} as Record<Category, number>);
+
+      const resultMap = new Map<string, { position: number | null, status: string }>();
+      raceResults.forEach(result => {
+        resultMap.set(result.riderId, { position: result.position, status: result.status });
+      });
+
+      const lineups = await prisma.raceLineup.findMany({
+        where: { raceId },
+        include: {
+          lineupRiders: { include: { rider: true } },
+          team: { include: { riders: { include: { rider: true } } } }
         }
       });
 
-      console.log(`Team ${team.name}: ${totalPoints} punti totali${usedFallback ? ' (con schieramento precedente)' : ''}`);
+      for (const lineup of lineups) {
+        let totalPoints = 0;
+        let riderScores = [];
+
+        for (const lineupRider of lineup.lineupRiders) {
+          const result = resultMap.get(lineupRider.riderId);
+          const predictedPosition = lineupRider.predictedPosition;
+          let points = 0;
+          let basePoints = 0;
+
+          if (!result) {
+            // Se il pilota non ha un risultato per questa sessione (es. non ha corso lo sprint)
+            // si applica la penalità massima di quella categoria + 1
+            const riderCategory = lineupRider.rider.category;
+            const maxPos = maxPositions[riderCategory] || 25; // Fallback a 25
+            basePoints = maxPos + 1;
+          } else {
+            const { position, status } = result;
+            const riderCategory = lineupRider.rider.category;
+            const maxPos = maxPositions[riderCategory] || 25;
+
+            if (status === 'DNS') {
+              // Non ha partecipato: penalità max classifica + 1
+              basePoints = maxPos + 1;
+            } else {
+              // Ha partecipato (FINISHED, DNF, DSQ): usa la sua posizione se esiste, altrimenti penalità
+              basePoints = position ?? (maxPos + 1);
+            }
+          }
+          
+          const difference = Math.abs(predictedPosition - basePoints);
+          points = basePoints + difference;
+          
+          riderScores.push({ rider: lineupRider.rider.name, points, predicted: predictedPosition, actual: result?.position ?? result?.status, base: basePoints, diff: difference });
+          totalPoints += points;
+        }
+        
+        await prisma.teamScore.upsert({
+          where: { teamId_raceId_session: { teamId: lineup.teamId, raceId, session } },
+          update: { totalPoints, calculatedAt: new Date(), riderScores: riderScores as any },
+          create: { teamId: lineup.teamId, raceId, session, totalPoints, riderScores: riderScores as any }
+        });
+
+        console.log(`Team ${lineup.team.name}: ${totalPoints} punti per ${session}`);
+      }
+    } catch (error) {
+      console.error(`Errore nel calcolo dei punteggi per ${session}:`, error);
     }
-
-    // 6. Aggiorna le classifiche delle leghe
-    await this.updateLeagueStandings(raceId);
-
-  } catch (error) {
-    console.error('Errore nel calcolo dei punteggi:', error);
-    throw error;
-  }
   }
 
-// Nuova funzione per aggiornare le classifiche
-private async updateLeagueStandings(raceId: string) {
-  try {
-    // Trova tutte le leghe con team che hanno punteggi per questa gara
-    const leagues = await prisma.league.findMany({
-      include: {
-        teams: {
-          include: {
-            scores: true
+  private async updateLeagueStandings(raceId: string) {
+    try {
+      const leagues = await prisma.league.findMany({
+        include: {
+          teams: {
+            include: {
+              scores: true
+            }
           }
         }
+      });
+
+      for (const league of leagues) {
+        league.teams.map(team => {
+          const totalPoints = team.scores.reduce((sum, score) => sum + score.totalPoints, 0);
+          return {
+            teamId: team.id,
+            totalPoints,
+          };
+        }).sort((a, b) => a.totalPoints - b.totalPoints);
+
+        console.log(`Classifica aggiornata per lega ${league.name}`);
       }
-    });
-
-    for (const league of leagues) {
-      // Calcola i punti totali per ogni team
-      const teamStandings = league.teams.map(team => {
-        const totalPoints = team.scores.reduce((sum, score) => sum + score.totalPoints, 0);
-        return {
-          teamId: team.id,
-          totalPoints,
-          raceCount: team.scores.length
-        };
-      }).sort((a, b) => a.totalPoints - b.totalPoints); // Ordinamento crescente (meno punti = meglio)
-
-      console.log(`Classifica aggiornata per lega ${league.name}`);
+    } catch (error) {
+      console.error('Errore aggiornamento classifiche:', error);
     }
-  } catch (error) {
-    console.error('Errore aggiornamento classifiche:', error);
   }
-}
 
-  // Metodi helper
   private mapLegacyCategory(legacyId: number): Category | null {
     switch (legacyId) {
       case 3: return Category.MOTOGP;
@@ -515,7 +395,6 @@ private async updateLeagueStandings(raceId: string) {
   }
 
   private calculateRiderValue(apiRider: any): number {
-    // Formula semplice basata su risultati passati
     const baseValue = 50;
     const championships = apiRider.championships?.length || 0;
     const wins = apiRider.victories || 0;
@@ -524,5 +403,4 @@ private async updateLeagueStandings(raceId: string) {
   }
 }
 
-// Esporta istanza singleton
 export const motogpApi = new MotoGPApiService();

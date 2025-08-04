@@ -2,7 +2,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { motogpApi } from '../services/motogpApiService';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, SessionType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -174,7 +174,7 @@ export const getSyncLogs = async (req: AuthRequest, res: Response) => {
   try {
     const logs = await prisma.syncLog.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 50 // Ultimi 50 log
+      take: 50
     });
 
     res.json({ logs });
@@ -266,54 +266,52 @@ export const getResultsTemplate = async (req: AuthRequest, res: Response) => {
 // POST /api/sync/results - Inserimento manuale risultati
 export const insertRaceResults = async (req: AuthRequest, res: Response) => {
   try {
-    const { raceId, results } = req.body;
+    const { raceId, results, session } = req.body;
 
-    // Validazione base
-    if (!raceId || !Array.isArray(results)) {
+    // Validazione
+    if (!raceId || !Array.isArray(results) || !session) {
       return res.status(400).json({ 
-        error: 'Dati non validi. Richiesti raceId e array results.' 
+        error: 'Dati non validi. Richiesti raceId, session (RACE o SPRINT) e array results.' 
       });
     }
 
-    // Salva i risultati
-    for (const result of results) {
-      const existingResult = await prisma.raceResult.findFirst({
-        where: {
-          raceId,
-          riderId: result.riderId
-        }
-      });
+    if (session !== SessionType.RACE && session !== SessionType.SPRINT) {
+      return res.status(400).json({ error: 'Il campo session deve essere RACE o SPRINT.' });
+    }
 
-      if (existingResult) {
-        await prisma.raceResult.update({
-          where: { id: existingResult.id },
-          data: {
-            position: result.position,
-            status: result.status || 'FINISHED'
-          }
-        });
-      } else {
-        await prisma.raceResult.create({
-          data: {
+    // Upsert dei risultati
+    for (const result of results) {
+      await prisma.raceResult.upsert({
+        where: {
+          raceId_riderId_session: {
             raceId,
             riderId: result.riderId,
+            session,
+          },
+        },
+        update: {
             position: result.position,
-            status: result.status || 'FINISHED'
-          }
-        });
-      }
+            status: result.status || 'FINISHED',
+        },
+        create: {
+          raceId,
+          riderId: result.riderId,
+          session,
+          position: result.position,
+          status: result.status || 'FINISHED',
+        },
+      });
     }
 
-    // Calcola i punteggi fantacalcio
-    const motogpApiInstance = new (await import('../services/motogpApiService')).MotoGPApiService();
-    await (motogpApiInstance as any).calculateTeamScores(raceId);
+    // Ricalcola i punteggi per la sessione inserita
+    await motogpApi.calculateTeamScores(raceId, session);
 
     res.json({
       success: true,
-      message: 'Risultati inseriti e punteggi calcolati con successo'
+      message: `Risultati per ${session} inseriti e punteggi calcolati con successo`
     });
   } catch (error: any) {
-    console.error('Errore inserimento risultati:', error);
+    console.error('Errore inserimento risultati manuale:', error);
     res.status(500).json({ 
       error: 'Errore durante l\'inserimento dei risultati' 
     });
