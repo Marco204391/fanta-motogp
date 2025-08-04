@@ -210,13 +210,13 @@ export class MotoGPApiService {
           const sprintSession = sessionsResponse.data.find((s: any) => s.type === 'SPR');
 
           if (raceSession) {
-            const resultsResponse = await this.axiosInstance.get(`/results/session/${raceSession.id}/classification`);
+            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${raceSession.id}&test=false`);
             if (resultsResponse.data?.classification) {
               await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.RACE);
             }
           }
           if (sprintSession) {
-            const resultsResponse = await this.axiosInstance.get(`/results/session/${sprintSession.id}/classification`);
+            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${sprintSession.id}&test=false`);
             if (resultsResponse.data?.classification) {
               await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.SPRINT);
             }
@@ -242,9 +242,15 @@ export class MotoGPApiService {
 
   private async saveRaceResults(raceId: string, category: Category, classification: any[], session: SessionType) {
     for (const result of classification) {
-      const rider = await prisma.rider.findFirst({
-        where: { name: { contains: result.rider.full_name }, category }
+      let rider = await prisma.rider.findUnique({
+        where: { apiRiderId: result.rider.riders_api_uuid }
       });
+
+      if (!rider) {
+        rider = await prisma.rider.findFirst({
+          where: { name: { contains: result.rider.full_name }, category }
+        });
+      }
 
       if (!rider) {
         console.warn(`⚠️ Pilota non trovato: ${result.rider.full_name}`);
@@ -252,9 +258,17 @@ export class MotoGPApiService {
       }
       
       let status: 'FINISHED' | 'DNF' | 'DNS' | 'DSQ' = 'FINISHED';
-      if (result.status === 'DNS') status = 'DNS';
-      else if (result.status === 'DNF' || !result.position) status = 'DNF';
-      else if (result.status === 'DSQ') status = 'DSQ';
+      if (result.status === 'OUTSTND' || result.status === 'DNF') {
+        status = 'DNF';
+      } else if (result.status === 'DNS') {
+        status = 'DNS';
+      } else if (result.status === 'DSQ') {
+        status = 'DSQ';
+      } else if (!result.position) {
+        status = 'DNF';
+      } else {
+        status = 'FINISHED';
+      }
 
       await prisma.raceResult.upsert({
         where: { raceId_riderId_session: { raceId, riderId: rider.id, session } },
