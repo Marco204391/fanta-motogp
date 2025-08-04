@@ -129,8 +129,10 @@ model Race {
   name          String
   circuit       String
   country       String
-  date          DateTime
+  startDate     DateTime
+  endDate       DateTime
   sprintDate    DateTime?
+  gpDate        DateTime
   round         Int
   season        Int
 

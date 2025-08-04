@@ -135,16 +135,46 @@ export class MotoGPApiService {
       }
 
       const eventsResponse = await this.axiosInstance.get(url);
-
+      
       for (const event of eventsResponse.data) {
+        // --- MODIFICA 1: Esclusione dei test utilizzando il flag 'test' ---
+        if (event.test) {
+          console.log(`🟡 SKIPPATO: ${event.name} (evento di test)`);
+          continue;
+        }
+
+        // --- MODIFICA 2: Recupero date precise dall'endpoint dell'evento specifico ---
+        let raceDate: Date | null = null;
+        let sprintDate: Date | null = null;
+
+        try {
+          // L'ID dell'evento dalla prima chiamata viene usato qui
+          const eventDetailsResponse = await this.axiosInstance.get(`/events/${event.toad_api_uuid}`);
+          const broadcasts = eventDetailsResponse.data?.broadcasts || [];
+          
+          const raceSession = broadcasts.find((s: any) => s.shortname === 'RAC' && s.category.acronym === 'MGP');
+          if (raceSession && raceSession.date_start) {
+            raceDate = new Date(raceSession.date_start);
+          }
+
+          const sprintSession = broadcasts.find((s: any) => s.shortname === 'SPR' && s.category.acronym === 'MGP');
+          if (sprintSession && sprintSession.date_start) {
+            sprintDate = new Date(sprintSession.date_start);
+          }
+        } catch (sessionError) {
+          console.warn(`⚠️ Impossibile recuperare i dettagli delle sessioni per ${event.name}, uso le date generali.`);
+        }
+        
         await prisma.race.upsert({
           where: { apiEventId: event.id },
           update: {
             name: event.name,
             circuit: event.circuit.name,
             country: event.country.name,
-            date: new Date(event.date_end),
-            sprintDate: event.date_start ? new Date(event.date_start) : null,
+            startDate: new Date(event.date_start),
+            endDate: new Date(event.date_end),
+            gpDate: raceDate || new Date(event.date_end),
+            sprintDate: sprintDate,
             round: event.number || 0,
             season,
           },
@@ -152,8 +182,10 @@ export class MotoGPApiService {
             name: event.name,
             circuit: event.circuit.name,
             country: event.country.name,
-            date: new Date(event.date_end),
-            sprintDate: event.date_start ? new Date(event.date_start) : null,
+            startDate: new Date(event.date_start),
+            endDate: new Date(event.date_end),
+            gpDate: raceDate || new Date(event.date_end),
+            sprintDate: sprintDate,
             round: event.number || 0,
             season,
             apiEventId: event.id,
