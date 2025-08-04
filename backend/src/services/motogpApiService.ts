@@ -241,7 +241,22 @@ export class MotoGPApiService {
   }
 
   private async saveRaceResults(raceId: string, category: Category, classification: any[], session: SessionType) {
-    for (const result of classification) {
+    const finishedRiders = classification.filter(r => r.position !== null);
+    const dnfRiders = classification.filter(r => r.position === null);
+
+    dnfRiders.sort((a, b) => (b.total_laps || 0) - (a.total_laps || 0));
+
+    const lastPosition = finishedRiders.length;
+
+    const finalClassification = [
+      ...finishedRiders,
+      ...dnfRiders.map((rider, index) => ({
+        ...rider,
+        position: lastPosition + index + 1,
+      }))
+    ];
+
+    for (const result of finalClassification) {
       let rider = await prisma.rider.findUnique({
         where: { apiRiderId: result.rider.riders_api_uuid }
       });
@@ -266,8 +281,6 @@ export class MotoGPApiService {
         status = 'DSQ';
       } else if (!result.position) {
         status = 'DNF';
-      } else {
-        status = 'FINISHED';
       }
 
       await prisma.raceResult.upsert({
@@ -332,10 +345,8 @@ export class MotoGPApiService {
           let basePoints = 0;
 
           if (!result) {
-            // Se il pilota non ha un risultato per questa sessione (es. non ha corso lo sprint)
-            // si applica la penalità massima di quella categoria + 1
             const riderCategory = lineupRider.rider.category;
-            const maxPos = maxPositions[riderCategory] || 25; // Fallback a 25
+            const maxPos = maxPositions[riderCategory] || 25;
             basePoints = maxPos + 1;
           } else {
             const { position, status } = result;
@@ -343,10 +354,8 @@ export class MotoGPApiService {
             const maxPos = maxPositions[riderCategory] || 25;
 
             if (status === 'DNS') {
-              // Non ha partecipato: penalità max classifica + 1
               basePoints = maxPos + 1;
             } else {
-              // Ha partecipato (FINISHED, DNF, DSQ): usa la sua posizione se esiste, altrimenti penalità
               basePoints = position ?? (maxPos + 1);
             }
           }
@@ -368,34 +377,6 @@ export class MotoGPApiService {
       }
     } catch (error) {
       console.error(`Errore nel calcolo dei punteggi per ${session}:`, error);
-    }
-  }
-
-  private async updateLeagueStandings(raceId: string) {
-    try {
-      const leagues = await prisma.league.findMany({
-        include: {
-          teams: {
-            include: {
-              scores: true
-            }
-          }
-        }
-      });
-
-      for (const league of leagues) {
-        league.teams.map(team => {
-          const totalPoints = team.scores.reduce((sum, score) => sum + score.totalPoints, 0);
-          return {
-            teamId: team.id,
-            totalPoints,
-          };
-        }).sort((a, b) => a.totalPoints - b.totalPoints);
-
-        console.log(`Classifica aggiornata per lega ${league.name}`);
-      }
-    } catch (error) {
-      console.error('Errore aggiornamento classifiche:', error);
     }
   }
 
