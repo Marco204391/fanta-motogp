@@ -225,7 +225,18 @@ export default function LeagueDetailScreen() {
                 <ActivityIndicator style={{ marginTop: 20 }}/>
             ) : lineupsData?.lineups ? (
                 lineupsData.lineups.length > 0 ? (
-                    lineupsData.lineups.map((lineup: any) => <TeamLineupCard key={lineup.teamId} lineupData={lineup} />)
+                    <FlatList
+                        horizontal
+                        data={lineupsData.lineups}
+                        keyExtractor={(item) => item.teamId}
+                        renderItem={({ item }) => (
+                            <View style={styles.lineupCardContainer}>
+                                <TeamLineupCard lineupData={item} />
+                            </View>
+                        )}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.lineupCarousel}
+                    />
                 ) : (
                     <Card style={styles.card}><Card.Content><Text style={{textAlign: 'center'}}>{lineupsData.message || 'Nessuno schieramento per questa gara.'}</Text></Card.Content></Card>
                 )
@@ -358,8 +369,9 @@ const styles = StyleSheet.create({
     fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
     raceCarousel: { paddingHorizontal: 8, paddingVertical: 8 },
     raceCardContainer: { width: screenWidth * 0.9, marginRight: 12, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
-    selectedRaceCard: { borderColor: '#FF6B00' }, // Usa il colore primario del tema
-    lineupCard: { marginHorizontal: 16, marginBottom: 12 },
+    lineupCarousel: { paddingHorizontal: 16, paddingVertical: 8 },
+    lineupCardContainer: { width: screenWidth * 0.85, marginRight: 12 },
+    lineupCard: {marginBottom: 12 },
     riderRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
     riderName: { flex: 1 },
     riderPredictions: { flexDirection: 'row', gap: 16 },
