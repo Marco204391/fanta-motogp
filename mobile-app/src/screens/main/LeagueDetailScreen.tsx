@@ -143,7 +143,11 @@ export default function LeagueDetailScreen() {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await refetchLeague();
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['league', leagueId] }),
+            queryClient.invalidateQueries({ queryKey: ['myTeamInLeague', leagueId] }),
+            queryClient.invalidateQueries({ queryKey: ['leagueRaceLineups', leagueId, selectedRaceId] })
+        ]);
         setRefreshing(false);
     };
 
@@ -191,6 +195,11 @@ export default function LeagueDetailScreen() {
                     </Chip>
                   </View>
                 </View>
+                <IconButton
+                    icon="refresh"
+                    onPress={onRefresh}
+                    style={styles.refreshButton}
+                />
               </View>
             </Card.Content>
           </Card>
@@ -371,8 +380,9 @@ const styles = StyleSheet.create({
     raceCardContainer: { width: screenWidth * 0.9, marginRight: 12, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
     lineupCarousel: { paddingHorizontal: 16, paddingVertical: 8 },
     lineupCardContainer: { width: screenWidth * 0.85, marginRight: 12 },
-    lineupCard: {marginBottom: 12 },
+    lineupCard: { marginBottom: 12 },
     riderRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
     riderName: { flex: 1 },
     riderPredictions: { flexDirection: 'row', gap: 16 },
+    refreshButton: { alignSelf: 'flex-start' },
 });

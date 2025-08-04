@@ -91,6 +91,7 @@ export default function LineupScreen() {
                   queryClient.invalidateQueries({ queryKey: ['lineup', teamId, raceId] });
                   queryClient.invalidateQueries({ queryKey: ['myTeams'] });
                   queryClient.invalidateQueries({queryKey: ['league', team?.leagueId]})
+                  queryClient.invalidateQueries({ queryKey: ['leagueRaceLineups', team?.leagueId, raceId] });
                   navigation.goBack();
                 }
               }
