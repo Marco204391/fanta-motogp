@@ -15,7 +15,7 @@ interface Race {
   name: string;
   circuit: string;
   country: string;
-  date: Date;
+  gpDate: Date;
   sprintDate?: Date;
   round: number;
   season: number;
@@ -49,7 +49,7 @@ export default function RaceCalendarScreen() {
   const upcomingRaces = upcomingData?.races || [];
   const pastRaces = pastData?.races || [];
   const allRaces = [...pastRaces, ...upcomingRaces].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    (a, b) => new Date(a.gpDate).getTime() - new Date(b.gpDate).getTime()
   );
 
   const isLoading = isLoadingUpcoming || isLoadingPast;
@@ -65,7 +65,7 @@ export default function RaceCalendarScreen() {
     const grouped: Record<string, Race[]> = {};
     
     races.forEach(race => {
-      const monthKey = format(new Date(race.date), 'MMMM yyyy', { locale: it });
+      const monthKey = format(new Date(race.gpDate), 'MMMM yyyy', { locale: it });
       if (!grouped[monthKey]) {
         grouped[monthKey] = [];
       }
@@ -90,7 +90,7 @@ export default function RaceCalendarScreen() {
 
   const getRaceVariant = (race: Race): 'upcoming' | 'past' | 'current' => {
     const now = new Date();
-    const raceDate = new Date(race.date);
+    const raceDate = new Date(race.gpDate);
     const raceStart = race.sprintDate ? new Date(race.sprintDate) : raceDate;
     
     // Se la gara è in corso (tra inizio sprint/gara e fine gara)

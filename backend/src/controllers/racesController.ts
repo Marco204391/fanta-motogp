@@ -9,12 +9,12 @@ export const getUpcomingRaces = async (req: Request, res: Response) => {
   try {
     const races = await prisma.race.findMany({
       where: {
-        date: {
+        gpDate: {
           gte: new Date(),
         },
       },
       orderBy: {
-        date: 'asc',
+        gpDate: 'asc',
       },
       take: 10, // Prossime 10 gare
     });
@@ -30,12 +30,12 @@ export const getPastRaces = async (req: Request, res: Response) => {
   try {
     const races = await prisma.race.findMany({
       where: {
-        date: {
+        gpDate: {
           lt: new Date(),
         },
       },
       orderBy: {
-        date: 'desc',
+        gpDate: 'desc',
       },
       take: 20, // Ultime 20 gare
       include: {

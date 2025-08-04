@@ -64,7 +64,7 @@ export const setLineup = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Gara non trovata' });
     }
 
-    const deadline = race.sprintDate || race.date;
+    const deadline = race.sprintDate || race.gpDate;
     if (new Date() > new Date(deadline)) {
       return res.status(403).json({ error: 'La deadline per schierare la formazione è passata.' });
     }
@@ -239,9 +239,9 @@ export const getWeekendLineups = async (req: AuthRequest, res: Response) => {
     const weekendRaces = await prisma.race.findMany({
       where: {
         circuit: race.circuit, // Use circuit name for filtering
-        date: {
-          gte: new Date(race.date.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 giorni prima
-          lte: new Date(race.date.getTime() + 3 * 24 * 60 * 60 * 1000), // 3 giorni dopo
+        gpDate: {
+          gte: new Date(race.gpDate.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 giorni prima
+          lte: new Date(race.gpDate.getTime() + 3 * 24 * 60 * 60 * 1000), // 3 giorni dopo
         }
       }
     });

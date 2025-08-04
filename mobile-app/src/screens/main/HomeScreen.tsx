@@ -59,7 +59,7 @@ export default function HomeScreen() {
 
   const getDaysUntilRace = () => {
     if (!nextRace) return null;
-    return differenceInDays(new Date(nextRace.date), new Date());
+    return differenceInDays(new Date(nextRace.gpDate), new Date());
   };
 
   const daysUntilRace = getDaysUntilRace();

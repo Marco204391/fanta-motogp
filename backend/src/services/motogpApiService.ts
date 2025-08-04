@@ -364,10 +364,10 @@ export class MotoGPApiService {
           where: {
               teamId: team.id,
               race: {
-                  date: { lt: race.date }
+                  gpDate: { lt: race.gpDate }
               }
           },
-          orderBy: { race: { date: 'desc' } },
+          orderBy: { race: { gpDate: 'desc' } },
           include: {
               lineupRiders: {
                   include: { rider: true }
@@ -378,7 +378,7 @@ export class MotoGPApiService {
         });
         
         if (lastValidLineup) {
-          console.log(`Team ${team.name}: usa l'ultimo schieramento valido del ${lastValidLineup.race.date}.`);
+          console.log(`Team ${team.name}: usa l'ultimo schieramento valido del ${lastValidLineup.race.gpDate}.`);
           lineupToUse = lastValidLineup;
           usedFallback = true;
         } else {

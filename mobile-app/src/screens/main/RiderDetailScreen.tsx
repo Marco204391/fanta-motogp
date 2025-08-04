@@ -250,7 +250,7 @@ export default function RiderDetailScreen() {
               <List.Item
                 key={result.id}
                 title={result.race.name}
-                description={format(new Date(result.race.date), 'dd MMM yyyy', { locale: it })}
+                description={format(new Date(result.race.gpDate), 'dd MMM yyyy', { locale: it })}
                 left={() => (
                   <View style={styles.resultPosition}>
                     {result.position ? (

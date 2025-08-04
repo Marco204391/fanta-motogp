@@ -73,7 +73,7 @@ model TeamRider {
   id            String    @id @default(uuid())
   
   teamId        String
-  team          Team      @relation(fields: [teamId], references: [id])
+  team          Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   riderId       String
   rider         Rider     @relation(fields: [riderId], references: [id])
   purchasePrice Int
@@ -86,7 +86,7 @@ model LeagueRider {
   leagueId String
   league   League @relation(fields: [leagueId], references: [id])
   riderId  String
-  rider    Rider  @relation(fields: [riderId], references: [id])
+  rider    Rider   @relation(fields: [riderId], references: [id])
 
   @@id([leagueId, riderId])
 }
@@ -99,6 +99,7 @@ model League {
   isPrivate     Boolean   @default(true)
   maxTeams      Int       @default(10)
   budget        Int       @default(1000)
+  
   scoringRules  Json
   lineupVisibility LineupVisibility @default(AFTER_DEADLINE)
 
@@ -197,6 +198,7 @@ model TeamScore {
   totalPoints  Int
   calculatedAt DateTime @default(now())
   notes        String?
+
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   race Race @relation(fields: [raceId], references: [id], onDelete: Cascade)
   

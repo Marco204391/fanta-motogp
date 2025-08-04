@@ -12,7 +12,7 @@ interface RaceCardProps {
     name: string;
     circuit: string;
     country: string;
-    date: Date;
+    gpDate: Date;
     sprintDate?: Date;
     round: number;
     season: number;
@@ -51,7 +51,7 @@ const countryFlags: Record<string, string> = {
 
 export default function RaceCard({ race, variant = 'upcoming', onPress }: RaceCardProps) {
   const theme = useTheme();
-  const raceDate = new Date(race.date);
+  const raceDate = new Date(race.gpDate);
   const sprintDate = race.sprintDate ? new Date(race.sprintDate) : null;
   
   // Calcola countdown

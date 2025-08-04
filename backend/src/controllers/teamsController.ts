@@ -13,8 +13,8 @@ export const getMyTeams = async (req: AuthRequest, res: Response) => {
 
     // Trova la prossima gara utile per controllare lo schieramento
     const upcomingRace = await prisma.race.findFirst({
-      where: { date: { gte: new Date() } },
-      orderBy: { date: 'asc' },
+      where: { gpDate: { gte: new Date() } },
+      orderBy: { gpDate: 'asc' },
     });
 
     const teams = await prisma.team.findMany({
@@ -27,7 +27,7 @@ export const getMyTeams = async (req: AuthRequest, res: Response) => {
           },
         },
         scores: {
-          orderBy: { race: { date: 'desc' } },
+          orderBy: { race: { gpDate: 'desc' } },
           take: 5,
           include: {
             race: true,
@@ -102,7 +102,7 @@ export const getTeamById = async (req: AuthRequest, res: Response) => {
           }
         },
         scores: {
-          orderBy: { race: { date: 'desc' } },
+          orderBy: { race: { gpDate: 'desc' } },
           include: {
             race: true
           }

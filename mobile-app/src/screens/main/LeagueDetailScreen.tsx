@@ -107,7 +107,7 @@ export default function LeagueDetailScreen() {
     // Trova la prossima gara e imposta l'ID selezionato di default
     useEffect(() => {
         if (allRaces.length > 0 && !selectedRaceId) {
-            const nextRaceIndex = allRaces.findIndex((race: any) => !isPast(new Date(race.date)));
+            const nextRaceIndex = allRaces.findIndex((race: any) => !isPast(new Date(race.gpDate)));
             const initialIndex = nextRaceIndex !== -1 ? nextRaceIndex : allRaces.length - 1;
             setSelectedRaceId(allRaces[initialIndex]?.id);
 
@@ -127,7 +127,7 @@ export default function LeagueDetailScreen() {
     const league = leagueData?.league;
     const standings = league?.standings || [];
     const myTeam = myTeamData?.team;
-    const nextRace = allRaces.find((race: any) => !isPast(new Date(race.date)));
+    const nextRace = allRaces.find((race: any) => !isPast(new Date(race.gpDate)));
     const hasLineup = !!lineupsData?.lineups?.find((l: any) => l.teamId === myTeam?.id)?.lineup.length;
 
     const sortedStandings = [...standings].sort((a, b) => a.totalPoints - b.totalPoints);
@@ -214,7 +214,7 @@ export default function LeagueDetailScreen() {
               renderItem={({ item }) => (
                 <TouchableOpacity onPress={() => setSelectedRaceId(item.id)}>
                   <View style={[styles.raceCardContainer, item.id === selectedRaceId && { borderColor: theme.colors.primary }]}>
-                    <RaceCard race={item} variant={isPast(new Date(item.date)) ? 'past' : 'upcoming'} />
+                    <RaceCard race={item} variant={isPast(new Date(item.gpDate)) ? 'past' : 'upcoming'} />
                   </View>
                 </TouchableOpacity>
               )}

@@ -64,13 +64,13 @@ export class SyncScheduler {
     // Trova gare completate senza risultati
     const racesWithoutResults = await prisma.race.findMany({
       where: {
-        date: {
+        gpDate: {
           lt: new Date(),
           gt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Ultima settimana
         },
         results: { none: {} }
       },
-      orderBy: { date: 'desc' }
+      orderBy: { gpDate: 'desc' }
     });
 
     for (const race of racesWithoutResults) {
@@ -118,18 +118,3 @@ export class SyncScheduler {
 
 // Singleton instance
 export const syncScheduler = new SyncScheduler();
-
-// Aggiungi al file di avvio del server
-// backend/src/server.ts
-/*
-import { syncScheduler } from './jobs/syncScheduler';
-
-// Dopo aver avviato il server
-syncScheduler.start();
-
-// Gestione graceful shutdown
-process.on('SIGTERM', () => {
-  syncScheduler.stop();
-  // ... altro cleanup
-});
-*/
