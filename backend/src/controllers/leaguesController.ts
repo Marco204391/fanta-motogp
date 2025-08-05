@@ -454,3 +454,30 @@ export const getLeagueRaceLineups = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Errore nel recupero degli schieramenti' });
   }
 };
+
+export const updateLeagueSettings = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { teamsLocked } = req.body;
+  const userId = req.userId!;
+
+  try {
+    const member = await prisma.leagueMember.findUnique({
+      where: { userId_leagueId: { userId, leagueId: id } },
+    });
+
+    if (!member || member.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Solo gli amministratori possono modificare le impostazioni.' });
+    }
+
+    const updatedLeague = await prisma.league.update({
+      where: { id },
+      data: {
+        teamsLocked,
+      },
+    });
+
+    res.json({ success: true, league: updatedLeague });
+  } catch (error) {
+    res.status(500).json({ error: 'Errore durante l\'aggiornamento delle impostazioni.' });
+  }
+};

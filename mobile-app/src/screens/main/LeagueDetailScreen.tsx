@@ -1,16 +1,16 @@
 // mobile-app/src/screens/main/LeagueDetailScreen.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, FlatList, Dimensions, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl, FlatList, Dimensions, TouchableOpacity, Alert } from 'react-native';
 import {
   ActivityIndicator, Avatar, Banner, Button, Card, Chip, DataTable,
-  Divider, FAB, IconButton, List, Text, Title, useTheme, Portal, Dialog
+  Divider, FAB, IconButton, List, Text, Title, useTheme, Portal, Dialog, Switch
 } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format, isPast } from 'date-fns';
-import { getLeagueDetails, getMyTeamInLeague, getAllRaces, getLeagueRaceLineups } from '../../services/api';
+import { getLeagueDetails, getMyTeamInLeague, getAllRaces, getLeagueRaceLineups, updateLeagueSettings } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 import { useAuth } from '../../contexts/AuthContext';
 import RaceCard from '../../components/RaceCard';
@@ -185,6 +185,23 @@ export default function LeagueDetailScreen() {
         queryFn: () => getLeagueRaceLineups(leagueId, selectedRaceId!),
         enabled: !!selectedRaceId,
     });
+    
+    const isAdmin = leagueData?.league?.isAdmin;
+
+    const updateSettingsMutation = useMutation({
+        mutationFn: (variables: { leagueId: string, settings: { teamsLocked: boolean } }) => 
+          updateLeagueSettings(variables.leagueId, variables.settings),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['league', leagueId] });
+        },
+        onError: () => {
+          Alert.alert("Errore", "Impossibile aggiornare le impostazioni.");
+        }
+      });
+    
+      const handleToggleTeamLock = (value: boolean) => {
+        updateSettingsMutation.mutate({ leagueId, settings: { teamsLocked: value } });
+      };
 
     const league = leagueData?.league;
     const standings = league?.standings || [];
@@ -285,6 +302,25 @@ export default function LeagueDetailScreen() {
               </View>
             </Card.Content>
           </Card>
+          
+          {isAdmin && (
+            <Card style={styles.card}>
+              <Card.Title title="Pannello Admin" left={(props) => <List.Icon {...props} icon="shield-crown" />} />
+              <Card.Content>
+                <List.Item
+                  title="Blocca Modifiche Team"
+                  description="Impedisce la creazione o modifica dei team."
+                  right={() => (
+                    <Switch
+                      value={league.teamsLocked}
+                      onValueChange={handleToggleTeamLock}
+                      disabled={updateSettingsMutation.isPending}
+                    />
+                  )}
+                />
+              </Card.Content>
+            </Card>
+          )}
 
           <View style={styles.section}>
             <Text variant="titleMedium" style={styles.sectionTitle}>GIORNATE DI GARA</Text>

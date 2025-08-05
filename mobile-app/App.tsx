@@ -24,6 +24,7 @@ import LeagueDetailScreen from './src/screens/main/LeagueDetailScreen';
 import RaceCalendarScreen from './src/screens/main/RaceCalendarScreen';
 import RaceDetailScreen from './src/screens/main/RaceDetailScreen';
 import RiderDetailScreen from './src/screens/main/RiderDetailScreen';
+import EditTeamScreen from './src/screens/main/EditTeamScreen';
 
 // Import contexts
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
@@ -36,6 +37,7 @@ export type AuthStackParamList = { Login: undefined; Register: undefined; };
 export type MainStackParamList = {
   Tabs: undefined;
   CreateTeam: { leagueId: string };
+  EditTeam: { teamId: string };
   CreateLeague: undefined;
   Lineup: { teamId: string, race: any };
   LeagueDetail: { leagueId: string };
@@ -108,6 +110,7 @@ function MainNavigator() {
     >
       <MainStack.Screen name="Tabs" component={TabNavigator} options={{ headerShown: false }}/>
       <MainStack.Screen name="CreateTeam" component={CreateTeamScreen} options={{ title: 'Crea Team' }} />
+      <MainStack.Screen name="EditTeam" component={EditTeamScreen} options={{ title: 'Modifica Team' }} />
       <MainStack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Crea Lega' }} />
       <MainStack.Screen name="Lineup" component={LineupScreen} options={{ title: 'Schiera Formazione' }} />
       <MainStack.Screen name="LeagueDetail" component={LeagueDetailScreen} options={{ title: 'Dettagli Lega' }} />

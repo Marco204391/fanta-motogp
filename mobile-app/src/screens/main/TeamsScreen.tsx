@@ -37,6 +37,7 @@ interface Team {
     budget: number;
     code: string;
     isPrivate: boolean;
+    teamsLocked: boolean;
   };
   riders: Array<{
     rider: {
@@ -125,6 +126,7 @@ export default function TeamsScreen() {
 
   const renderTeamCard = ({ item: team }: { item: Team }) => {
     const hasLineup = team.hasLineup;
+    const isLocked = team.league.teamsLocked;
     
     return (
       <Card
@@ -265,6 +267,15 @@ export default function TeamsScreen() {
                 icon={hasLineup ? "pencil" : "rocket-launch-outline"}
               >
                 {hasLineup ? 'Modifica Schieramento' : 'Gestisci Schieramenti'}
+              </Button>
+              <Button
+                mode="outlined"
+                style={styles.manageButton}
+                onPress={() => navigation.navigate('EditTeam', { teamId: team.id })}
+                icon="account-edit"
+                disabled={isLocked}
+              >
+                {isLocked ? 'Modifiche bloccate' : 'Modifica Team'}
               </Button>
             </>
           )}

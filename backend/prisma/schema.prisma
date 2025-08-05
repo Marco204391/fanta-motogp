@@ -31,7 +31,7 @@ model User {
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  
+
   teams         Team[]
   leagues       LeagueMember[]
   notifications Notification[]
@@ -49,7 +49,7 @@ model Rider {
   isActive      Boolean   @default(true)
   riderType     RiderType @default(OFFICIAL)
   apiRiderId    String?   @unique
-  
+
   statistics      RiderStats[]
   teamRiders      TeamRider[]
   raceResults     RaceResult[]
@@ -62,29 +62,29 @@ model Team {
   name          String
   userId        String
   user          User      @relation(fields: [userId], references: [id])
-  
+
   leagueId      String
   league        League    @relation(fields: [leagueId], references: [id])
-  
+
   riders        TeamRider[]
   scores        TeamScore[]
   lineups       RaceLineup[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  
+
   @@unique([userId, leagueId])
 }
 
 model TeamRider {
   id            String    @id @default(uuid())
-  
+
   teamId        String
   team          Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   riderId       String
   rider         Rider     @relation(fields: [riderId], references: [id])
   purchasePrice Int
   purchaseDate  DateTime  @default(now())
-  
+
   @@unique([teamId, riderId])
 }
 
@@ -105,7 +105,8 @@ model League {
   isPrivate     Boolean   @default(true)
   maxTeams      Int       @default(10)
   budget        Int       @default(1000)
-  
+  teamsLocked   Boolean   @default(true)
+
   scoringRules  Json
   lineupVisibility LineupVisibility @default(AFTER_DEADLINE)
 
@@ -125,9 +126,9 @@ model LeagueMember {
   leagueId      String
   league        League    @relation(fields: [leagueId], references: [id])
   role          LeagueRole @default(MEMBER)
-  
+
   joinedAt      DateTime  @default(now())
-  
+
   @@unique([userId, leagueId])
 }
 
@@ -158,10 +159,10 @@ model RaceLineup {
   team      Team      @relation(fields: [teamId], references: [id])
   raceId    String
   race      Race      @relation(fields: [raceId], references: [id])
-  
+
   lineupRiders LineupRider[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   @@unique([teamId, raceId])
 }
@@ -172,29 +173,30 @@ model LineupRider {
   lineup    RaceLineup @relation(fields: [lineupId], references: [id])
   riderId   String
   rider     Rider     @relation(fields: [riderId], references: [id])
-  
+
   predictedPosition Int
-  
+
   scores    TeamScore[]
-  
+
   @@unique([lineupId, riderId])
 }
 
 
 model RaceResult {
   id            String    @id @default(uuid())
+
   raceId        String
   race          Race      @relation(fields: [raceId], references: [id])
   riderId       String
   rider         Rider     @relation(fields: [riderId], references: [id])
-  
+
   session       SessionType
   position      Int?
   points        Int       @default(0)
   fastestLap    Boolean   @default(false)
   polePosition  Boolean   @default(false)
   dnf           Boolean   @default(false)
-  
+
   fantasyPoints Int       @default(0)
   status        RaceStatus @default(FINISHED)
 
@@ -203,23 +205,21 @@ model RaceResult {
 }
 
 model TeamScore {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   teamId       String
   raceId       String
-  
+
   // MODIFICA: Aggiunto tipo di sessione
   session      SessionType
 
   totalPoints  Int
   calculatedAt DateTime @default(now())
   notes        String?
-  
   // MODIFICA: Aggiunto dettaglio punteggi per pilota
-  riderScores  Json? 
-
+  riderScores  Json?
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   race Race @relation(fields: [raceId], references: [id], onDelete: Cascade)
-  
+
   // Riferimento opzionale a LineupRider per il dettaglio
   lineupRiderId String?
   lineupRider   LineupRider? @relation(fields: [lineupRiderId], references: [id])
@@ -233,7 +233,7 @@ model RiderStats {
   riderId       String
   rider         Rider     @relation(fields: [riderId], references: [id])
   season        Int
-  
+
   races         Int       @default(0)
   wins          Int       @default(0)
   podiums       Int       @default(0)
@@ -241,7 +241,7 @@ model RiderStats {
   fastestLaps   Int       @default(0)
   points        Int       @default(0)
   avgPosition   Float     @default(0)
-  
+
   @@unique([riderId, season])
 }
 

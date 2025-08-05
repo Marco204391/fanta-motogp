@@ -88,7 +88,19 @@ export const getTeamById = async (req: AuthRequest, res: Response) => {
         user: {
           select: { id: true, username: true }
         },
-        league: true,
+        league: {
+          include: {
+            teams: { // <-- MODIFICA CHIAVE: Includi tutti i team della lega
+              include: {
+                riders: {
+                  select: {
+                    riderId: true
+                  }
+                }
+              }
+            }
+          }
+        },
         riders: {
           include: {
             rider: {
@@ -152,14 +164,23 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
         throw new Error('Hai già un team in questa lega');
       }
 
-      // 2.1 Verifica il numero massimo di team
+      // 2.1 Verifica il numero massimo di team e se la lega è bloccata
       const league = await tx.league.findUnique({
         where: { id: leagueId },
-        include: { _count: { select: { teams: true } } }
+        select: {
+          teamsLocked: true,
+          maxTeams: true,
+          budget: true,
+          _count: { select: { teams: true } }
+        }
       });
 
       if (!league) {
         throw new Error('Lega non trovata');
+      }
+
+      if (league.teamsLocked) {
+        throw new Error('Le modifiche ai team in questa lega sono bloccate dall\'amministratore.');
       }
 
       if (league._count.teams >= league.maxTeams) {
@@ -258,8 +279,98 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
 
 // PUT /api/teams/:id - Modifica team
 export const updateTeam = async (req: AuthRequest, res: Response) => {
-  res.status(501).json({ error: 'Funzionalità di mercato non ancora implementata.' });
+  const userId = req.userId!;
+  const { id: teamId } = req.params;
+  const { riderIds } = req.body;
+
+  try {
+    const updatedTeam = await prisma.$transaction(async (tx) => {
+      // 1. Trova il team e la sua lega, verificando che appartenga all'utente
+      const team = await tx.team.findFirst({
+        where: { id: teamId, userId },
+        include: { league: true },
+      });
+
+      if (!team) {
+        throw new Error('Team non trovato o non autorizzato.');
+      }
+
+      // 2. Controlla se le modifiche sono bloccate dall'admin della lega
+      if (team.league.teamsLocked) {
+        throw new Error('Le modifiche ai team in questa lega sono attualmente bloccate dall\'amministratore.');
+      }
+
+      // 3. Validazione dei piloti
+      if (!riderIds || !Array.isArray(riderIds) || riderIds.length !== 9) {
+        throw new Error('È necessario selezionare esattamente 9 piloti.');
+      }
+
+      const newRiders = await tx.rider.findMany({
+        where: { id: { in: riderIds } },
+      });
+
+      if (newRiders.length !== riderIds.length) {
+        throw new Error('Uno o più ID pilota non sono validi.');
+      }
+
+      // 4. Verifica regole (budget, categorie, piloti già presi)
+      const totalCost = newRiders.reduce((sum, rider) => sum + rider.value, 0);
+      if (totalCost > team.league.budget) {
+        throw new Error(`Budget superato. Costo: ${totalCost}, Budget: ${team.league.budget}`);
+      }
+
+      const ridersByCategory = newRiders.reduce((acc, rider) => {
+        acc[rider.category] = (acc[rider.category] || 0) + 1;
+        return acc;
+      }, {} as Record<Category, number>);
+
+      if (ridersByCategory.MOTOGP !== 3 || ridersByCategory.MOTO2 !== 3 || ridersByCategory.MOTO3 !== 3) {
+        throw new Error('Devi selezionare 3 piloti per ogni categoria.');
+      }
+      
+      const otherTeamsRiders = await tx.teamRider.findMany({
+          where: {
+              team: { leagueId: team.leagueId },
+              teamId: { not: teamId }, // Escludi il team corrente
+              riderId: { in: riderIds }
+          },
+          include: { rider: true }
+      });
+
+      if (otherTeamsRiders.length > 0) {
+          const takenNames = otherTeamsRiders.map(tr => tr.rider.name).join(', ');
+          throw new Error(`I seguenti piloti sono già stati presi: ${takenNames}`);
+      }
+
+      // 5. Esegui l'aggiornamento
+      // Rimuovi i piloti esistenti
+      await tx.teamRider.deleteMany({
+        where: { teamId },
+      });
+
+      // Aggiungi i nuovi piloti
+      await tx.teamRider.createMany({
+        data: riderIds.map((riderId: string) => ({
+          teamId,
+          riderId,
+          purchasePrice: newRiders.find(r => r.id === riderId)!.value,
+        })),
+      });
+
+      return tx.team.findUnique({
+        where: { id: teamId },
+        include: { riders: { include: { rider: true } } },
+      });
+    });
+
+    res.json({ success: true, team: updatedTeam, message: 'Team aggiornato con successo!' });
+
+  } catch (error: any) {
+    console.error('Errore aggiornamento team:', error);
+    res.status(400).json({ error: error.message || 'Impossibile aggiornare il team.' });
+  }
 };
+
 
 // DELETE /api/teams/:id - Elimina team
 export const deleteTeam = async (req: AuthRequest, res: Response) => {

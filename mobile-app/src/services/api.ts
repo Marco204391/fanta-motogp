@@ -65,8 +65,7 @@ export const createTeam = async (data: {
 };
 
 export const updateTeam = async (teamId: string, data: {
-  riderIds?: string[];
-  captainId?: string;
+  riderIds: string[];
 }) => {
   const response = await api.put(`/teams/${teamId}`, data);
   return response.data;
@@ -111,6 +110,11 @@ export const getLeagueStandings = async (leagueId: string) => {
   const response = await api.get(`/leagues/${leagueId}/standings`);
   return response.data;
 };
+
+export const updateLeagueSettings = async (leagueId: string, settings: { teamsLocked: boolean }) => {
+    const response = await api.put(`/leagues/${leagueId}/settings`, settings);
+    return response.data;
+  };
 
 // Gare
 export const getUpcomingRaces = async () => {

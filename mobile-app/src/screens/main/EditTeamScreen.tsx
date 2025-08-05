@@ -1,32 +1,17 @@
-// mobile-app/src/screens/main/CreateTeamScreen.tsx
-import React, { useState, useMemo } from 'react';
+// mobile-app/src/screens/main/EditTeamScreen.tsx
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import {
-  TextInput,
-  Button,
-  Text,
-  Card,
-  List,
-  Checkbox,
-  ActivityIndicator,
-  Chip,
-  Divider,
-  Title,
-  Banner,
+  TextInput, Button, Text, Card, List, Checkbox, ActivityIndicator, Title, Banner
 } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createTeam, getRiders, getLeagueDetails } from '../../services/api';
+import { getTeamById, getRiders, updateTeam } from '../../services/api';
 import { MainStackParamList } from '../../../App';
 
-// Tipi definiti per una maggiore sicurezza del codice
 interface Rider {
-  id: string;
-  name: string;
-  number: number;
-  team: string;
-  category: 'MOTOGP' | 'MOTO2' | 'MOTO3';
-  value: number;
+  id: string; name: string; number: number; team: string;
+  category: 'MOTOGP' | 'MOTO2' | 'MOTO3'; value: number;
   riderType: 'OFFICIAL' | 'REPLACEMENT' | 'WILDCARD' | 'TEST_RIDER';
 }
 
@@ -34,71 +19,79 @@ interface RidersResponse {
   riders: Rider[];
 }
 
-type CreateTeamScreenRouteProp = RouteProp<MainStackParamList, 'CreateTeam'>;
+type EditTeamScreenRouteProp = RouteProp<MainStackParamList, 'EditTeam'>;
 
-export default function CreateTeamScreen() {
+export default function EditTeamScreen() {
   const navigation = useNavigation();
-  const route = useRoute<CreateTeamScreenRouteProp>();
+  const route = useRoute<EditTeamScreenRouteProp>();
   const queryClient = useQueryClient();
-  const { leagueId } = route.params;
+  const { teamId } = route.params;
 
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
   const [teamName, setTeamName] = useState('');
 
-  const { data: ridersData, isLoading: isLoadingRiders } = useQuery<RidersResponse>({
+  // 1. Carica dati del team da modificare
+  const { data: teamData, isLoading: isLoadingTeam } = useQuery({
+    queryKey: ['teamDetails', teamId],
+    queryFn: () => getTeamById(teamId),
+  });
+  const team = teamData?.team;
+  const league = team?.league;
+  const budget = league?.budget || 1000;
+  const teamsLocked = league?.teamsLocked ?? true;
+
+  // 2. Carica tutti i piloti disponibili
+  const { data: ridersData, isLoading: isLoadingRiders } = useQuery<{ riders: Rider[] }>({
     queryKey: ['riders', 'all'],
     queryFn: () => getRiders({ limit: 100 } as any),
   });
   const riders = ridersData?.riders || [];
-
+  
   const officialRiders = useMemo(() => 
     riders.filter((r: Rider) => r.riderType === 'OFFICIAL'), 
   [riders]);
 
-  const { data: leagueData, isLoading: isLoadingLeague } = useQuery({
-    queryKey: ['leagueDetails', leagueId],
-    queryFn: () => getLeagueDetails(leagueId),
-  });
+  // Pre-compila lo stato con i dati del team esistente
+  useEffect(() => {
+    if (team) {
+      setTeamName(team.name);
+      setSelectedRiders(team.riders.map((tr: any) => tr.riderId));
+    }
+  }, [team]);
   
-  const league = leagueData?.league;
-  const budget = league?.budget || 1000;
-  const teamsLocked = league?.teamsLocked ?? true;
-
   const takenRiderIds = useMemo(() => {
-    if (!leagueData?.league?.teams) return new Set<string>();
+    if (!league?.teams) return new Set<string>();
     const ids = new Set<string>();
-    leagueData.league.teams.forEach((team: any) => {
-      team.riders.forEach((teamRider: any) => {
-        ids.add(teamRider.riderId);
-      });
+    league.teams.forEach((t: any) => {
+        if (t.id !== teamId) { // Escludi i piloti del team corrente
+            t.riders.forEach((teamRider: any) => {
+                ids.add(teamRider.riderId);
+            });
+        }
     });
     return ids;
-  }, [leagueData]);
-
-  const createTeamMutation = useMutation({
-    mutationFn: createTeam,
+  }, [league, teamId]);
+  
+  const updateTeamMutation = useMutation({
+    mutationFn: (data: { teamId: string, riderIds: string[] }) => updateTeam(data.teamId, { riderIds: data.riderIds }),
     onSuccess: () => {
-      Alert.alert('Successo', 'Team creato con successo!');
+      Alert.alert('Successo', 'Team aggiornato con successo!');
       queryClient.invalidateQueries({ queryKey: ['myTeams'] });
+      queryClient.invalidateQueries({ queryKey: ['teamDetails', teamId] });
       navigation.goBack();
     },
     onError: (error: any) => {
-      Alert.alert('Errore', error.response?.data?.error || 'Impossibile creare il team.');
+      Alert.alert('Errore', error.response?.data?.error || 'Impossibile aggiornare il team.');
     },
   });
 
-  const handleCreateTeam = () => {
+  const handleUpdateTeam = () => {
     if (teamsLocked) {
-        Alert.alert('Lega Bloccata', 'L\'amministratore ha bloccato la creazione di nuovi team.');
+        Alert.alert('Lega Bloccata', 'L\'amministratore ha bloccato la modifica dei team.');
         return;
     }
     if (selectionStats.isValid) {
-      createTeamMutation.mutate({
-        name: teamName,
-        leagueId,
-        riderIds: selectedRiders,
-        captainId: selectedRiders[0], // Placeholder per il capitano
-      });
+      updateTeamMutation.mutate({ teamId, riderIds: selectedRiders });
     }
   };
 
@@ -110,7 +103,7 @@ export default function CreateTeamScreen() {
         MOTOGP: 0,
         MOTO2: 0,
         MOTO3: 0,
-      } as Record<Rider['category'], number>, // Tipo esplicito per le chiavi
+      } as Record<Rider['category'], number>,
       isValid: false,
       validationErrors: [] as string[],
     };
@@ -142,14 +135,11 @@ export default function CreateTeamScreen() {
     if (stats.totalCost > budget) {
       stats.validationErrors.push(`Budget superato: ${stats.totalCost}/${budget} crediti`);
     }
-    if (!teamName.trim()) {
-      stats.validationErrors.push('Inserisci un nome per il team');
-    }
 
     stats.isValid = stats.validationErrors.length === 0;
     return stats;
-  }, [selectedRiders, teamName, riders, budget]);
-
+  }, [selectedRiders, riders, budget]);
+  
   const handleRiderToggle = (riderId: string) => {
     const rider = riders.find((r) => r.id === riderId);
     if (!rider) return;
@@ -230,7 +220,7 @@ export default function CreateTeamScreen() {
       </Card>
     );
   };
-
+  
   const renderSummary = () => (
     <Card
       style={[
@@ -265,23 +255,23 @@ export default function CreateTeamScreen() {
 
         <Button
           mode="contained"
-          onPress={handleCreateTeam}
-          disabled={!selectionStats.isValid || createTeamMutation.isPending || teamsLocked}
+          onPress={handleUpdateTeam}
+          disabled={!selectionStats.isValid || updateTeamMutation.isPending || teamsLocked}
           style={styles.createButton}
-          loading={createTeamMutation.isPending}
+          loading={updateTeamMutation.isPending}
         >
-          {teamsLocked ? 'Creazione Team Bloccata' : 'Crea Team'}
+          {teamsLocked ? 'Modifiche Bloccate' : 'Salva Modifiche'}
         </Button>
       </Card.Content>
     </Card>
   );
-
-  if (isLoadingRiders || isLoadingLeague) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+  
+  if (isLoadingTeam || isLoadingRiders) {
+      return (
+        <View style={styles.loader}>
+            <ActivityIndicator size="large" />
+        </View>
+      );
   }
 
   return (
@@ -292,6 +282,7 @@ export default function CreateTeamScreen() {
         onChangeText={setTeamName}
         style={styles.teamNameInput}
         mode="outlined"
+        disabled
       />
       {renderSummary()}
       {renderCategory('MOTOGP')}

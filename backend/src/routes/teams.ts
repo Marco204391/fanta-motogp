@@ -28,17 +28,25 @@ const teamIdValidation = [
     .withMessage('ID team non valido')
 ];
 
+const updateTeamValidation = [
+  body('riderIds')
+    .isArray({ min: 9, max: 9 })
+    .withMessage('Devi fornire esattamente 9 piloti.'),
+  body('riderIds.*')
+    .isUUID()
+    .withMessage('ID pilota non valido.'),
+];
+
 // Tutte le route richiedono autenticazione
 router.use(authenticate);
 
 // Routes
 router.get('/my-teams', teamsController.getMyTeams);
-router.get('/my-team/:leagueId', teamsController.getMyTeamInLeague); // <-- AGGIUNGI QUESTA RIGA
+router.get('/my-team/:leagueId', teamsController.getMyTeamInLeague);
 router.get('/:id', teamIdValidation, teamsController.getTeamById);
 router.get('/:id/standings', teamIdValidation, teamsController.getTeamStandings);
 router.post('/', createTeamValidation, teamsController.createTeam);
-// Le rotte PUT e DELETE sono temporaneamente disabilitate in attesa della logica di mercato
-// router.put('/:id', teamIdValidation, teamsController.updateTeam);
-// router.delete('/:id', teamIdValidation, teamsController.deleteTeam);
+router.put('/:id', teamIdValidation, updateTeamValidation, teamsController.updateTeam);
+router.delete('/:id', teamIdValidation, teamsController.deleteTeam);
 
 export default router;

@@ -65,6 +65,7 @@ router.get('/my-leagues', authenticate, leaguesController.getMyLeagues);
 router.post('/', authenticate, createLeagueValidation, leaguesController.createLeague);
 router.post('/join', authenticate, joinLeagueValidation, leaguesController.joinLeague);
 router.post('/:id/leave', authenticate, leagueIdValidation, leaguesController.leaveLeague);
+router.put('/:id/settings', authenticate, leagueIdValidation, leaguesController.updateLeagueSettings);
 
 // Routes pubbliche
 router.get('/public', publicLeaguesValidation, leaguesController.getPublicLeagues);
