@@ -1,13 +1,12 @@
 // src/pages/HomePage.tsx
 import { useQuery } from '@tanstack/react-query';
 import { getMyLeagues, getMyTeams, getUpcomingRaces } from '../services/api';
-import { Box, Typography, CircularProgress, Alert, Grid, Card, CardContent, Button, Paper, Stack, Icon, Chip } from '@mui/material';
-import { SportsMotorsports, Groups, CalendarToday, ArrowForward } from '@mui/icons-material';
+import { Box, Typography, CircularProgress, Alert, Card, CardContent, Button, Grid, Paper, Stack, Icon, Chip, Fade, Zoom, IconButton } from '@mui/material';
+import { SportsMotorsports, Groups, CalendarToday, ArrowForward, Close, Notifications, Speed, Timer, EmojiEvents } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Alert, Fade, Zoom } from '@mui/material';
-import { Close, Notifications, Speed, Timer } from '@mui/icons-material';
+import { useState } from 'react';
 
 function NextRaceCard({ race }: { race: any }) {
     const navigate = useNavigate();
@@ -290,7 +289,7 @@ export default function HomePage() {
                       transition: 'all 0.3s ease',
                       '&:hover': {
                         transform: 'translateY(-8px)',
-                        boxShadow: (theme) => `0 12px 24px ${theme.palette[action.color].main}40`,
+                        boxShadow: (theme) => `0 12px 24px ${theme.palette[action.color as 'primary' | 'secondary' | 'warning' | 'info'].main}40`,
                         '& .icon': {
                           transform: 'scale(1.2)',
                         }
@@ -313,7 +312,7 @@ export default function HomePage() {
                       <Chip 
                         label={action.count} 
                         size="small" 
-                        color={action.color}
+                        color={action.color as 'primary' | 'secondary' | 'warning' | 'info'}
                         sx={{ mt: 1 }}
                       />
                     )}
@@ -496,48 +495,6 @@ export default function HomePage() {
           </Card>
         </Grid>
       </Grid>
-    </Box>
-  );
-}  const { data: racesData, isLoading: isLoadingRaces, error: errorRaces } = useQuery({
-    queryKey: ['upcomingRaces'],
-    queryFn: getUpcomingRaces,
-  });
-
-  const { data: leaguesData, isLoading: isLoadingLeagues, error: errorLeagues } = useQuery({
-    queryKey: ['myLeagues'],
-    queryFn: getMyLeagues,
-  });
-
-  const { data: teamsData, isLoading: isLoadingTeams, error: errorTeams } = useQuery({
-    queryKey: ['myTeams'],
-    queryFn: getMyTeams,
-  });
-
-  if (isLoadingRaces || isLoadingLeagues || isLoadingTeams) {
-    return <CircularProgress />;
-  }
-
-  const error = errorRaces || errorLeagues || errorTeams;
-  if (error) {
-    return <Alert severity="error">Errore nel caricamento dei dati.</Alert>;
-  }
-  
-  const nextRace = racesData?.races?.[0];
-
-  return (
-    <Box>
-        <Typography variant="h4" gutterBottom>Dashboard</Typography>
-        <Grid container spacing={4}>
-            <Grid item xs={12}>
-                 <NextRaceCard race={nextRace} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-                <MyLeagues leagues={leaguesData?.leagues || []} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-                <MyTeams teams={teamsData?.teams || []} />
-            </Grid>
-        </Grid>
     </Box>
   );
 }
