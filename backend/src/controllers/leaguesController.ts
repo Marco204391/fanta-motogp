@@ -431,6 +431,7 @@ export const getLeagueRaceLineups = async (req: AuthRequest, res: Response) => {
 
     const formattedLineups = teams.map(team => {
       const lineup = team.lineups[0];
+      const teamScore = team.scores[0];
       const lineupRiders = lineup?.lineupRiders.map(lr => ({
         ...lr,
         actualPosition: resultsMap.get(lr.riderId)?.position,
@@ -441,8 +442,9 @@ export const getLeagueRaceLineups = async (req: AuthRequest, res: Response) => {
         teamId: team.id,
         teamName: team.name,
         userName: team.user.username,
-        totalPoints: team.scores[0]?.totalPoints ?? null,
+        totalPoints: teamScore?.totalPoints ?? null,
         lineup: lineupRiders || [],
+        riderScores: teamScore?.riderScores ?? [],
       };
     });
 

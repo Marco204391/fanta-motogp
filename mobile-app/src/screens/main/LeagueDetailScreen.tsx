@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl, FlatList, Dimensions, TouchableOpacity } from 'react-native';
 import {
   ActivityIndicator, Avatar, Banner, Button, Card, Chip, DataTable,
-  Divider, FAB, IconButton, List, Text, Title, useTheme
+  Divider, FAB, IconButton, List, Text, Title, useTheme, Portal, Dialog
 } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -31,10 +31,58 @@ interface Standing {
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Componente per mostrare lo schieramento di un singolo team
-const TeamLineupCard = ({ lineupData }: { lineupData: any }) => {
+// Componente per il popup con il dettaglio dei punti
+const ScoreBreakdownDialog = ({ visible, onDismiss, lineupData }: { visible: boolean, onDismiss: () => void, lineupData: any }) => {
     const theme = useTheme();
-    const { teamName, userName, totalPoints, lineup } = lineupData;
+    if (!lineupData || !lineupData.riderScores || lineupData.riderScores.length === 0) return null;
+
+    return (
+        <Portal>
+            <Dialog visible={visible} onDismiss={onDismiss}>
+                <Dialog.Title>Dettaglio Punti - {lineupData.teamName}</Dialog.Title>
+                <Dialog.Content>
+                    <DataTable>
+                        <DataTable.Header>
+                            <DataTable.Title style={{ flex: 3 }}>Pilota</DataTable.Title>
+                            <DataTable.Title numeric>Base</DataTable.Title>
+                            <DataTable.Title numeric>Diff.</DataTable.Title>
+                            <DataTable.Title numeric>Qual.</DataTable.Title>
+                            <DataTable.Title numeric>Tot.</DataTable.Title>
+                        </DataTable.Header>
+
+                        {lineupData.riderScores.map((score: any, index: number) => (
+                            <DataTable.Row key={index}>
+                                <DataTable.Cell style={{ flex: 3 }}>{score.rider}</DataTable.Cell>
+                                <DataTable.Cell numeric>{score.base}</DataTable.Cell>
+                                <DataTable.Cell numeric>{score.diff}</DataTable.Cell>
+                                <DataTable.Cell numeric>{score.qualifyingBonus || 0}</DataTable.Cell>
+                                <DataTable.Cell numeric><Text style={{fontWeight: 'bold'}}>{score.points}</Text></DataTable.Cell>
+                            </DataTable.Row>
+                        ))}
+
+                        <DataTable.Row style={{backgroundColor: theme.colors.surfaceVariant, marginTop: 8}}>
+                             <DataTable.Cell style={{ flex: 3 }}><Text variant="bodyLarge">TOTALE</Text></DataTable.Cell>
+                             <DataTable.Cell numeric></DataTable.Cell>
+                             <DataTable.Cell numeric></DataTable.Cell>
+                             <DataTable.Cell numeric></DataTable.Cell>
+                             <DataTable.Cell numeric><Text variant="bodyLarge" style={{fontWeight: 'bold'}}>{lineupData.totalPoints}</Text></DataTable.Cell>
+                        </DataTable.Row>
+                    </DataTable>
+                     <Text style={styles.dialogLegend}>Base = Pos. Arrivo | Diff. = |Prev. - Reale| | Qual. = Bonus Qualifica</Text>
+                </Dialog.Content>
+                <Dialog.Actions>
+                    <Button onPress={onDismiss}>Chiudi</Button>
+                </Dialog.Actions>
+            </Dialog>
+        </Portal>
+    );
+};
+
+
+// Componente per mostrare lo schieramento di un singolo team
+const TeamLineupCard = ({ lineupData, onShowBreakdown }: { lineupData: any, onShowBreakdown: () => void }) => {
+    const theme = useTheme();
+    const { teamName, userName, totalPoints, lineup, riderScores } = lineupData;
 
     return (
         <Card style={styles.lineupCard}>
@@ -51,7 +99,7 @@ const TeamLineupCard = ({ lineupData }: { lineupData: any }) => {
                             <Text style={styles.riderName}>{lr.rider.number}. {lr.rider.name}</Text>
                             <View style={styles.riderPredictions}>
                                 <Text>Prev: <Text style={{ fontWeight: 'bold' }}>{lr.predictedPosition}°</Text></Text>
-                                <Text>Reale: <Text style={{ fontWeight: 'bold' }}>{lr.actualPosition ?? '-'}</Text></Text>
+                                <Text>Reale: <Text style={{ fontWeight: 'bold' }}>{lr.actualPosition ?? lr.actualStatus ?? '-'}</Text></Text>
                             </View>
                         </View>
                     ))
@@ -59,6 +107,11 @@ const TeamLineupCard = ({ lineupData }: { lineupData: any }) => {
                     <Text style={{ textAlign: 'center', paddingVertical: 16, opacity: 0.7 }}>Schieramento non effettuato</Text>
                 )}
             </Card.Content>
+             {riderScores && riderScores.length > 0 && (
+                <Card.Actions>
+                    <Button onPress={onShowBreakdown} icon="chart-bar">Analisi Punti</Button>
+                </Card.Actions>
+            )}
         </Card>
     );
 };
@@ -74,7 +127,19 @@ export default function LeagueDetailScreen() {
 
     const [refreshing, setRefreshing] = useState(false);
     const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
+    const [breakdownVisible, setBreakdownVisible] = useState(false);
+    const [selectedLineup, setSelectedLineup] = useState<any>(null);
     const flatListRef = useRef<FlatList>(null);
+
+    const showBreakdown = (lineup: any) => {
+        setSelectedLineup(lineup);
+        setBreakdownVisible(true);
+    };
+
+    const hideBreakdown = () => {
+        setBreakdownVisible(false);
+        setSelectedLineup(null);
+    };
 
     // Query per i dettagli della lega
     const { data: leagueData, isLoading: isLoadingLeague, refetch: refetchLeague } = useQuery({
@@ -82,7 +147,6 @@ export default function LeagueDetailScreen() {
         queryFn: () => getLeagueDetails(leagueId),
     });
 
-    // AGGIUNTO: Invalida i dati della lega ogni volta che la schermata ottiene il focus
     useFocusEffect(
       useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['league', leagueId] });
@@ -104,7 +168,6 @@ export default function LeagueDetailScreen() {
 
     const allRaces = calendarData?.races || [];
 
-    // Trova la prossima gara e imposta l'ID selezionato di default
     useEffect(() => {
         if (allRaces.length > 0 && !selectedRaceId) {
             const nextRaceIndex = allRaces.findIndex((race: any) => !isPast(new Date(race.gpDate)));
@@ -117,7 +180,6 @@ export default function LeagueDetailScreen() {
         }
     }, [allRaces, selectedRaceId]);
 
-    // Query per gli schieramenti della lega per la gara selezionata
     const { data: lineupsData, isLoading: isLoadingLineups, isFetching: isFetchingLineups } = useQuery({
         queryKey: ['leagueRaceLineups', leagueId, selectedRaceId],
         queryFn: () => getLeagueRaceLineups(leagueId, selectedRaceId!),
@@ -181,7 +243,6 @@ export default function LeagueDetailScreen() {
         );
     };
 
-
     if (isLoadingLeague || isLoadingCalendar) {
         return <View style={styles.loader}><ActivityIndicator size="large" /></View>;
     }
@@ -233,14 +294,14 @@ export default function LeagueDetailScreen() {
               data={allRaces}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => {
-                  setSelectedRaceId(item.id);
-                  navigation.navigate('RaceDetail', { raceId: item.id });
-                }}>
                   <View style={[styles.raceCardContainer, item.id === selectedRaceId && { borderColor: theme.colors.primary }]}>
-                    <RaceCard race={item} variant={isPast(new Date(item.gpDate)) ? 'past' : 'upcoming'} />
+                    <RaceCard
+                      race={item}
+                      variant={isPast(new Date(item.gpDate)) ? 'past' : 'upcoming'}
+                      onPress={() => setSelectedRaceId(item.id)}
+                      onPressDetail={() => navigation.navigate('RaceDetail', { raceId: item.id })}
+                    />
                   </View>
-                </TouchableOpacity>
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.raceCarousel}
@@ -264,7 +325,7 @@ export default function LeagueDetailScreen() {
                         keyExtractor={(item) => item.teamId}
                         renderItem={({ item }) => (
                             <View style={styles.lineupCardContainer}>
-                                <TeamLineupCard lineupData={item} />
+                                <TeamLineupCard lineupData={item} onShowBreakdown={() => showBreakdown(item)} />
                             </View>
                         )}
                         showsHorizontalScrollIndicator={false}
@@ -356,6 +417,12 @@ export default function LeagueDetailScreen() {
 
         </ScrollView>
 
+        <ScoreBreakdownDialog 
+            visible={breakdownVisible}
+            onDismiss={hideBreakdown}
+            lineupData={selectedLineup}
+        />
+
         {myTeam && nextRace && (
             <FAB
             icon={hasLineup ? "pencil" : "rocket-launch-outline"}
@@ -379,11 +446,9 @@ const styles = StyleSheet.create({
     section: { marginVertical: 8 },
     sectionTitle: { fontWeight: 'bold', paddingHorizontal: 16, marginBottom: 8 },
     card: { marginHorizontal: 16, marginTop: 8 },
-    banner: { marginHorizontal: 16, marginTop: 8 },
     myPositionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     positionInfo: { flexDirection: 'row', alignItems: 'baseline', marginVertical: 4 },
     userRow: { backgroundColor: 'rgba(103, 80, 164, 0.08)' },
-    podiumRow: { backgroundColor: 'rgba(255, 193, 7, 0.08)' },
     fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
     raceCarousel: { paddingHorizontal: 8, paddingVertical: 8 },
     raceCardContainer: { width: screenWidth * 0.9, marginRight: 12, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
@@ -394,4 +459,10 @@ const styles = StyleSheet.create({
     riderName: { flex: 1 },
     riderPredictions: { flexDirection: 'row', gap: 16 },
     refreshButton: { alignSelf: 'flex-start' },
+    dialogLegend: {
+      marginTop: 16,
+      fontSize: 12,
+      color: '#666',
+      textAlign: 'center',
+    },
 });

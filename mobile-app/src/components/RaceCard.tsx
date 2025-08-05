@@ -1,7 +1,7 @@
 // mobile-app/src/components/RaceCard.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text, Chip, useTheme } from 'react-native-paper';
+import { Card, Text, Chip, useTheme, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format, differenceInDays, differenceInHours, differenceInMinutes } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -19,6 +19,7 @@ interface RaceCardProps {
   };
   variant?: 'upcoming' | 'past' | 'current';
   onPress?: () => void;
+  onPressDetail?: () => void;
 }
 
 // Mappatura bandiere per paese
@@ -49,12 +50,11 @@ const countryFlags: Record<string, string> = {
   'Hungary': '🇭🇺',
 };
 
-export default function RaceCard({ race, variant = 'upcoming', onPress }: RaceCardProps) {
+export default function RaceCard({ race, variant = 'upcoming', onPress, onPressDetail }: RaceCardProps) {
   const theme = useTheme();
   const raceDate = new Date(race.gpDate);
   const sprintDate = race.sprintDate ? new Date(race.sprintDate) : null;
   
-  // Calcola countdown
   const now = new Date();
   const daysUntilRace = differenceInDays(raceDate, now);
   const hoursUntilRace = differenceInHours(raceDate, now) % 24;
@@ -137,6 +137,19 @@ export default function RaceCard({ race, variant = 'upcoming', onPress }: RaceCa
           </View>
         )}
       </View>
+
+      {onPressDetail && (
+        <Card.Actions style={styles.actions}>
+            <Button
+                mode="contained-tonal"
+                onPress={onPressDetail}
+                icon="information-outline"
+                compact
+            >
+                Dettagli Gara
+            </Button>
+        </Card.Actions>
+      )}
 
       {variant === 'upcoming' && daysUntilRace >= 0 && daysUntilRace <= 14 && (
         <View style={styles.countdown}>
@@ -236,7 +249,7 @@ const styles = StyleSheet.create({
   },
   dateSection: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 4,
   },
   dateRow: {
     flexDirection: 'row',
@@ -276,4 +289,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     opacity: 0.5,
   },
+   actions: {
+      justifyContent: 'flex-end',
+      paddingTop: 0,
+      paddingBottom: 8,
+      paddingHorizontal: 8,
+  }
 });
