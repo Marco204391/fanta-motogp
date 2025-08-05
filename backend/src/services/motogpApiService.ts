@@ -120,23 +120,26 @@ export class MotoGPApiService {
     }
   }
 
-  async syncRaceCalendar(season: number = new Date().getFullYear(), isFinished?: boolean) {
+  async syncRaceCalendar(season: number = new Date().getFullYear()) {
     try {
-      console.log(`📅 Sincronizzazione calendario ${season} (isFinished: ${isFinished})...`);
+      console.log(`📅 Sincronizzazione calendario ${season}...`);
       
       const seasonsResponse = await this.axiosInstance.get('/results/seasons');
       const seasonData = seasonsResponse.data.find((s: any) => s.year === season);
       
       if (!seasonData) throw new Error(`Stagione ${season} non trovata`);
 
-      let url = `/results/events?seasonUuid=${seasonData.id}`;
-      if (typeof isFinished === 'boolean') {
-        url += `&isFinished=${isFinished}`;
-      }
+      const finishedEventsUrl = `/results/events?seasonUuid=${seasonData.id}&isFinished=true`;
+      const upcomingEventsUrl = `/results/events?seasonUuid=${seasonData.id}&isFinished=false`;
 
-      const eventsResponse = await this.axiosInstance.get(url);
+      const [finishedEventsResponse, upcomingEventsResponse] = await Promise.all([
+        this.axiosInstance.get(finishedEventsUrl),
+        this.axiosInstance.get(upcomingEventsUrl)
+      ]);
+
+      const allEvents = [...finishedEventsResponse.data, ...upcomingEventsResponse.data];
       
-      for (const event of eventsResponse.data) {
+      for (const event of allEvents) {
         if (event.test) {
           console.log(`🟡 SKIPPATO: ${event.name} (evento di test)`);
           continue;
@@ -172,7 +175,7 @@ export class MotoGPApiService {
             endDate: new Date(event.date_end),
             gpDate: raceDate || new Date(event.date_end),
             sprintDate: sprintDate,
-            round: event.number || 0,
+            round: event.number || 0, // Inizialmente usa il round dell'API
             season,
           },
           create: {
@@ -183,14 +186,28 @@ export class MotoGPApiService {
             endDate: new Date(event.date_end),
             gpDate: raceDate || new Date(event.date_end),
             sprintDate: sprintDate,
-            round: event.number || 0,
+            round: event.number || 0, // Inizialmente usa il round dell'API
             season,
             apiEventId: event.id,
           }
         });
         console.log(`✅ Sincronizzato evento: ${event.name}`);
       }
-      console.log(`🎉 Calendario per la stagione ${season} (isFinished: ${isFinished}) sincronizzato!`);
+
+      console.log('🔄 Ricalcolo dei round in ordine cronologico...');
+      const races = await prisma.race.findMany({
+        where: { season },
+        orderBy: { gpDate: 'asc' }
+      });
+
+      for (let i = 0; i < races.length; i++) {
+        await prisma.race.update({
+          where: { id: races[i].id },
+          data: { round: i + 1 }
+        });
+      }
+      
+      console.log(`🎉 Calendario per la stagione ${season} sincronizzato e ordinato!`);
     } catch (error) {
       console.error(`❌ Errore sincronizzazione calendario ${season}:`, error);
       throw error;
@@ -208,6 +225,8 @@ export class MotoGPApiService {
           
           const raceSession = sessionsResponse.data.find((s: any) => s.type === 'RAC');
           const sprintSession = sessionsResponse.data.find((s: any) => s.type === 'SPR');
+          const qualifyingSession = sessionsResponse.data.find((s: any) => s.type === 'Q2' || s.type === 'Q');
+
 
           if (raceSession) {
             const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${raceSession.id}&test=false`);
@@ -219,6 +238,12 @@ export class MotoGPApiService {
             const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${sprintSession.id}&test=false`);
             if (resultsResponse.data?.classification) {
               await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.SPRINT);
+            }
+          }
+          if (qualifyingSession) {
+            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${qualifyingSession.id}&test=false`);
+            if (resultsResponse.data?.classification) {
+              await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.QUALIFYING);
             }
           }
         } catch (error) {

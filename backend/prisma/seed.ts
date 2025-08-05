@@ -18,8 +18,7 @@ async function main() {
     // 2. Sincronizzazione Calendario Gare per l'intera stagione corrente
     console.log(`📅 Sincronizzazione calendario completo per la stagione ${currentYear}...`);
     // Sincronizza sia le gare concluse (finished = true) che quelle future (finished = false)
-    await motogpApi.syncRaceCalendar(currentYear, true);
-    await motogpApi.syncRaceCalendar(currentYear, false);
+    await motogpApi.syncRaceCalendar(currentYear);
     console.log(`✅ Calendario per la stagione ${currentYear} sincronizzato.`);
 
     // 3. Recupero dei risultati per tutte le gare già terminate della stagione corrente

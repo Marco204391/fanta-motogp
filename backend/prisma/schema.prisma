@@ -11,6 +11,7 @@ datasource db {
 enum SessionType {
   SPRINT
   RACE
+  QUALIFYING
 }
 
 // ENUM per il tipo di pilota

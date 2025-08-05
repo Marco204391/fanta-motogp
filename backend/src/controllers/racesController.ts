@@ -16,7 +16,7 @@ export const getUpcomingRaces = async (req: Request, res: Response) => {
       orderBy: {
         gpDate: 'asc',
       },
-      take: 10, // Prossime 10 gare
+      take: 10,
     });
     res.json({ races });
   } catch (error) {
@@ -37,7 +37,7 @@ export const getPastRaces = async (req: Request, res: Response) => {
       orderBy: {
         gpDate: 'desc',
       },
-      take: 20, // Ultime 20 gare
+      take: 20,
       include: {
         results: {
           select: {
@@ -48,11 +48,10 @@ export const getPastRaces = async (req: Request, res: Response) => {
       },
     });
 
-    // Aggiungi flag per indicare se ci sono risultati
     const racesWithStatus = races.map(race => ({
       ...race,
       hasResults: race.results.length > 0,
-      results: undefined, // Non inviare i dettagli dei risultati
+      results: undefined,
     }));
 
     res.json({ races: racesWithStatus });
@@ -99,7 +98,10 @@ export const getRaceResults = async (req: Request, res: Response) => {
 
   try {
     const results = await prisma.raceResult.findMany({
-      where: { raceId },
+      where: {
+        raceId,
+        session: { in: ['RACE', 'SPRINT'] }
+      },
       include: {
         rider: {
           select: {
@@ -114,12 +116,11 @@ export const getRaceResults = async (req: Request, res: Response) => {
         },
       },
       orderBy: [
-        { status: 'asc' }, // FINISHED prima
+        { status: 'asc' },
         { position: 'asc' },
       ],
     });
 
-    // Raggruppa per sessione (RACE, SPRINT) e poi per categoria
     const resultsBySession = results.reduce((acc: any, result) => {
       const session = result.session;
       const cat = result.rider.category;
@@ -132,7 +133,6 @@ export const getRaceResults = async (req: Request, res: Response) => {
       acc[session][cat].push(result);
       return acc;
     }, {});
-
 
     res.json({
       results: resultsBySession,
@@ -178,5 +178,53 @@ export const getRaceCalendar = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Errore recupero calendario:', error);
     res.status(500).json({ error: 'Errore nel recupero del calendario' });
+  }
+};
+
+// GET /api/races/:raceId/qualifying
+export const getQualifyingResults = async (req: Request, res: Response) => {
+  const { raceId } = req.params;
+
+  try {
+    const results = await prisma.raceResult.findMany({
+      where: {
+        raceId,
+        session: 'QUALIFYING',
+      },
+      include: {
+        rider: {
+          select: {
+            id: true,
+            name: true,
+            number: true,
+            team: true,
+            category: true,
+            nationality: true,
+            photoUrl: true,
+          },
+        },
+      },
+      orderBy: [
+        { position: 'asc' },
+      ],
+    });
+
+    // Raggruppa per categoria
+    const resultsByCategory = results.reduce((acc: any, result) => {
+      const cat = result.rider.category;
+      if (!acc[cat]) {
+        acc[cat] = [];
+      }
+      acc[cat].push(result);
+      return acc;
+    }, {});
+
+    res.json({
+      results: resultsByCategory,
+      total: results.length,
+    });
+  } catch (error) {
+    console.error('Errore recupero risultati qualifiche:', error);
+    res.status(500).json({ error: 'Errore nel recupero dei risultati delle qualifiche' });
   }
 };

@@ -10,5 +10,6 @@ router.get('/past', racesController.getPastRaces);
 router.get('/calendar/:year', racesController.getRaceCalendar);
 router.get('/:raceId', racesController.getRaceById);
 router.get('/:raceId/results', racesController.getRaceResults);
+router.get('/:raceId/qualifying', racesController.getQualifyingResults);
 
 export default router;
