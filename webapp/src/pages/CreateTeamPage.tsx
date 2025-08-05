@@ -1,14 +1,45 @@
 // src/pages/CreateTeamPage.tsx
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getLeagueDetails, getRiders, createTeam } from '../services/api';
 import {
-  Box, Typography, CircularProgress, Alert, Card, CardContent, TextField,
-  FormGroup, FormControlLabel, Checkbox, Grid, Button, Paper, List, ListItem, ListItemText, Divider
+  Box,
+  Typography,
+  CircularProgress,
+  Alert,
+  Card,
+  CardContent,
+  TextField,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  Grid,
+  Button,
+  Paper,
+  Stack,
+  Chip,
+  LinearProgress,
+  Avatar,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
+import {
+  ExpandMore,
+  SportsMotorsports,
+  Euro,
+  Delete,
+  CheckCircle,
+  Warning,
+} from '@mui/icons-material';
 
-// Interfaccia per un pilota
 interface Rider {
   id: string;
   name: string;
@@ -16,38 +47,20 @@ interface Rider {
   value: number;
   riderType: string;
   team: string;
+  number: number;
 }
 
-// Componente per visualizzare un gruppo di piloti (es. MotoGP)
-function RiderCategory({ title, riders, selectedRiders, onToggle, budget, totalCost, maxPerCategory, takenRiderIds }: any) {
-  const selectedCount = riders.filter((r: Rider) => selectedRiders.includes(r.id)).length;
+const categoryColors = {
+  MOTOGP: '#FF6B00',
+  MOTO2: '#1976D2',
+  MOTO3: '#388E3C',
+};
 
-  return (
-    <Card sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography variant="h6" color={selectedCount === maxPerCategory ? 'green' : 'inherit'}>
-          {title} ({selectedCount}/{maxPerCategory})
-        </Typography>
-        <FormGroup>
-          {riders.map((rider: Rider) => {
-            const isSelected = selectedRiders.includes(rider.id);
-            const isTaken = takenRiderIds.has(rider.id);
-            const isDisabled = isTaken || (!isSelected && (selectedCount >= maxPerCategory || totalCost + rider.value > budget));
-
-            return (
-              <FormControlLabel
-                key={rider.id}
-                control={<Checkbox checked={isSelected} onChange={() => onToggle(rider)} />}
-                label={`${rider.name} (${rider.value} crediti) - ${rider.team}`}
-                disabled={isDisabled}
-              />
-            );
-          })}
-        </FormGroup>
-      </CardContent>
-    </Card>
-  );
-}
+const categoryRequirements = {
+  MOTOGP: { min: 2, max: 2, label: 'MotoGP' },
+  MOTO2: { min: 1, max: 1, label: 'Moto2' },
+  MOTO3: { min: 1, max: 1, label: 'Moto3' },
+};
 
 export default function CreateTeamPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
@@ -56,6 +69,7 @@ export default function CreateTeamPage() {
 
   const [teamName, setTeamName] = useState('');
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
+  const [expandedCategory, setExpandedCategory] = useState<string | false>('MOTOGP');
 
   const { data: leagueData, isLoading: isLoadingLeague } = useQuery({
     queryKey: ['leagueDetails', leagueId],
@@ -70,130 +84,319 @@ export default function CreateTeamPage() {
   const { mutate: createTeamMutation, isPending: isCreatingTeam } = useMutation({
     mutationFn: createTeam,
     onSuccess: () => {
-      alert('Team creato con successo!');
       queryClient.invalidateQueries({ queryKey: ['myTeams'] });
+      queryClient.invalidateQueries({ queryKey: ['leagueDetails', leagueId] });
       navigate(`/leagues/${leagueId}`);
     },
     onError: (error: any) => {
-      alert(`Errore: ${error.response?.data?.error || 'Impossibile creare il team.'}`);
-    }
+      alert(`Errore: ${error.response?.data?.error || 'Impossibile creare il team'}`);
+    },
   });
 
-  const { league } = leagueData || {};
-  const budget = league?.budget || 1000;
-  
-  const officialRiders = useMemo(() => ridersData?.riders.filter(r => r.riderType === 'OFFICIAL') || [], [ridersData]);
-  const takenRiderIds = useMemo(() => {
-    const ids = new Set<string>();
-    league?.teams.forEach((team: any) => {
-        team.riders.forEach((teamRider: any) => ids.add(teamRider.riderId));
+  const league = leagueData?.league;
+  const riders = ridersData?.riders || [];
+  const takenRiderIds = new Set(
+    leagueData?.standings?.flatMap((s: any) => 
+      s.riders?.map((r: any) => r.id) || []
+    ) || []
+  );
+
+  // Calcoli
+  const selectedRidersData = useMemo(() => {
+    return riders.filter(r => selectedRiders.includes(r.id));
+  }, [riders, selectedRiders]);
+
+  const totalCost = useMemo(() => {
+    return selectedRidersData.reduce((sum, rider) => sum + rider.value, 0);
+  }, [selectedRidersData]);
+
+  const ridersByCategory = useMemo(() => {
+    const grouped = riders.reduce((acc, rider) => {
+      if (!acc[rider.category]) acc[rider.category] = [];
+      acc[rider.category].push(rider);
+      return acc;
+    }, {} as Record<string, Rider[]>);
+
+    // Ordina per valore
+    Object.keys(grouped).forEach(category => {
+      grouped[category].sort((a, b) => b.value - a.value);
     });
-    return ids;
-  }, [league]);
 
+    return grouped;
+  }, [riders]);
 
-  const selectionStats = useMemo(() => {
-    const stats = {
-      totalCost: 0,
-      ridersByCategory: { MOTOGP: 0, MOTO2: 0, MOTO3: 0 },
-      validationErrors: [] as string[],
-    };
-    if (!officialRiders) return stats;
-
-    const selected = officialRiders.filter(r => selectedRiders.includes(r.id));
-    selected.forEach(rider => {
-      stats.totalCost += rider.value;
-      stats.ridersByCategory[rider.category]++;
+  const categoryStatus = useMemo(() => {
+    const status: Record<string, { count: number; isValid: boolean }> = {};
+    
+    Object.entries(categoryRequirements).forEach(([category, req]) => {
+      const count = selectedRidersData.filter(r => r.category === category).length;
+      status[category] = {
+        count,
+        isValid: count >= req.min && count <= req.max,
+      };
     });
 
-    if (selectedRiders.length !== 9) stats.validationErrors.push("Devi selezionare 9 piloti.");
-    if (stats.ridersByCategory.MOTOGP !== 3) stats.validationErrors.push("Devi selezionare 3 piloti MotoGP.");
-    if (stats.ridersByCategory.MOTO2 !== 3) stats.validationErrors.push("Devi selezionare 3 piloti Moto2.");
-    if (stats.ridersByCategory.MOTO3 !== 3) stats.validationErrors.push("Devi selezionare 3 piloti Moto3.");
-    if (stats.totalCost > budget) stats.validationErrors.push("Budget superato.");
-    if (!teamName.trim() || teamName.length < 3) stats.validationErrors.push("Il nome del team deve essere di almeno 3 caratteri.");
+    return status;
+  }, [selectedRidersData]);
 
-    return stats;
-  }, [selectedRiders, officialRiders, budget, teamName]);
+  const isTeamValid = useMemo(() => {
+    return (
+      teamName.trim().length >= 3 &&
+      totalCost <= (league?.budget || 0) &&
+      Object.values(categoryStatus).every(s => s.isValid)
+    );
+  }, [teamName, totalCost, league?.budget, categoryStatus]);
 
   const handleToggleRider = (rider: Rider) => {
-    setSelectedRiders(prev =>
-      prev.includes(rider.id) ? prev.filter(id => id !== rider.id) : [...prev, rider.id]
-    );
-  };
-
-  const handleSubmit = () => {
-    if (selectionStats.validationErrors.length === 0) {
-      createTeamMutation({ name: teamName, leagueId: leagueId!, riderIds: selectedRiders });
+    if (selectedRiders.includes(rider.id)) {
+      setSelectedRiders(prev => prev.filter(id => id !== rider.id));
     } else {
-      alert("Controlla gli errori prima di procedere:\n" + selectionStats.validationErrors.join('\n'));
+      const categoryCount = selectedRidersData.filter(r => r.category === rider.category).length;
+      const maxForCategory = categoryRequirements[rider.category as keyof typeof categoryRequirements].max;
+      
+      if (categoryCount < maxForCategory && totalCost + rider.value <= (league?.budget || 0)) {
+        setSelectedRiders(prev => [...prev, rider.id]);
+      }
     }
   };
 
-  if (isLoadingLeague || isLoadingRiders) return <CircularProgress />;
-  if (!league) return <Alert severity="error">Lega non trovata.</Alert>;
+  const handleCreateTeam = () => {
+    if (!isTeamValid || !leagueId) return;
 
-  const { totalCost, validationErrors } = selectionStats;
+    createTeamMutation({
+      name: teamName.trim(),
+      leagueId,
+      riderIds: selectedRiders,
+    });
+  };
+
+  if (isLoadingLeague || isLoadingRiders) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!league) {
+    return <Alert severity="error">Lega non trovata</Alert>;
+  }
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>Crea il tuo Team per "{league.name}"</Typography>
-      
-      <Paper elevation={3} sx={{ p: 2, mb: 3, position: 'sticky', top: 0, zIndex: 1 }}>
-        <Typography variant="h6">Riepilogo</Typography>
-        <TextField
-          label="Nome del Team"
-          value={teamName}
-          onChange={(e) => setTeamName(e.target.value)}
-          fullWidth
-          margin="normal"
-        />
-        <Typography>Budget: {totalCost} / {budget}</Typography>
-        {validationErrors.length > 0 && (
-          <List dense>
-            {validationErrors.map(err => <ListItemText key={err} primary={`• ${err}`} sx={{color: 'red'}}/>)}
-          </List>
-        )}
-        <Button 
-            variant="contained" 
-            onClick={handleSubmit} 
-            disabled={validationErrors.length > 0 || isCreatingTeam}
-            sx={{mt: 2}}
-        >
-            {isCreatingTeam ? <CircularProgress size={24}/> : 'Crea Team'}
-        </Button>
-      </Paper>
+      <Typography variant="h4" gutterBottom>
+        Crea il tuo Team
+      </Typography>
+      <Typography variant="body1" color="text.secondary" gutterBottom>
+        Lega: {league.name}
+      </Typography>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
-          <RiderCategory 
-            title="MotoGP" 
-            riders={officialRiders.filter(r => r.category === 'MOTOGP')}
-            selectedRiders={selectedRiders}
-            onToggle={handleToggleRider}
-            budget={budget} totalCost={totalCost} maxPerCategory={3}
-            takenRiderIds={takenRiderIds}
-           />
+      <Grid container spacing={3}>
+        {/* Colonna sinistra: Form */}
+        <Grid item xs={12} md={8}>
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <TextField
+                fullWidth
+                label="Nome del Team"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                margin="normal"
+                error={teamName.length > 0 && teamName.length < 3}
+                helperText={
+                  teamName.length > 0 && teamName.length < 3
+                    ? 'Il nome deve essere almeno 3 caratteri'
+                    : ''
+                }
+              />
+            </CardContent>
+          </Card>
+
+          {/* Selezione Piloti */}
+          {Object.entries(ridersByCategory).map(([category, categoryRiders]) => {
+            const req = categoryRequirements[category as keyof typeof categoryRequirements];
+            const status = categoryStatus[category];
+
+            return (
+              <Accordion
+                key={category}
+                expanded={expandedCategory === category}
+                onChange={(_, isExpanded) => setExpandedCategory(isExpanded ? category : false)}
+              >
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }}>
+                    <Avatar
+                      sx={{
+                        bgcolor: categoryColors[category as keyof typeof categoryColors],
+                        width: 32,
+                        height: 32,
+                      }}
+                    >
+                      {category.slice(-1)}
+                    </Avatar>
+                    <Typography sx={{ flexGrow: 1 }}>
+                      {req.label} ({status.count}/{req.max})
+                    </Typography>
+                    {status.isValid ? (
+                      <CheckCircle color="success" />
+                    ) : (
+                      <Warning color="warning" />
+                    )}
+                  </Stack>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <List dense>
+                    {categoryRiders.map(rider => {
+                      const isSelected = selectedRiders.includes(rider.id);
+                      const isTaken = takenRiderIds.has(rider.id);
+                      const wouldExceedBudget = !isSelected && totalCost + rider.value > league.budget;
+                      const wouldExceedCategory = !isSelected && status.count >= req.max;
+                      const isDisabled = isTaken || wouldExceedBudget || wouldExceedCategory;
+
+                      return (
+                        <ListItem
+                          key={rider.id}
+                          button
+                          onClick={() => !isDisabled && handleToggleRider(rider)}
+                          disabled={isDisabled}
+                          selected={isSelected}
+                        >
+                          <ListItemAvatar>
+                            <Avatar sx={{ bgcolor: 'grey.300' }}>{rider.number}</Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={rider.name}
+                            secondary={
+                              <Stack direction="row" spacing={1}>
+                                <Typography variant="caption">{rider.team}</Typography>
+                                <Typography variant="caption">•</Typography>
+                                <Typography variant="caption" color="primary">
+                                  {rider.value} crediti
+                                </Typography>
+                                {isTaken && (
+                                  <>
+                                    <Typography variant="caption">•</Typography>
+                                    <Typography variant="caption" color="error">
+                                      Già preso
+                                    </Typography>
+                                  </>
+                                )}
+                              </Stack>
+                            }
+                          />
+                          <ListItemSecondaryAction>
+                            <Checkbox
+                              edge="end"
+                              checked={isSelected}
+                              disabled={isDisabled}
+                            />
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      );
+                    })}
+                  </List>
+                </AccordionDetails>
+              </Accordion>
+            );
+          })}
         </Grid>
+
+        {/* Colonna destra: Riepilogo */}
         <Grid item xs={12} md={4}>
-          <RiderCategory 
-            title="Moto2" 
-            riders={officialRiders.filter(r => r.category === 'MOTO2')}
-            selectedRiders={selectedRiders}
-            onToggle={handleToggleRider}
-            budget={budget} totalCost={totalCost} maxPerCategory={3}
-            takenRiderIds={takenRiderIds}
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <RiderCategory 
-            title="Moto3" 
-            riders={officialRiders.filter(r => r.category === 'MOTO3')}
-            selectedRiders={selectedRiders}
-            onToggle={handleToggleRider}
-            budget={budget} totalCost={totalCost} maxPerCategory={3}
-            takenRiderIds={takenRiderIds}
-          />
+          <Card sx={{ position: 'sticky', top: 16 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Riepilogo Team
+              </Typography>
+
+              {/* Budget */}
+              <Box sx={{ mb: 3 }}>
+                <Stack direction="row" justifyContent="space-between" mb={1}>
+                  <Typography variant="body2">Budget utilizzato</Typography>
+                  <Typography variant="body2" color={totalCost > league.budget ? 'error' : 'primary'}>
+                    {totalCost}/{league.budget} crediti
+                  </Typography>
+                </Stack>
+                <LinearProgress
+                  variant="determinate"
+                  value={(totalCost / league.budget) * 100}
+                  color={totalCost > league.budget ? 'error' : 'primary'}
+                />
+              </Box>
+
+              {/* Requisiti */}
+              <Typography variant="subtitle2" gutterBottom>
+                Requisiti Formazione
+              </Typography>
+              <Stack spacing={1} sx={{ mb: 3 }}>
+                {Object.entries(categoryRequirements).map(([category, req]) => {
+                  const status = categoryStatus[category];
+                  return (
+                    <Stack key={category} direction="row" justifyContent="space-between">
+                      <Typography variant="body2">{req.label}</Typography>
+                      <Chip
+                        label={`${status.count}/${req.max}`}
+                        size="small"
+                        color={status.isValid ? 'success' : 'default'}
+                      />
+                    </Stack>
+                  );
+                })}
+              </Stack>
+
+              {/* Piloti selezionati */}
+              <Typography variant="subtitle2" gutterBottom>
+                Piloti Selezionati
+              </Typography>
+              <List dense>
+                {selectedRidersData.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Nessun pilota selezionato
+                  </Typography>
+                ) : (
+                  selectedRidersData.map(rider => (
+                    <ListItem
+                      key={rider.id}
+                      dense
+                      secondaryAction={
+                        <IconButton
+                          edge="end"
+                          size="small"
+                          onClick={() => handleToggleRider(rider)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemText
+                        primary={rider.name}
+                        secondary={`${rider.category} - ${rider.value} crediti`}
+                      />
+                    </ListItem>
+                  ))
+                )}
+              </List>
+
+              <Button
+                fullWidth
+                variant="contained"
+                size="large"
+                onClick={handleCreateTeam}
+                disabled={!isTeamValid || isCreatingTeam}
+                sx={{ mt: 3 }}
+              >
+                {isCreatingTeam ? 'Creazione in corso...' : 'Crea Team'}
+              </Button>
+
+              {!isTeamValid && teamName && selectedRidersData.length > 0 && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  {totalCost > league.budget && 'Budget superato!'}
+                  {!Object.values(categoryStatus).every(s => s.isValid) && 
+                    'Seleziona il numero corretto di piloti per categoria'}
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
     </Box>
