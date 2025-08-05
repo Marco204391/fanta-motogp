@@ -362,6 +362,25 @@ export class MotoGPApiService {
         console.log(`Nessun risultato ${session} trovato per la gara.`);
         return;
       }
+      
+      const qualifyingResults = await prisma.raceResult.findMany({
+          where: {
+              raceId,
+              session: 'QUALIFYING',
+              position: { in: [1, 2, 3] }
+          },
+          select: {
+              riderId: true,
+              position: true
+          }
+      });
+
+      const qualifyingBonusMap = new Map<string, number>();
+      qualifyingResults.forEach(result => {
+          if (result.position === 1) qualifyingBonusMap.set(result.riderId, -5);
+          if (result.position === 2) qualifyingBonusMap.set(result.riderId, -3);
+          if (result.position === 3) qualifyingBonusMap.set(result.riderId, -1);
+      });
 
       const maxPositions = raceResults.reduce((acc, result) => {
         const category = result.rider.category;
@@ -413,7 +432,10 @@ export class MotoGPApiService {
           const difference = Math.abs(predictedPosition - basePoints);
           points = basePoints + difference;
           
-          riderScores.push({ rider: lineupRider.rider.name, points, predicted: predictedPosition, actual: result?.position ?? result?.status, base: basePoints, diff: difference });
+          const qualifyingBonus = (session === SessionType.RACE) ? (qualifyingBonusMap.get(lineupRider.riderId) || 0) : 0;
+          points += qualifyingBonus;
+
+          riderScores.push({ rider: lineupRider.rider.name, points, predicted: predictedPosition, actual: result?.position ?? result?.status, base: basePoints, diff: difference, qualifyingBonus });
           totalPoints += points;
         }
         
