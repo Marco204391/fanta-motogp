@@ -225,7 +225,8 @@ export class MotoGPApiService {
           
           const raceSession = sessionsResponse.data.find((s: any) => s.type === 'RAC');
           const sprintSession = sessionsResponse.data.find((s: any) => s.type === 'SPR');
-          const qualifyingSession = sessionsResponse.data.find((s: any) => s.type === 'Q2' || s.type === 'Q');
+          const q1Session = sessionsResponse.data.find((s: any) => (s.type === 'Q' && s.number === 1) || s.type === 'Q1');
+          const q2Session = sessionsResponse.data.find((s: any) => (s.type === 'Q' && s.number === 2) || s.type === 'Q2');
 
 
           if (raceSession) {
@@ -240,8 +241,32 @@ export class MotoGPApiService {
               await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.SPRINT);
             }
           }
-          if (qualifyingSession) {
-            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${qualifyingSession.id}&test=false`);
+          if (q2Session) {
+            const q2ResultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${q2Session.id}&test=false`);
+            if (q2ResultsResponse.data?.classification) {
+              const q2Results = q2ResultsResponse.data.classification;
+              let finalClassification = q2Results;
+
+              if (q1Session) {
+                const q1ResultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${q1Session.id}&test=false`);
+                if (q1ResultsResponse.data?.classification) {
+                  const q1Results = q1ResultsResponse.data.classification;
+                  const q1RidersNotInQ2 = q1Results.slice(2);
+                  const lastQ2Position = q2Results.length;
+                  const adjustedQ1Riders = q1RidersNotInQ2.map((rider: any, index: number) => ({
+                      ...rider,
+                      position: lastQ2Position + index + 1,
+                  }));
+
+                  finalClassification = [...q2Results, ...adjustedQ1Riders];
+                }
+              }
+
+              await this.saveRaceResults(raceId, category, finalClassification, SessionType.QUALIFYING);
+            }
+          } else if (q1Session) {
+            // Fallback for categories that only have one qualifying session
+            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${q1Session.id}&test=false`);
             if (resultsResponse.data?.classification) {
               await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.QUALIFYING);
             }
