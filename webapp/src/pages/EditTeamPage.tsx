@@ -1,0 +1,434 @@
+import React, { useState, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getTeamById, getRiders, updateTeam } from '../services/api';
+import {
+  Box, Typography, CircularProgress, Alert, Card, CardContent,
+  Button, Stack, Chip, LinearProgress, Avatar, List, ListItem,
+  ListItemAvatar, ListItemText, ListItemSecondaryAction, IconButton,
+  Accordion, AccordionSummary, AccordionDetails, Divider, Paper
+} from '@mui/material';
+import {
+  ExpandMore, Save, Delete, Add, Euro, Warning, CheckCircle, Cancel
+} from '@mui/icons-material';
+
+interface Rider {
+  id: string;
+  name: string;
+  category: 'MOTOGP' | 'MOTO2' | 'MOTO3';
+  value: number;
+  team: string;
+  number: number;
+}
+
+const categoryColors = {
+  MOTOGP: '#E60023',
+  MOTO2: '#FF6B00',
+  MOTO3: '#1976D2',
+};
+
+const categoryRequirements = {
+  MOTOGP: { min: 2, max: 2, label: 'MotoGP' },
+  MOTO2: { min: 1, max: 1, label: 'Moto2' },
+  MOTO3: { min: 1, max: 1, label: 'Moto3' },
+};
+
+export default function EditTeamPage() {
+  const { teamId } = useParams<{ teamId: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
+  const [expandedCategory, setExpandedCategory] = useState<string | false>('MOTOGP');
+
+  // Query team data
+  const { data: teamData, isLoading: loadingTeam } = useQuery({
+    queryKey: ['team', teamId],
+    queryFn: () => getTeamById(teamId!),
+    onSuccess: (data) => {
+      // Initialize with current riders
+      setSelectedRiders(data.team.riders.map((r: any) => r.rider.id));
+    },
+  });
+
+  // Query all riders
+  const { data: ridersData, isLoading: loadingRiders } = useQuery({
+    queryKey: ['riders'],
+    queryFn: () => getRiders({ limit: 200 }),
+  });
+
+  const team = teamData?.team;
+  const league = team?.league;
+  const allRiders = ridersData?.riders || [];
+
+  // Group riders by category
+  const ridersByCategory = useMemo(() => {
+    const grouped: Record<string, Rider[]> = {
+      MOTOGP: [],
+      MOTO2: [],
+      MOTO3: [],
+    };
+
+    allRiders.forEach((rider: Rider) => {
+      if (grouped[rider.category]) {
+        grouped[rider.category].push(rider);
+      }
+    });
+
+    Object.keys(grouped).forEach(category => {
+      grouped[category].sort((a, b) => b.value - a.value);
+    });
+
+    return grouped;
+  }, [allRiders]);
+
+  // Calculate selected riders data
+  const selectedRidersData = useMemo(() => {
+    return selectedRiders
+      .map(id => allRiders.find((r: Rider) => r.id === id))
+      .filter(Boolean) as Rider[];
+  }, [selectedRiders, allRiders]);
+
+  // Calculate budget
+  const totalCost = selectedRidersData.reduce((sum, rider) => sum + rider.value, 0);
+  const remainingBudget = (league?.budget || 0) - totalCost;
+
+  // Check category requirements
+  const categoryStatus = useMemo(() => {
+    const status: Record<string, { count: number; isValid: boolean }> = {};
+
+    Object.keys(categoryRequirements).forEach(category => {
+      const count = selectedRidersData.filter(r => r.category === category).length;
+      const req = categoryRequirements[category as keyof typeof categoryRequirements];
+      status[category] = {
+        count,
+        isValid: count >= req.min && count <= req.max,
+      };
+    });
+
+    return status;
+  }, [selectedRidersData]);
+
+  const isTeamValid = useMemo(() => {
+    return (
+      selectedRiders.length === 4 &&
+      totalCost <= (league?.budget || 0) &&
+      Object.values(categoryStatus).every(s => s.isValid)
+    );
+  }, [selectedRiders, totalCost, league?.budget, categoryStatus]);
+
+  // Mutation for updating team
+  const updateTeamMutation = useMutation({
+    mutationFn: (riderIds: string[]) => updateTeam(teamId!, { riderIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+      navigate('/teams');
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.error || 'Errore durante l\'aggiornamento del team');
+    },
+  });
+
+  const handleToggleRider = (riderId: string) => {
+    const rider = allRiders.find((r: Rider) => r.id === riderId);
+    if (!rider) return;
+
+    if (selectedRiders.includes(riderId)) {
+      setSelectedRiders(prev => prev.filter(id => id !== riderId));
+    } else {
+      const categoryCount = selectedRidersData.filter(r => r.category === rider.category).length;
+      const maxForCategory = categoryRequirements[rider.category as keyof typeof categoryRequirements].max;
+
+      if (categoryCount >= maxForCategory) {
+        alert(`Puoi selezionare massimo ${maxForCategory} piloti ${rider.category}`);
+        return;
+      }
+
+      if (selectedRiders.length >= 4) {
+        alert('Puoi selezionare massimo 4 piloti');
+        return;
+      }
+
+      if (totalCost + rider.value > (league?.budget || 0)) {
+        alert('Budget insufficiente per questo pilota');
+        return;
+      }
+
+      setSelectedRiders(prev => [...prev, riderId]);
+    }
+  };
+
+  const handleSaveTeam = () => {
+    if (!isTeamValid) return;
+    updateTeamMutation.mutate(selectedRiders);
+  };
+
+  if (loadingTeam || loadingRiders) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!team || !league) {
+    return <Alert severity="error">Team non trovato</Alert>;
+  }
+
+  return (
+    <Box className="fade-in">
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box>
+          <Typography variant="h4" gutterBottom>
+            Modifica {team.name}
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Lega: {league.name}
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={() => navigate('/teams')}
+          startIcon={<Cancel />}
+        >
+          Annulla
+        </Button>
+      </Stack>
+
+      <Grid container spacing={3}>
+        {/* Selezione Piloti */}
+        <Grid item xs={12} md={8}>
+          {Object.entries(ridersByCategory).map(([category, riders]) => {
+            const req = categoryRequirements[category as keyof typeof categoryRequirements];
+            const status = categoryStatus[category];
+
+            return (
+              <Accordion
+                key={category}
+                expanded={expandedCategory === category}
+                onChange={(_, isExpanded) => setExpandedCategory(isExpanded ? category : false)}
+                sx={{ mb: 2, backgroundColor: 'background.paper' }}
+              >
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }}>
+                    <Avatar
+                      sx={{
+                        bgcolor: categoryColors[category as keyof typeof categoryColors],
+                        width: 40,
+                        height: 40,
+                      }}
+                    >
+                      {category.slice(-1)}
+                    </Avatar>
+                    <Typography sx={{ flexGrow: 1 }} variant="h6">
+                      {req.label} ({status.count}/{req.max})
+                    </Typography>
+                    {status.isValid ? 
+                      <CheckCircle color="success" /> : 
+                      <Warning color="warning" />
+                    }
+                  </Stack>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <List>
+                    {riders.map(rider => {
+                      const isSelected = selectedRiders.includes(rider.id);
+                      const isDisabled = !isSelected && (
+                        selectedRiders.length >= 4 ||
+                        totalCost + rider.value > league.budget ||
+                        status.count >= req.max
+                      );
+
+                      return (
+                        <ListItem
+                          key={rider.id}
+                          button
+                          onClick={() => handleToggleRider(rider.id)}
+                          disabled={isDisabled}
+                          selected={isSelected}
+                          sx={{
+                            borderRadius: 1,
+                            mb: 1,
+                            backgroundColor: isSelected ? 'action.selected' : 'transparent',
+                            '&:hover': {
+                              backgroundColor: isSelected ? 'action.selected' : 'action.hover',
+                            },
+                          }}
+                        >
+                          <ListItemAvatar>
+                            <Avatar sx={{ bgcolor: categoryColors[rider.category] }}>
+                              {rider.number}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={rider.name}
+                            secondary={
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Typography variant="body2">{rider.team}</Typography>
+                                <Chip
+                                  size="small"
+                                  icon={<Euro sx={{ fontSize: 14 }} />}
+                                  label={`${rider.value} crediti`}
+                                />
+                              </Stack>
+                            }
+                          />
+                          <ListItemSecondaryAction>
+                            <IconButton 
+                              edge="end" 
+                              onClick={() => handleToggleRider(rider.id)}
+                              color={isSelected ? 'error' : 'default'}
+                            >
+                              {isSelected ? <Delete /> : <Add />}
+                            </IconButton>
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      );
+                    })}
+                  </List>
+                </AccordionDetails>
+              </Accordion>
+            );
+          })}
+        </Grid>
+
+        {/* Riepilogo */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ position: 'sticky', top: 80 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Riepilogo Modifiche
+              </Typography>
+
+              {/* Budget */}
+              <Box sx={{ mb: 3 }}>
+                <Stack direction="row" justifyContent="space-between" mb={1}>
+                  <Typography variant="body2">Budget utilizzato</Typography>
+                  <Typography 
+                    variant="body2" 
+                    color={totalCost > league.budget ? 'error' : 'primary'}
+                    fontWeight="bold"
+                  >
+                    {totalCost}/{league.budget} crediti
+                  </Typography>
+                </Stack>
+                <LinearProgress
+                  variant="determinate"
+                  value={(totalCost / league.budget) * 100}
+                  color={totalCost > league.budget ? 'error' : 'primary'}
+                />
+                {remainingBudget < 0 && (
+                  <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+                    Superi il budget di {Math.abs(remainingBudget)} crediti
+                  </Typography>
+                )}
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Requisiti */}
+              <Typography variant="subtitle2" gutterBottom>
+                Requisiti Formazione
+              </Typography>
+              <Stack spacing={1} sx={{ mb: 3 }}>
+                {Object.entries(categoryRequirements).map(([category, req]) => {
+                  const status = categoryStatus[category];
+                  return (
+                    <Paper 
+                      key={category} 
+                      sx={{ 
+                        p: 1.5, 
+                        backgroundColor: status.isValid ? 'success.dark' : 'background.default',
+                        opacity: status.isValid ? 0.2 : 1,
+                      }}
+                    >
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="body2">{req.label}</Typography>
+                        <Chip
+                          label={`${status.count}/${req.max}`}
+                          size="small"
+                          color={status.isValid ? 'success' : 'default'}
+                          icon={status.isValid ? <CheckCircle /> : undefined}
+                        />
+                      </Stack>
+                    </Paper>
+                  );
+                })}
+              </Stack>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Piloti selezionati */}
+              <Typography variant="subtitle2" gutterBottom>
+                Piloti Selezionati ({selectedRiders.length}/4)
+              </Typography>
+              <List dense>
+                {selectedRidersData.length === 0 ? (
+                  <ListItem>
+                    <ListItemText 
+                      primary="Nessun pilota selezionato"
+                      primaryTypographyProps={{ color: 'text.secondary', align: 'center' }}
+                    />
+                  </ListItem>
+                ) : (
+                  selectedRidersData.map(rider => (
+                    <ListItem 
+                      key={rider.id}
+                      sx={{ 
+                        backgroundColor: 'background.default',
+                        borderRadius: 1,
+                        mb: 0.5,
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar 
+                          sx={{ 
+                            bgcolor: categoryColors[rider.category],
+                            width: 32,
+                            height: 32,
+                            fontSize: 14,
+                          }}
+                        >
+                          {rider.number}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={rider.name}
+                        secondary={`${rider.category} - ${rider.value} crediti`}
+                        primaryTypographyProps={{ fontSize: 14 }}
+                        secondaryTypographyProps={{ fontSize: 12 }}
+                      />
+                    </ListItem>
+                  ))
+                )}
+              </List>
+
+              <Button
+                fullWidth
+                variant="contained"
+                color="primary"
+                size="large"
+                startIcon={<Save />}
+                onClick={handleSaveTeam}
+                disabled={!isTeamValid || updateTeamMutation.isPending}
+                sx={{ mt: 3 }}
+              >
+                {updateTeamMutation.isPending ? 'Salvataggio...' : 'Salva Modifiche'}
+              </Button>
+
+              {!isTeamValid && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  {selectedRiders.length !== 4 && 'Seleziona esattamente 4 piloti. '}
+                  {totalCost > league.budget && 'Budget superato. '}
+                  {!Object.values(categoryStatus).every(s => s.isValid) && 'Requisiti categoria non soddisfatti.'}
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+}

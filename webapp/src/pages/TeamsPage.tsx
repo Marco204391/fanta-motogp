@@ -277,6 +277,16 @@ export default function TeamsPage() {
                 </CardContent>
                 <CardActions>
                   <Button
+                    fullWidth={false}
+                    variant="outlined"
+                    startIcon={<Edit />}
+                    onClick={() => navigate(`/teams/${team.id}/edit`)}
+                    disabled={team.league.teamsLocked}
+                    sx={{ mr: 1 }}
+                  >
+                    Modifica
+                  </Button>
+                  <Button
                     fullWidth
                     variant="contained"
                     color="primary"

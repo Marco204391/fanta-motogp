@@ -14,6 +14,7 @@ import RiderDetailPage from './pages/RiderDetailPage';
 import RaceCalendarPage from './pages/RaceCalendarPage';
 import RaceDetailPage from './pages/RaceDetailPage';
 import ProfilePage from './pages/ProfilePage';
+import EditTeamPage from './pages/EditTeamPage';
 import { AppBar, Toolbar, Typography, Button, Container, Box, CircularProgress, Menu, MenuItem, IconButton, Avatar } from '@mui/material';
 import { AccountCircle } from '@mui/icons-material';
 import React from 'react';
@@ -151,6 +152,7 @@ function App() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/teams" element={<TeamsPage />} />
+          <Route path="/teams/:teamId/edit" element={<EditTeamPage />} />
           <Route path="/teams/:teamId/lineup" element={<LineupPage />} />
           <Route path="/leagues" element={<LeaguesPage />} />
           <Route path="/leagues/:leagueId" element={<LeagueDetailPage />} />
