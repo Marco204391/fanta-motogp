@@ -1,8 +1,9 @@
-// src/pages/LoginPage.tsx
+// webapp/src/pages/LoginPage.tsx
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Container, TextField, Button, Typography, Box, Alert, CircularProgress } from '@mui/material';
+import { Container, TextField, Button, Typography, Box, Alert, CircularProgress, Paper, Avatar } from '@mui/material';
+import SportsMotorsportsIcon from '@mui/icons-material/SportsMotorsports';
 
 export default function LoginPage() {
   const [emailOrUsername, setEmailOrUsername] = useState('');
@@ -28,22 +29,24 @@ export default function LoginPage() {
 
   return (
     <Container component="main" maxWidth="xs">
-      <Box
+      <Paper
+        elevation={6}
         sx={{
           marginTop: 8,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          padding: 4,
         }}
       >
+        <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
+          <SportsMotorsportsIcon />
+        </Avatar>
         <Typography component="h1" variant="h5">
           Fanta MotoGP
         </Typography>
-        <Typography component="p" sx={{ mt: 1 }}>
-          Il fantasy game delle due ruote
-        </Typography>
-        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 3 }}>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
+          {error && <Alert severity="error" sx={{ my: 2, width: '100%' }}>{error}</Alert>}
           <TextField
             margin="normal"
             required
@@ -75,13 +78,13 @@ export default function LoginPage() {
             sx={{ mt: 3, mb: 2 }}
             disabled={isLoading}
           >
-            {isLoading ? <CircularProgress size={24} /> : 'Accedi'}
+            {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Accedi'}
           </Button>
           <Button fullWidth onClick={() => navigate('/register')}>
             Non hai un account? Registrati
           </Button>
         </Box>
-      </Box>
+      </Paper>
     </Container>
   );
 }

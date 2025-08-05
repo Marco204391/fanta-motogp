@@ -1,4 +1,4 @@
-// src/pages/RidersPage.tsx
+// webapp/src/pages/RidersPage.tsx
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRiders } from '../services/api';
@@ -7,9 +7,6 @@ import {
   Typography,
   CircularProgress,
   Grid,
-  Card,
-  CardContent,
-  Avatar,
   TextField,
   InputAdornment,
   ToggleButtonGroup,
@@ -18,6 +15,7 @@ import {
   Alert,
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
+import { RiderCard } from '../components/RiderCard';
 
 interface Rider {
   id: string;
@@ -31,38 +29,14 @@ interface Rider {
   riderType: 'OFFICIAL' | 'REPLACEMENT' | 'WILDCARD' | 'TEST_RIDER';
 }
 
-const categoryColors = {
-  MOTOGP: '#FF6B00',
-  MOTO2: '#1976D2',
-  MOTO3: '#388E3C',
-};
-
-function RiderCard({ rider }: { rider: Rider }) {
-  return (
-    <Card sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
-      <Avatar
-        sx={{
-          bgcolor: categoryColors[rider.category],
-          width: 56,
-          height: 56,
-          mr: 2,
-        }}
-        src={rider.photoUrl || undefined}
-      >
-        {rider.number}
-      </Avatar>
-      <Box>
-        <Typography variant="h6">{rider.name}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {rider.team}
+const PageTitle = ({ title }: { title: string }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ height: '40px', width: '6px', bgcolor: 'primary.main', mr: 2 }} />
+        <Typography variant="h3" sx={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
+            / {title}
         </Typography>
-        <Typography variant="body2" color="primary">
-          {rider.value} crediti
-        </Typography>
-      </Box>
-    </Card>
-  );
-}
+    </Box>
+);
 
 export default function RidersPage() {
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'MOTOGP' | 'MOTO2' | 'MOTO3'>('ALL');
@@ -76,32 +50,26 @@ export default function RidersPage() {
   const filteredRiders = useMemo(() => {
     if (!ridersData) return [];
     return ridersData.riders.filter(rider => {
+      const isOfficial = rider.riderType === 'OFFICIAL';
       const matchesCategory = selectedCategory === 'ALL' || rider.category === selectedCategory;
       const matchesSearch =
         rider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rider.team.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
+      return isOfficial && matchesCategory && matchesSearch;
     });
   }, [ridersData, selectedCategory, searchQuery]);
 
   if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CircularProgress />;
   }
-
   if (error) {
     return <Alert severity="error">Errore nel caricamento dei piloti.</Alert>;
   }
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Piloti
-      </Typography>
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <PageTitle title="Piloti Ufficiali" />
+      <Paper sx={{ p: 2, mb: 4 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={6}>
             <TextField
@@ -134,10 +102,11 @@ export default function RidersPage() {
         </Grid>
       </Paper>
 
+      {/* --- CORREZIONE: Spaziatura ridotta per un layout più compatto --- */}
       <Grid container spacing={3}>
         {filteredRiders.length > 0 ? (
           filteredRiders.map(rider => (
-            <Grid item xs={12} sm={6} md={4} key={rider.id}>
+            <Grid item xs={12} sm={6} md={4} lg={3} key={rider.id}>
               <RiderCard rider={rider} />
             </Grid>
           ))
