@@ -1,21 +1,8 @@
-// src/pages/RaceCalendarPage.tsx
-import React from 'react';
+// webapp/src/pages/RaceCalendarPage.tsx
 import { useQuery } from '@tanstack/react-query';
 import { getAllRaces } from '../services/api';
-import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Typography,
-  CircularProgress,
-  Alert,
-  Card,
-  CardContent,
-  CardActionArea,
-  Grid,
-  Chip,
-} from '@mui/material';
-import { format, isPast } from 'date-fns';
-import { it } from 'date-fns/locale';
+import { Box, Typography, CircularProgress, Alert, Grid } from '@mui/material';
+import { RaceEventCard } from '../components/RaceEventCard'; // Importa il nuovo componente
 
 interface Race {
   id: string;
@@ -23,29 +10,23 @@ interface Race {
   circuit: string;
   country: string;
   gpDate: string;
+  startDate: string;
+  endDate: string;
   round: number;
 }
 
-const groupRacesByMonth = (races: Race[]) => {
-  return races.reduce((acc, race) => {
-    const month = format(new Date(race.gpDate), 'MMMM yyyy', { locale: it });
-    if (!acc[month]) {
-      acc[month] = [];
-    }
-    acc[month].push(race);
-    return acc;
-  }, {} as Record<string, Race[]>);
-};
-
 export default function RaceCalendarPage() {
-  const navigate = useNavigate();
-  const { data: racesData, isLoading, error } = useQuery({
+  const { data: racesData, isLoading, error } = useQuery<{ races: Race[] }>({
     queryKey: ['allRaces'],
-    queryFn: getAllRaces,
+    queryFn: () => getAllRaces(new Date().getFullYear()), // Assicurati che l'API supporti l'anno
   });
 
   if (isLoading) {
-    return <CircularProgress />;
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (error) {
@@ -53,43 +34,19 @@ export default function RaceCalendarPage() {
   }
 
   const races = racesData?.races || [];
-  const groupedRaces = groupRacesByMonth(races);
 
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        Calendario Gare
+        Calendario Gare {new Date().getFullYear()}
       </Typography>
-      {Object.entries(groupedRaces).map(([month, monthRaces]) => (
-        <Box key={month} sx={{ mb: 4 }}>
-          <Typography variant="h5" gutterBottom sx={{ textTransform: 'capitalize' }}>
-            {month}
-          </Typography>
-          <Grid container spacing={3}>
-            {monthRaces.map(race => (
-              <Grid item xs={12} sm={6} md={4} key={race.id}>
-                <Card>
-                  <CardActionArea onClick={() => navigate(`/races/${race.id}`)}>
-                    <CardContent>
-                      <Typography variant="h6">{race.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">{race.circuit}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {format(new Date(race.gpDate), 'd MMMM yyyy', { locale: it })}
-                      </Typography>
-                      <Chip
-                        label={isPast(new Date(race.gpDate)) ? 'Conclusa' : 'In programma'}
-                        color={isPast(new Date(race.gpDate)) ? 'default' : 'primary'}
-                        size="small"
-                        sx={{ mt: 1 }}
-                      />
-                    </CardContent>
-                  </CardActionArea>
-                </Card>
-              </Grid>
-            ))}
+      <Grid container spacing={3}>
+        {races.map(race => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={race.id}>
+            <RaceEventCard race={race} />
           </Grid>
-        </Box>
-      ))}
+        ))}
+      </Grid>
     </Box>
   );
 }
