@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTeamById, getRiders, updateTeam } from '../services/api';
@@ -6,11 +6,13 @@ import {
   Box, Typography, CircularProgress, Alert, Card, CardContent,
   Button, Stack, Chip, LinearProgress, Avatar, List, ListItem,
   ListItemAvatar, ListItemText, ListItemSecondaryAction, IconButton,
-  Accordion, AccordionSummary, AccordionDetails, Divider, Paper
+  Accordion, AccordionSummary, AccordionDetails, Divider, Paper, Checkbox
 } from '@mui/material';
 import {
   ExpandMore, Save, Delete, Add, Euro, Warning, CheckCircle, Cancel
 } from '@mui/icons-material';
+import { useNotification } from '../contexts/NotificationContext';
+
 
 interface Rider {
   id: string;
@@ -19,11 +21,12 @@ interface Rider {
   value: number;
   team: string;
   number: number;
+  riderType: string;
 }
 
 const categoryColors = {
   MOTOGP: '#E60023',
-  MOTO2: '#FF6B00',
+  MOTO2: '#FF6B00', 
   MOTO3: '#1976D2',
 };
 
@@ -37,6 +40,8 @@ export default function EditTeamPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { notify } = useNotification();
+
 
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
   const [expandedCategory, setExpandedCategory] = useState<string | false>('MOTOGP');
@@ -46,7 +51,6 @@ export default function EditTeamPage() {
     queryKey: ['team', teamId],
     queryFn: () => getTeamById(teamId!),
     onSuccess: (data) => {
-      // Initialize with current riders
       setSelectedRiders(data.team.riders.map((r: any) => r.rider.id));
     },
   });
@@ -60,6 +64,19 @@ export default function EditTeamPage() {
   const team = teamData?.team;
   const league = team?.league;
   const allRiders = ridersData?.riders || [];
+  
+  const takenRiderIds = useMemo(() => {
+    if (!league?.teams) return new Set<string>();
+    const ids = new Set<string>();
+    league.teams.forEach((t: any) => {
+        if (t.id !== teamId) { // Escludi i piloti del team corrente
+            t.riders.forEach((teamRider: any) => {
+                ids.add(teamRider.riderId);
+            });
+        }
+    });
+    return ids;
+  }, [league, teamId]);
 
   // Group riders by category
   const ridersByCategory = useMemo(() => {
@@ -70,9 +87,11 @@ export default function EditTeamPage() {
     };
 
     allRiders.forEach((rider: Rider) => {
-      if (grouped[rider.category]) {
-        grouped[rider.category].push(rider);
-      }
+        if (rider.riderType === 'OFFICIAL') {
+            if (grouped[rider.category]) {
+                grouped[rider.category].push(rider);
+            }
+        }
     });
 
     Object.keys(grouped).forEach(category => {
@@ -121,12 +140,13 @@ export default function EditTeamPage() {
   const updateTeamMutation = useMutation({
     mutationFn: (riderIds: string[]) => updateTeam(teamId!, { riderIds }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      queryClient.invalidateQueries({ queryKey: ['myTeams'] });
       queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+      notify('Team aggiornato con successo!', 'success');
       navigate('/teams');
     },
     onError: (error: any) => {
-      alert(error.response?.data?.error || 'Errore durante l\'aggiornamento del team');
+        notify(error.response?.data?.error || 'Errore durante l\'aggiornamento del team', 'error');
     },
   });
 
@@ -141,17 +161,17 @@ export default function EditTeamPage() {
       const maxForCategory = categoryRequirements[rider.category as keyof typeof categoryRequirements].max;
 
       if (categoryCount >= maxForCategory) {
-        alert(`Puoi selezionare massimo ${maxForCategory} piloti ${rider.category}`);
+        notify(`Puoi selezionare massimo ${maxForCategory} piloti ${rider.category}`, 'warning');
         return;
       }
 
       if (selectedRiders.length >= 4) {
-        alert('Puoi selezionare massimo 4 piloti');
+        notify('Puoi selezionare massimo 4 piloti', 'warning');
         return;
       }
 
       if (totalCost + rider.value > (league?.budget || 0)) {
-        alert('Budget insufficiente per questo pilota');
+        notify('Budget insufficiente per questo pilota', 'error');
         return;
       }
 
@@ -233,20 +253,19 @@ export default function EditTeamPage() {
                 </AccordionSummary>
                 <AccordionDetails>
                   <List>
-                    {riders.map(rider => {
+                    {riders.map((rider: Rider) => {
                       const isSelected = selectedRiders.includes(rider.id);
-                      const isDisabled = !isSelected && (
-                        selectedRiders.length >= 4 ||
-                        totalCost + rider.value > league.budget ||
-                        status.count >= req.max
-                      );
+                      const isTaken = takenRiderIds.has(rider.id) && !isSelected;
+                      const wouldExceedBudget = !isSelected && totalCost + rider.value > league.budget;
+                      const wouldExceedCategory = !isSelected && status.count >= req.max;
+                      const isDisabled = isTaken || wouldExceedBudget || wouldExceedCategory;
 
                       return (
                         <ListItem
                           key={rider.id}
                           button
                           onClick={() => handleToggleRider(rider.id)}
-                          disabled={isDisabled}
+                          disabled={isDisabled && !isSelected}
                           selected={isSelected}
                           sx={{
                             borderRadius: 1,
@@ -258,7 +277,7 @@ export default function EditTeamPage() {
                           }}
                         >
                           <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: categoryColors[rider.category] }}>
+                            <Avatar sx={{ bgcolor: isTaken ? 'grey.700' : categoryColors[rider.category] }}>
                               {rider.number}
                             </Avatar>
                           </ListItemAvatar>
@@ -272,17 +291,16 @@ export default function EditTeamPage() {
                                   icon={<Euro sx={{ fontSize: 14 }} />}
                                   label={`${rider.value} crediti`}
                                 />
+                                {isTaken && <Chip label="Già preso" size="small" color="error" />}
                               </Stack>
                             }
                           />
                           <ListItemSecondaryAction>
-                            <IconButton 
-                              edge="end" 
-                              onClick={() => handleToggleRider(rider.id)}
-                              color={isSelected ? 'error' : 'default'}
-                            >
-                              {isSelected ? <Delete /> : <Add />}
-                            </IconButton>
+                             <Checkbox
+                              edge="end"
+                              checked={isSelected}
+                              disabled={isDisabled && !isSelected}
+                            />
                           </ListItemSecondaryAction>
                         </ListItem>
                       );
@@ -417,14 +435,6 @@ export default function EditTeamPage() {
               >
                 {updateTeamMutation.isPending ? 'Salvataggio...' : 'Salva Modifiche'}
               </Button>
-
-              {!isTeamValid && (
-                <Alert severity="warning" sx={{ mt: 2 }}>
-                  {selectedRiders.length !== 4 && 'Seleziona esattamente 4 piloti. '}
-                  {totalCost > league.budget && 'Budget superato. '}
-                  {!Object.values(categoryStatus).every(s => s.isValid) && 'Requisiti categoria non soddisfatti.'}
-                </Alert>
-              )}
             </CardContent>
           </Card>
         </Grid>

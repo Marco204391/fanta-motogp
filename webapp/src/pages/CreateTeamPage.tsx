@@ -11,9 +11,6 @@ import {
   Card,
   CardContent,
   TextField,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
   Grid,
   Button,
   Paper,
@@ -30,6 +27,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Checkbox,
 } from '@mui/material';
 import {
   ExpandMore,
@@ -39,6 +37,8 @@ import {
   CheckCircle,
   Warning,
 } from '@mui/icons-material';
+import { useNotification } from '../contexts/NotificationContext';
+
 
 interface Rider {
   id: string;
@@ -66,6 +66,7 @@ export default function CreateTeamPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { notify } = useNotification();
 
   const [teamName, setTeamName] = useState('');
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
@@ -83,25 +84,26 @@ export default function CreateTeamPage() {
 
   const { mutate: createTeamMutation, isPending: isCreatingTeam } = useMutation({
     mutationFn: createTeam,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myTeams'] });
+    onSuccess: (data: any) => {
+      queryClient.setQueryData(['myTeams'], (oldData: any) => ({
+        ...oldData,
+        teams: [...(oldData?.teams || []), data.team],
+      }));
       queryClient.invalidateQueries({ queryKey: ['leagueDetails', leagueId] });
+      notify('Team creato con successo!', 'success');
       navigate(`/leagues/${leagueId}`);
     },
     onError: (error: any) => {
-      alert(`Errore: ${error.response?.data?.error || 'Impossibile creare il team'}`);
+      notify(error.response?.data?.error || 'Impossibile creare il team', 'error');
     },
   });
 
   const league = leagueData?.league;
   const riders = ridersData?.riders || [];
-  const takenRiderIds = new Set(
-    leagueData?.standings?.flatMap((s: any) => 
-      s.riders?.map((r: any) => r.id) || []
-    ) || []
-  );
+  const takenRiderIds = useMemo(() => new Set(
+    leagueData?.league?.teams?.flatMap((team: any) => team.riders.map((r: any) => r.riderId)) || []
+  ), [leagueData]);
 
-  // Calcoli
   const selectedRidersData = useMemo(() => {
     return riders.filter(r => selectedRiders.includes(r.id));
   }, [riders, selectedRiders]);
@@ -112,12 +114,13 @@ export default function CreateTeamPage() {
 
   const ridersByCategory = useMemo(() => {
     const grouped = riders.reduce((acc, rider) => {
-      if (!acc[rider.category]) acc[rider.category] = [];
-      acc[rider.category].push(rider);
+      if (rider.riderType === 'OFFICIAL') {
+        if (!acc[rider.category]) acc[rider.category] = [];
+        acc[rider.category].push(rider);
+      }
       return acc;
     }, {} as Record<string, Rider[]>);
 
-    // Ordina per valore
     Object.keys(grouped).forEach(category => {
       grouped[category].sort((a, b) => b.value - a.value);
     });
@@ -148,15 +151,28 @@ export default function CreateTeamPage() {
   }, [teamName, totalCost, league?.budget, categoryStatus]);
 
   const handleToggleRider = (rider: Rider) => {
+    if (takenRiderIds.has(rider.id)) {
+      notify('Questo pilota è già stato scelto da un altro team.', 'warning');
+      return;
+    }
+
     if (selectedRiders.includes(rider.id)) {
       setSelectedRiders(prev => prev.filter(id => id !== rider.id));
     } else {
       const categoryCount = selectedRidersData.filter(r => r.category === rider.category).length;
       const maxForCategory = categoryRequirements[rider.category as keyof typeof categoryRequirements].max;
       
-      if (categoryCount < maxForCategory && totalCost + rider.value <= (league?.budget || 0)) {
-        setSelectedRiders(prev => [...prev, rider.id]);
+      if (categoryCount >= maxForCategory) {
+        notify(`Puoi selezionare al massimo ${maxForCategory} piloti per la categoria ${rider.category}.`, 'warning');
+        return;
       }
+      
+      if (totalCost + rider.value > (league?.budget || 0)) {
+        notify('Budget non sufficiente per questo pilota.', 'error');
+        return;
+      }
+      
+      setSelectedRiders(prev => [...prev, rider.id]);
     }
   };
 
@@ -181,7 +197,7 @@ export default function CreateTeamPage() {
   if (!league) {
     return <Alert severity="error">Lega non trovata</Alert>;
   }
-
+  
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
@@ -257,8 +273,8 @@ export default function CreateTeamPage() {
                         <ListItem
                           key={rider.id}
                           button
-                          onClick={() => !isDisabled && handleToggleRider(rider)}
-                          disabled={isDisabled}
+                          onClick={() => !isTaken && handleToggleRider(rider)}
+                          disabled={isDisabled && !isSelected}
                           selected={isSelected}
                         >
                           <ListItemAvatar>
@@ -288,7 +304,8 @@ export default function CreateTeamPage() {
                             <Checkbox
                               edge="end"
                               checked={isSelected}
-                              disabled={isDisabled}
+                              disabled={isDisabled && !isSelected}
+                              onChange={() => !isTaken && handleToggleRider(rider)}
                             />
                           </ListItemSecondaryAction>
                         </ListItem>
@@ -387,14 +404,6 @@ export default function CreateTeamPage() {
               >
                 {isCreatingTeam ? 'Creazione in corso...' : 'Crea Team'}
               </Button>
-
-              {!isTeamValid && teamName && selectedRidersData.length > 0 && (
-                <Alert severity="warning" sx={{ mt: 2 }}>
-                  {totalCost > league.budget && 'Budget superato!'}
-                  {!Object.values(categoryStatus).every(s => s.isValid) && 
-                    'Seleziona il numero corretto di piloti per categoria'}
-                </Alert>
-              )}
             </CardContent>
           </Card>
         </Grid>

@@ -291,7 +291,7 @@ export default function TeamsPage() {
                     variant="contained"
                     color="primary"
                     startIcon={<SportsMotorsports />}
-                    onClick={() => navigate(`/teams/${team.id}/lineup`)}
+                    onClick={() => navigate(`/teams/${team.id}/lineup/${nextRace.id}`)}
                     disabled={!nextRace}
                   >
                     {team.hasLineup ? 'Modifica Formazione' : 'Schiera Formazione'}

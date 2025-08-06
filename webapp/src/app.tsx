@@ -153,7 +153,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/teams/:teamId/edit" element={<EditTeamPage />} />
-          <Route path="/teams/:teamId/lineup" element={<LineupPage />} />
+          <Route path="/teams/:teamId/lineup/:raceId" element={<LineupPage />} />
           <Route path="/leagues" element={<LeaguesPage />} />
           <Route path="/leagues/:leagueId" element={<LeagueDetailPage />} />
           <Route path="/leagues/:leagueId/create-team" element={<CreateTeamPage />} />
