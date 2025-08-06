@@ -1,4 +1,4 @@
-// src/main.tsx
+// webapp/src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
@@ -8,6 +8,7 @@ import { AuthProvider } from './contexts/AuthContext.tsx';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { theme } from './theme';
+import { NotificationProvider } from './contexts/NotificationContext.tsx'; // 1. Importa il provider
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,7 +26,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <AuthProvider>
-            <App />
+            <NotificationProvider>
+              <App />
+            </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>

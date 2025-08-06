@@ -15,11 +15,11 @@ interface Race {
 }
 
 const countryFlags: Record<string, string> = {
-  'Thailand': '🇹🇭', 'Argentina': '🇦🇷', 'USA': '🇺🇸', 'Qatar': '🇶🇦', 'Spain': '🇪🇸', 
-  'France': '🇫🇷', 'United Kingdom': '🇬🇧', 'Aragon': '🇪🇸', 'Italy': '🇮🇹', 
-  'Netherlands': '🇳🇱', 'Germany': '🇩🇪', 'Czechia': '🇨🇿', 'Austria': '🇦🇹', 
-  'Hungary': '🇭🇺', 'Catalonia': '🇪🇸', 'San Marino': '🇸🇲', 'Japan': '🇯🇵', 
-  'Indonesia': '🇮🇩', 'Australia': '🇦🇺', 'Malaysia': '🇲🇾'
+    'Thailand': '🇹🇭', 'Argentina': '🇦🇷', 'USA': '🇺🇸', 'Qatar': '🇶🇦', 'Spain': '🇪🇸', 
+    'France': '🇫🇷', 'United Kingdom': '🇬🇧', 'Aragon': '🇪🇸', 'Italy': '🇮🇹', 
+    'Netherlands': '🇳🇱', 'Germany': '🇩🇪', 'Czechia': '🇨🇿', 'Austria': '🇦🇹', 
+    'Hungary': '🇭🇺', 'Catalonia': '🇪🇸', 'San Marino': '🇸🇲', 'Japan': '🇯🇵', 
+    'Indonesia': '🇮🇩', 'Australia': '🇦🇺', 'Malaysia': '🇲🇾'
 };
 
 export function RaceEventCard({ race }: { race: Race }) {
@@ -58,12 +58,17 @@ export function RaceEventCard({ race }: { race: Race }) {
   return (
     <Card 
       sx={{ 
-        height: '100%', 
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         borderTop: `4px solid ${status === 'next' ? 'error.main' : 'transparent'}` 
       }}
       data-status={status}
     >
-      <CardActionArea onClick={() => navigate(`/races/${race.id}`)} sx={{ height: '100%' }}>
+      <CardActionArea 
+        onClick={() => navigate(`/races/${race.id}`)}
+        sx={{ flexGrow: 1 }}
+      >
         <CardContent>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
             <Typography variant="body2" color="text.secondary">
