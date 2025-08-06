@@ -235,7 +235,7 @@ export default function LeaguesPage() {
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => alert('Funzionalità in arrivo!')}
+            onClick={() => navigate('/leagues/create')}
           >
             Crea Lega
           </Button>

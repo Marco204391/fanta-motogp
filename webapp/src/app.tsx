@@ -18,6 +18,7 @@ import EditTeamPage from './pages/EditTeamPage';
 import { AppBar, Toolbar, Typography, Button, Container, Box, CircularProgress, Menu, MenuItem, IconButton, Avatar } from '@mui/material';
 import { AccountCircle } from '@mui/icons-material';
 import React from 'react';
+import CreateLeaguePage from './pages/CreateLeaguePage';
 
 // Logo SVG per la AppBar
 const Logo = () => (
@@ -155,6 +156,7 @@ function App() {
           <Route path="/teams/:teamId/edit" element={<EditTeamPage />} />
           <Route path="/teams/:teamId/lineup/:raceId" element={<LineupPage />} />
           <Route path="/leagues" element={<LeaguesPage />} />
+          <Route path="/leagues/create" element={<CreateLeaguePage />} /> {/* Nuova rotta */}
           <Route path="/leagues/:leagueId" element={<LeagueDetailPage />} />
           <Route path="/leagues/:leagueId/create-team" element={<CreateTeamPage />} />
           <Route path="/riders" element={<RidersPage />} />
