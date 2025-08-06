@@ -112,8 +112,8 @@ export const updateLeagueSettings = async (leagueId: string, data: any) => {
 };
 
 // Races
-export const getAllRaces = async () => {
-  const response = await api.get('/races');
+export const getAllRaces = async (year?: number) => {
+  const response = await api.get('/races/calendar/' + (year || new Date().getFullYear()));
   return response.data;
 };
 
@@ -124,6 +124,21 @@ export const getUpcomingRaces = async () => {
 
 export const getRaceById = async (raceId: string) => {
   const response = await api.get(`/races/${raceId}`);
+  return response.data;
+};
+
+export const getPastRaces = async () => {
+  const response = await api.get('/races/past');
+  return response.data;
+};
+
+export const getQualifyingResults = async (raceId: string) => {
+  const response = await api.get(`/races/${raceId}/qualifying`);
+  return response.data;
+};
+
+export const getMyStats = async () => {
+  const response = await api.get('/stats/my-stats');
   return response.data;
 };
 
@@ -192,6 +207,11 @@ export const getLeagueStats = async (leagueId: string) => {
 export const getTeamStats = async (teamId: string) => {
   const response = await api.get(`/stats/team/${teamId}`);
   return response.data;
+};
+
+export const alpha = (color: string, opacity: number): string => {
+  // Utility per trasparenza colori
+  return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
 };
 
 export default api;

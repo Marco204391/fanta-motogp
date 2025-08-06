@@ -16,9 +16,9 @@ interface Race {
 }
 
 export default function RaceCalendarPage() {
-  const { data: racesData, isLoading, error } = useQuery<{ races: Race[] }>({
-    queryKey: ['allRaces'],
-    queryFn: () => getAllRaces(new Date().getFullYear()), // Assicurati che l'API supporti l'anno
+ const { data: racesData, isLoading, error } = useQuery<{ races: Race[] }>({
+    queryKey: ['allRaces', new Date().getFullYear()],
+    queryFn: () => getAllRaces(new Date().getFullYear()),
   });
 
   if (isLoading) {

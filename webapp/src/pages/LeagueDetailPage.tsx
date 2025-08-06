@@ -175,7 +175,8 @@ export default function LeagueDetailPage() {
     return <Alert severity="error">Lega non trovata</Alert>;
   }
 
-  const { league, standings } = leagueData;
+  const { league } = leagueData;
+  const { standings } = league;
   const myTeam = teamData?.team;
   const isOwner = league.ownerId === user?.id;
 

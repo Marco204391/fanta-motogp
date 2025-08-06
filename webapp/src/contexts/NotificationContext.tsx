@@ -1,14 +1,18 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Snackbar, Alert, AlertColor } from '@mui/material';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Snackbar, Alert, AlertColor, Slide, SlideProps } from '@mui/material';
+import { TransitionProps } from '@mui/material/transitions';
 
 interface Notification {
   id: string;
   message: string;
   severity: AlertColor;
+  duration?: number;
 }
 
 interface NotificationContextType {
-  notify: (message: string, severity?: AlertColor) => void;
+  notify: (message: string, severity?: AlertColor, duration?: number) => void;
+  notifications: Notification[];
+  clearNotification: (id: string) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -21,39 +25,55 @@ export const useNotification = () => {
   return context;
 };
 
+function SlideTransition(props: SlideProps) {
+  return <Slide {...props} direction="up" />;
+}
+
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const notify = (message: string, severity: AlertColor = 'info') => {
+  const notify = (message: string, severity: AlertColor = 'info', duration: number = 5000) => {
     const id = Date.now().toString();
-    setNotifications(prev => [...prev, { id, message, severity }]);
+    const notification: Notification = { id, message, severity, duration };
     
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 6000);
+    setNotifications(prev => [...prev, notification]);
+    
+    if (duration > 0) {
+      setTimeout(() => {
+        clearNotification(id);
+      }, duration);
+    }
   };
 
-  const handleClose = (id: string) => {
+  const clearNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   return (
-    <NotificationContext.Provider value={{ notify }}>
+    <NotificationContext.Provider value={{ notify, notifications, clearNotification }}>
       {children}
       {notifications.map((notification, index) => (
         <Snackbar
           key={notification.id}
           open={true}
-          autoHideDuration={6000}
-          onClose={() => handleClose(notification.id)}
+          autoHideDuration={notification.duration}
+          onClose={() => clearNotification(notification.id)}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          sx={{ bottom: { xs: 90, sm: 24 + index * 70 } }}
+          TransitionComponent={SlideTransition}
+          sx={{ bottom: { xs: 90 + (index * 70), sm: 24 + (index * 70) } }}
         >
           <Alert 
-            onClose={() => handleClose(notification.id)} 
+            onClose={() => clearNotification(notification.id)} 
             severity={notification.severity}
-            sx={{ width: '100%' }}
+            sx={{ 
+              width: '100%',
+              boxShadow: 3,
+              '& .MuiAlert-icon': {
+                fontSize: '1.5rem'
+              }
+            }}
             elevation={6}
+            variant="filled"
           >
             {notification.message}
           </Alert>
