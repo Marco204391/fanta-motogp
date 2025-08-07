@@ -45,7 +45,6 @@ import {
   Badge
 } from '@mui/material';
 import {
-  Trophy,
   TrendingUp,
   TrendingDown,
   Remove,
@@ -358,7 +357,7 @@ export default function LeagueDetailPage() {
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab label="Classifica" icon={<Trophy />} iconPosition="start" />
+          <Tab label="Classifica" icon={<EmojiEvents />} iconPosition="start" />
           <Tab label="Lineup Gara" icon={<SportsMotorsports />} iconPosition="start" />
           <Tab label="Statistiche" icon={<BarChart />} iconPosition="start" />
           {isOwner && <Tab label="Gestione" icon={<Settings />} iconPosition="start" />}

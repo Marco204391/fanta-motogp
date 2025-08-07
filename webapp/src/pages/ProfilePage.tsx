@@ -43,7 +43,6 @@ import {
   NotificationsOff,
   DarkMode,
   LightMode,
-  Trophy,
   EmojiEvents,
   Groups,
   SportsMotorsports,
@@ -423,7 +422,7 @@ export default function ProfilePage() {
               <Grid container spacing={3}>
                 <Grid item xs={6} sm={4}>
                   <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.lighter' }}>
-                    <Trophy sx={{ fontSize: 30, color: 'primary.main', mb: 1 }} />
+                    <EmojiEvents sx={{ fontSize: 30, color: 'primary.main', mb: 1 }} />
                     <Typography variant="h5" fontWeight="bold">
                       {stats.totalPoints}
                     </Typography>
