@@ -1,7 +1,8 @@
+// webapp/src/components/LeagueCard.tsx
 import React from 'react';
 import { 
   Card, CardContent, CardActions, Box, Typography, 
-  Button, Chip, Stack, Avatar, LinearProgress, IconButton 
+  Button, Chip, Stack, Avatar, LinearProgress, IconButton, Grid 
 } from '@mui/material';
 import { 
   Groups, Lock, Public, ContentCopy, Login, 
@@ -217,20 +218,3 @@ function getPodiumColor(position: number): string {
     default: return 'text.secondary';
   }
 }
-
-// ===== AGGIORNAMENTO API SERVICE (src/services/api.ts) =====
-// Aggiungi le funzioni mancanti
-export const getPastRaces = async () => {
-  const response = await api.get('/races/past');
-  return response.data;
-};
-
-export const getQualifyingResults = async (raceId: string) => {
-  const response = await api.get(`/races/${raceId}/qualifying`);
-  return response.data;
-};
-
-export const getMyStats = async () => {
-  const response = await api.get('/stats/my-stats');
-  return response.data;
-};

@@ -1,7 +1,7 @@
-// src/services/api.ts
+// webapp/src/services/api.ts
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const BASE_URL = '/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -28,7 +28,8 @@ api.interceptors.response.use(
       // Token scaduto o non valido
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Evita il redirect forzato che causa problemi, l'AuthProvider gestirà lo stato
+      window.dispatchEvent(new Event('auth-error'));
     }
     return Promise.reject(error);
   }

@@ -1,4 +1,4 @@
-// src/contexts/AuthContext.tsx
+// webapp/src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
@@ -40,27 +40,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const loadStoredAuth = async () => {
-      try {
-        const storedToken = localStorage.getItem('authToken');
-        const storedUser = localStorage.getItem('user');
-
-        if (storedToken && storedUser) {
+    const validateToken = async () => {
+      const storedToken = localStorage.getItem('authToken');
+      if (storedToken) {
+        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        try {
+          const response = await api.get('/auth/profile');
+          const userData = response.data.user;
           setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+        } catch (error) {
+          console.error('Token non valido o scaduto, logout in corso.');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          delete api.defaults.headers.common['Authorization'];
         }
-      } catch (error) {
-        console.error('Errore caricamento auth:', error);
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
-    loadStoredAuth();
+
+    validateToken();
   }, []);
 
   const handleAuthSuccess = (token: string, user: User) => {
     localStorage.setItem('authToken', token);
     localStorage.setItem('user', JSON.stringify(user));
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     setToken(token);
     setUser(user);
   };
@@ -86,6 +92,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    delete api.defaults.headers.common['Authorization'];
     setToken(null);
     setUser(null);
     queryClient.clear();
