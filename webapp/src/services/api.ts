@@ -1,7 +1,9 @@
 // webapp/src/services/api.ts
 import axios from 'axios';
 
-const BASE_URL = '/api';
+const BASE_URL = import.meta.env.DEV 
+  ? 'http://localhost:3000/api' 
+  : '/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -25,17 +27,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token scaduto o non valido
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
-      // Evita il redirect forzato che causa problemi, l'AuthProvider gestirà lo stato
       window.dispatchEvent(new Event('auth-error'));
     }
     return Promise.reject(error);
   }
 );
 
-// --- Funzioni API ---
 
 // Auth
 export const login = (data: any) => api.post('/auth/login', data);
@@ -139,6 +138,11 @@ export const getRaceById = async (raceId: string) => {
 
 export const getPastRaces = async () => {
   const response = await api.get('/races/past');
+  return response.data;
+};
+
+export const getRaceResults = async (raceId: string, session?: 'race' | 'sprint') => {
+  const response = await api.get(`/races/${raceId}/results`, { params: { session } });
   return response.data;
 };
 
