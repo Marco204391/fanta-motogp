@@ -1,60 +1,62 @@
+// webapp/src/theme/index.ts
 import { createTheme, responsiveFontSizes } from '@mui/material/styles';
 
-const palette = {
-  primary: {
-    main: '#E60023',
-    light: '#FF4C4C', 
-    dark: '#A8001A',
-    contrastText: '#FFFFFF',
-  },
-  secondary: {
-    main: '#FF6B00',
-    light: '#FF8F40',
-    dark: '#CC5500',
-    contrastText: '#FFFFFF',
-  },
-  background: {
-    default: '#0A0A0A',
-    paper: '#141414',
-  },
-  text: {
-    primary: '#FFFFFF',
-    secondary: '#B8B8B8',
-    disabled: '#666666'
-  },
-  error: {
-    main: '#F44336',
-    light: '#FF6659',
-    dark: '#BA000D',
-  },
-  success: {
-    main: '#4CAF50',
-    light: '#80E27E',
-    dark: '#087F23',
-  },
-  warning: {
-    main: '#FF9800',
-    light: '#FFB74D',
-    dark: '#F57C00',
-  },
-  info: {
-    main: '#2196F3',
-    light: '#64B5F6',
-    dark: '#1976D2',
-  },
-  divider: 'rgba(255, 255, 255, 0.08)',
-  action: {
-    hover: 'rgba(255, 255, 255, 0.08)',
-    selected: 'rgba(255, 255, 255, 0.16)',
+const baseTheme = createTheme({
+  palette: {
+    primary: {
+      main: '#E60023',
+      light: '#FF4C4C',
+      dark: '#A8001A',
+      contrastText: '#FFFFFF',
+    },
+    secondary: {
+      main: '#FF6B00',
+      light: '#FF8F40',
+      dark: '#CC5500',
+      contrastText: '#FFFFFF',
+    },
+    background: {
+      default: '#0A0A0A',
+      paper: '#141414',
+    },
+    text: {
+      primary: '#FFFFFF',
+      secondary: '#B8B8B8',
+      disabled: '#666666'
+    },
+    error: {
+      main: '#F44336',
+      light: '#FF6659',
+      dark: '#BA000D',
+    },
+    success: {
+      main: '#4CAF50',
+      light: '#80E27E',
+      dark: '#087F23',
+    },
+    warning: {
+      main: '#FF9800',
+      light: '#FFB74D',
+      dark: '#F57C00',
+    },
+    info: {
+      main: '#2196F3',
+      light: '#64B5F6',
+      dark: '#1976D2',
+    },
+    divider: 'rgba(255, 255, 255, 0.08)',
+    action: {
+      hover: 'rgba(255, 255, 255, 0.08)',
+      selected: 'rgba(255, 255, 255, 0.16)',
+    }
   }
-};
+});
 
-let theme = createTheme({
-  palette,
+let theme = createTheme(baseTheme, {
   typography: {
     fontFamily: '"Exo 2", "Roboto", "Helvetica", "Arial", sans-serif',
-    h1: { 
-      fontWeight: 800, 
+    h1: {
+      fontWeight: 800,
       letterSpacing: '-2px',
       background: 'linear-gradient(45deg, #E60023 30%, #FF6B00 90%)',
       WebkitBackgroundClip: 'text',
@@ -67,7 +69,7 @@ let theme = createTheme({
     h6: { fontWeight: 600 },
     subtitle1: {
       fontWeight: 500,
-      color: palette.text.secondary,
+      color: baseTheme.palette.text.secondary,
     },
     button: {
       textTransform: 'none',
@@ -85,13 +87,11 @@ let theme = createTheme({
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        
         @keyframes pulse {
           0% { transform: scale(1); }
           50% { transform: scale(1.05); }
           100% { transform: scale(1); }
         }
-        
         body {
           scrollbar-color: #666 #1a1a1a;
           background: #0A0A0A;
@@ -107,11 +107,9 @@ let theme = createTheme({
             }
           }
         }
-        
         .fade-in {
           animation: fadeIn 0.6s ease-out;
         }
-        
         .pulse {
           animation: pulse 2s infinite;
         }
@@ -132,7 +130,7 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          backgroundColor: palette.background.paper,
+          backgroundColor: baseTheme.palette.background.paper,
           border: '1px solid rgba(255, 255, 255, 0.08)',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
@@ -178,12 +176,12 @@ let theme = createTheme({
         },
         colorPrimary: {
           background: 'rgba(230, 0, 35, 0.15)',
-          color: palette.primary.main,
+          color: baseTheme.palette.primary.main,
           border: '1px solid rgba(230, 0, 35, 0.3)',
         },
         colorSecondary: {
           background: 'rgba(255, 107, 0, 0.15)',
-          color: palette.secondary.main,
+          color: baseTheme.palette.secondary.main,
           border: '1px solid rgba(255, 107, 0, 0.3)',
         },
       },
@@ -192,35 +190,25 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          backgroundColor: palette.background.paper,
+          backgroundColor: baseTheme.palette.background.paper,
         },
-        elevation1: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-        },
-        elevation2: {
-          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-        },
-        elevation3: {
-          boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-        },
+        elevation1: { boxShadow: '0 2px 8px rgba(0,0,0,0.4)', },
+        elevation2: { boxShadow: '0 4px 16px rgba(0,0,0,0.5)', },
+        elevation3: { boxShadow: '0 8px 24px rgba(0,0,0,0.6)', },
       }
     },
     MuiAvatar: {
       styleOverrides: {
-        root: {
-          fontWeight: 600,
-        },
+        root: { fontWeight: 600, },
         colorDefault: {
-          backgroundColor: palette.primary.dark,
-          color: palette.primary.contrastText,
+          backgroundColor: baseTheme.palette.primary.dark,
+          color: baseTheme.palette.primary.contrastText,
         },
       },
     },
     MuiTableCell: {
       styleOverrides: {
-        root: {
-          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        },
+        root: { borderBottom: '1px solid rgba(255, 255, 255, 0.05)', },
         head: {
           backgroundColor: 'rgba(255, 255, 255, 0.02)',
           fontWeight: 600,
@@ -244,31 +232,29 @@ let theme = createTheme({
     MuiDialog: {
       styleOverrides: {
         paper: {
-          backgroundColor: palette.background.paper,
+          backgroundColor: baseTheme.palette.background.paper,
           backgroundImage: 'none',
         },
       },
     },
     MuiAlert: {
       styleOverrides: {
-        root: {
-          borderRadius: 8,
-        },
+        root: { borderRadius: 8, },
         standardSuccess: {
           backgroundColor: 'rgba(76, 175, 80, 0.12)',
-          color: palette.success.main,
+          color: baseTheme.palette.success.main,
         },
         standardError: {
           backgroundColor: 'rgba(244, 67, 54, 0.12)',
-          color: palette.error.main,
+          color: baseTheme.palette.error.main,
         },
         standardWarning: {
           backgroundColor: 'rgba(255, 152, 0, 0.12)',
-          color: palette.warning.main,
+          color: baseTheme.palette.warning.main,
         },
         standardInfo: {
           backgroundColor: 'rgba(33, 150, 243, 0.12)',
-          color: palette.info.main,
+          color: baseTheme.palette.info.main,
         },
       },
     },

@@ -1,7 +1,7 @@
 // src/pages/HomePage.tsx
 import { useQuery } from '@tanstack/react-query';
 import { getMyLeagues, getMyTeams, getUpcomingRaces } from '../services/api';
-import { Box, Typography, CircularProgress, Alert, Card, CardContent, Button, Grid, Paper, Stack, Icon, Chip, Fade, Zoom, IconButton } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, Card, CardContent, Button, Grid, Paper, Stack, Chip, Fade, Zoom, IconButton } from '@mui/material';
 import { SportsMotorsports, Groups, CalendarToday, ArrowForward, Close, Notifications, Speed, Timer, EmojiEvents } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
