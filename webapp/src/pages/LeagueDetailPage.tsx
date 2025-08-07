@@ -73,9 +73,9 @@ import {
 } from '@mui/icons-material';
 import { format, isPast } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { 
-  getLeagueDetails, 
-  getMyTeamInLeague, 
+import {
+  getLeagueDetails,
+  getMyTeamInLeague,
   updateLeagueSettings,
   getLeagueRaceLineups,
   getUpcomingRaces
@@ -110,14 +110,14 @@ export default function LeagueDetailPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { notify } = useNotification();
-  
+
   const [selectedTab, setSelectedTab] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
   const [selectedLineup, setSelectedLineup] = useState<any>(null);
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
-  
+
   // State per impostazioni lega
   const [teamsLocked, setTeamsLocked] = useState(false);
   const [lineupVisibility, setLineupVisibility] = useState('AFTER_DEADLINE');
@@ -202,7 +202,7 @@ export default function LeagueDetailPage() {
   const league = leagueData.league;
   const standings = leagueData.standings || [];
   const myTeam = myTeamData?.team;
-  const isOwner = league.ownerId === user?.id;
+  const isAdmin = league.isAdmin;
   const userHasTeam = !!myTeam;
   const nextRace = racesData?.races?.[0];
 
@@ -239,10 +239,10 @@ export default function LeagueDetailPage() {
   return (
     <Box>
       {/* Header Lega */}
-      <Paper 
-        sx={{ 
-          p: 3, 
-          mb: 3, 
+      <Paper
+        sx={{
+          p: 3,
+          mb: 3,
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           color: 'white'
         }}
@@ -253,28 +253,28 @@ export default function LeagueDetailPage() {
               {league.name}
             </Typography>
             <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-              <Chip 
+              <Chip
                 icon={<ContentCopy sx={{ color: 'white !important' }} />}
                 label={`Codice: ${league.code}`}
                 onClick={handleShareCode}
-                sx={{ 
-                  backgroundColor: 'rgba(255,255,255,0.2)', 
+                sx={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
                   color: 'white',
                   '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' }
                 }}
               />
-              <Chip 
+              <Chip
                 icon={<Groups sx={{ color: 'white !important' }} />}
                 label={`${league.currentTeams || 0}/${league.maxTeams} Team`}
                 sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
-              <Chip 
+              <Chip
                 icon={<EmojiEvents sx={{ color: 'white !important' }} />}
                 label={`Premio: ${league.prizePool || 0}€`}
                 sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
               {league.teamsLocked && (
-                <Chip 
+                <Chip
                   icon={<Lock sx={{ color: 'white !important' }} />}
                   label="Team Bloccati"
                   sx={{ backgroundColor: 'rgba(255,0,0,0.3)', color: 'white' }}
@@ -283,21 +283,11 @@ export default function LeagueDetailPage() {
             </Stack>
           </Grid>
           <Grid item xs={12} md={4} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+            {/* ##### INIZIO CORREZIONE ##### */}
             <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
-              {isOwner && (
-                <Tooltip title="Impostazioni Lega">
-                  <IconButton 
-                    color="inherit" 
-                    onClick={() => setShowSettings(true)}
-                    sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-                  >
-                    <Settings />
-                  </IconButton>
-                </Tooltip>
-              )}
               <Tooltip title="Aggiorna Dati">
-                <IconButton 
-                  color="inherit" 
+                <IconButton
+                  color="inherit"
                   onClick={forceRefresh}
                   sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
                 >
@@ -305,6 +295,7 @@ export default function LeagueDetailPage() {
                 </IconButton>
               </Tooltip>
             </Stack>
+            {/* ##### FINE CORREZIONE ##### */}
             {userHasTeam && myPosition > 0 && (
               <Box mt={2}>
                 <Typography variant="h6">
@@ -321,8 +312,8 @@ export default function LeagueDetailPage() {
 
       {/* Alert per utente senza team */}
       {!userHasTeam && (
-        <Alert 
-          severity="warning" 
+        <Alert
+          severity="warning"
           action={
             <Button color="inherit" size="small" onClick={handleCreateTeam}>
               Crea Team
@@ -336,7 +327,7 @@ export default function LeagueDetailPage() {
 
       {/* Alert per lineup mancante */}
       {userHasTeam && nextRace && !myTeam.hasLineup && (
-        <Alert 
+        <Alert
           severity="info"
           action={
             <Button color="inherit" size="small" onClick={handleManageLineup}>
@@ -351,8 +342,8 @@ export default function LeagueDetailPage() {
 
       {/* Tabs */}
       <Paper sx={{ mb: 3 }}>
-        <Tabs 
-          value={selectedTab} 
+        <Tabs
+          value={selectedTab}
           onChange={(_, v) => setSelectedTab(v)}
           variant="scrollable"
           scrollButtons="auto"
@@ -360,7 +351,7 @@ export default function LeagueDetailPage() {
           <Tab label="Classifica" icon={<EmojiEvents />} iconPosition="start" />
           <Tab label="Lineup Gara" icon={<SportsMotorsports />} iconPosition="start" />
           <Tab label="Statistiche" icon={<BarChart />} iconPosition="start" />
-          {isOwner && <Tab label="Gestione" icon={<Settings />} iconPosition="start" />}
+          {isAdmin && <Tab label="Gestione" icon={<Settings />} iconPosition="start" />}
         </Tabs>
       </Paper>
 
@@ -383,11 +374,11 @@ export default function LeagueDetailPage() {
               {standings.map((standing: any, index: number) => {
                 const position = index + 1;
                 const isUserTeam = standing.userId === user?.id;
-                
+
                 return (
-                  <TableRow 
+                  <TableRow
                     key={standing.teamId}
-                    sx={{ 
+                    sx={{
                       backgroundColor: isUserTeam ? 'action.selected' : 'inherit',
                       '&:hover': { backgroundColor: 'action.hover' }
                     }}
@@ -411,7 +402,7 @@ export default function LeagueDetailPage() {
                     </TableCell>
                     <TableCell align="right">
                       {standing.lastRacePoints ? (
-                        <Chip 
+                        <Chip
                           label={`+${standing.lastRacePoints}`}
                           size="small"
                           color="success"
@@ -428,7 +419,7 @@ export default function LeagueDetailPage() {
                     </TableCell>
                     <TableCell align="center">
                       <Tooltip title="Visualizza Team">
-                        <IconButton 
+                        <IconButton
                           size="small"
                           onClick={() => navigate(`/teams/${standing.teamId}`)}
                         >
@@ -481,7 +472,7 @@ export default function LeagueDetailPage() {
                           di {teamLineup.userName}
                         </Typography>
                       </Box>
-                      <Chip 
+                      <Chip
                         label={`${teamLineup.totalPoints || 0} pt`}
                         color="primary"
                       />
@@ -497,16 +488,16 @@ export default function LeagueDetailPage() {
                                   {lr.rider.number}
                                 </Avatar>
                               </ListItemAvatar>
-                              <ListItemText 
+                              <ListItemText
                                 primary={lr.rider.name}
                                 secondary={
                                   <Box component="span">
-                                    Prev: {lr.predictedPosition || '-'}° • 
+                                    Prev: {lr.predictedPosition || '-'}° •
                                     Reale: {lr.actualPosition || lr.actualStatus || '-'}
                                   </Box>
                                 }
                               />
-                              <Chip 
+                              <Chip
                                 label={`${lr.points || 0} pt`}
                                 size="small"
                                 variant="outlined"
@@ -514,9 +505,9 @@ export default function LeagueDetailPage() {
                             </ListItem>
                           ))}
                         </List>
-                        
+
                         {teamLineup.riderScores && (
-                          <Button 
+                          <Button
                             size="small"
                             fullWidth
                             variant="outlined"
@@ -559,11 +550,11 @@ export default function LeagueDetailPage() {
                 <List>
                   {leagueData.raceStats?.map((stat: any) => (
                     <ListItem key={stat.raceId}>
-                      <ListItemText 
+                      <ListItemText
                         primary={stat.raceName}
                         secondary={`Winner: ${stat.topTeam} - ${stat.topPoints} pt`}
                       />
-                      <Chip 
+                      <Chip
                         label={format(new Date(stat.raceDate), 'dd/MM', { locale: it })}
                         size="small"
                       />
@@ -592,12 +583,12 @@ export default function LeagueDetailPage() {
                       <ListItemAvatar>
                         <Avatar>{idx + 1}</Avatar>
                       </ListItemAvatar>
-                      <ListItemText 
+                      <ListItemText
                         primary={rider.riderName}
                         secondary={
                           <Box>
-                            <LinearProgress 
-                              variant="determinate" 
+                            <LinearProgress
+                              variant="determinate"
                               value={(rider.teamCount / league.currentTeams) * 100}
                               sx={{ mt: 1 }}
                             />
@@ -662,8 +653,8 @@ export default function LeagueDetailPage() {
         </Grid>
       </TabPanel>
 
-      {/* Tab: Gestione (solo per owner) */}
-      {isOwner && (
+      {/* Tab: Gestione (solo per admin) */}
+      {isAdmin && (
         <TabPanel value={selectedTab} index={3}>
           <Grid container spacing={3}>
             {/* Impostazioni Lega */}
@@ -673,7 +664,7 @@ export default function LeagueDetailPage() {
                   <Typography variant="h6" gutterBottom>
                     Impostazioni Lega
                   </Typography>
-                  
+
                   <Stack spacing={3}>
                     <Box>
                       <FormControlLabel
@@ -721,7 +712,7 @@ export default function LeagueDetailPage() {
                   <Typography variant="h6" gutterBottom>
                     Azioni Rapide
                   </Typography>
-                  
+
                   <Stack spacing={2}>
                     <Button
                       variant="outlined"
@@ -731,7 +722,7 @@ export default function LeagueDetailPage() {
                     >
                       Condividi Codice Lega
                     </Button>
-                    
+
                     <Button
                       variant="outlined"
                       startIcon={<Groups />}
@@ -740,7 +731,7 @@ export default function LeagueDetailPage() {
                     >
                       Invita Membri
                     </Button>
-                    
+
                     <Button
                       variant="outlined"
                       startIcon={<NotificationsActive />}
@@ -749,9 +740,9 @@ export default function LeagueDetailPage() {
                     >
                       Invia Notifica a Tutti
                     </Button>
-                    
+
                     <Divider />
-                    
+
                     <Button
                       variant="outlined"
                       color="warning"
@@ -765,7 +756,7 @@ export default function LeagueDetailPage() {
                     >
                       Chiudi Iscrizioni
                     </Button>
-                    
+
                     <Button
                       variant="outlined"
                       color="error"
@@ -786,7 +777,7 @@ export default function LeagueDetailPage() {
                   <Typography variant="h6" gutterBottom>
                     Informazioni Lega
                   </Typography>
-                  
+
                   <Grid container spacing={2}>
                     <Grid item xs={6} sm={3}>
                       <Typography variant="caption" color="text.secondary">
@@ -836,7 +827,7 @@ export default function LeagueDetailPage() {
               }
               label="Blocca modifiche ai team"
             />
-            
+
             <FormControl fullWidth>
               <InputLabel>Visibilità Lineup</InputLabel>
               <Select
@@ -852,8 +843,8 @@ export default function LeagueDetailPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowSettings(false)}>Annulla</Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={handleSaveSettings}
             disabled={updateSettingsMutation.isPending}
           >

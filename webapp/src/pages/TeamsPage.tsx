@@ -3,33 +3,14 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getMyTeams, getUpcomingRaces } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Typography,
-  CircularProgress,
-  Alert,
-  Card,
-  CardContent,
-  CardActions,
-  Grid,
-  Button,
-  Chip,
-  Stack,
-  Avatar,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  IconButton,
-  Tooltip,
-  Paper,
-  TextField,
-  InputAdornment,
+import { Box, Typography, CircularProgress, Alert, Card, CardContent, 
+  CardActions, Grid, Button, Chip, Stack, Avatar, List, ListItem, ListItemAvatar, 
+  ListItemText, IconButton, Tooltip, Paper, TextField, InputAdornment,
 } from '@mui/material';
 import {
+  EmojiEvents, 
   SportsMotorsports,
   Groups,
-  EmojiEvents,
   Edit,
   CalendarToday,
   Search,

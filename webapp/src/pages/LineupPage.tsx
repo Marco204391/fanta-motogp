@@ -7,7 +7,7 @@ import {
   LinearProgress, Alert, Chip, Avatar, Switch, FormControlLabel,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
   Accordion, AccordionSummary, AccordionDetails, Tooltip, Stack,
-  Paper, Divider, List, ListItem, ListItemAvatar, ListItemText
+  Paper, Divider, List, ListItem, ListItemAvatar, ListItemText, CircularProgress
 } from '@mui/material';
 import {
   SportsMotorsports, Timer, Flag, ExpandMore, Info, Save,
@@ -53,9 +53,10 @@ export default function LineupPage() {
 
   // Inizializza lineup esistente
   React.useEffect(() => {
-    if (existingLineup?.lineup) {
+    // ##### INIZIO CORREZIONE #####
+    if (existingLineup?.lineup?.lineupRiders) {
       const lineupMap: LineupData = {};
-      existingLineup.lineup.forEach((item: any) => {
+      existingLineup.lineup.lineupRiders.forEach((item: any) => {
         lineupMap[item.riderId] = {
           selected: true,
           predictedPosition: item.predictedPosition?.toString() || ''
@@ -63,6 +64,7 @@ export default function LineupPage() {
       });
       setLineupState(lineupMap);
     }
+    // ##### FINE CORREZIONE #####
   }, [existingLineup]);
 
   // Mutation per salvare lineup
@@ -160,16 +162,16 @@ export default function LineupPage() {
 
   // Salva lineup
   const handleSaveLineup = () => {
-    const activeRiderIds = Object.entries(lineup)
-      .filter(([_, data]) => data.selected)
-      .map(([riderId, data]) => ({
-        riderId,
-        predictedPosition: parseInt(data.predictedPosition)
+    const ridersToSave = Object.keys(lineup)
+      .filter(id => lineup[id].selected)
+      .map(id => ({
+        riderId: id,
+        predictedPosition: parseInt(lineup[id].predictedPosition, 10),
       }));
 
     saveLineupMutation.mutate({
       teamId: teamId!,
-      lineupData: activeRiderIds
+      riders: ridersToSave,
     });
   };
 

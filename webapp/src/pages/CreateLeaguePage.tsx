@@ -3,20 +3,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createLeague } from '../services/api';
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  TextField,
-  Button,
-  Stack,
-  FormControlLabel,
-  Switch,
-  Slider,
-  Grid,
-  Paper,
-  CircularProgress
+import { Box, Typography,Card, CardContent, TextField, Button, Stack,
+  FormControlLabel, Switch, Slider, Grid, Paper, CircularProgress
 } from '@mui/material';
 import { useNotification } from '../contexts/NotificationContext';
 
