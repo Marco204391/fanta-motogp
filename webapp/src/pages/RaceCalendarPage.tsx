@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAllRaces } from '../services/api';
 import { Box, Typography, CircularProgress, Alert, Grid } from '@mui/material';
-import { RaceEventCard } from '../components/RaceEventCard'; // Importa il nuovo componente
+import { RaceEventCard } from '../components/RaceEventCard';
 
 interface Race {
   id: string;
@@ -42,7 +42,7 @@ export default function RaceCalendarPage() {
       </Typography>
       <Grid container spacing={3}>
         {races.map(race => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={race.id}>
+          <Grid item xs={12} sm={6} md={4} lg={3} key={race.id} sx={{ display: 'flex' }}>
             <RaceEventCard race={race} />
           </Grid>
         ))}
