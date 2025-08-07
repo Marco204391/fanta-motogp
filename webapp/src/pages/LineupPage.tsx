@@ -3,383 +3,474 @@ import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Button,
-  Alert,
-  Grid,
-  Paper,
-  Stack,
-  Chip,
-  Avatar,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Divider,
-  CircularProgress,
-  ToggleButton,
-  ToggleButtonGroup,
-  Badge,
-  Tooltip,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  Box, Typography, Card, CardContent, Grid, Button, TextField,
+  LinearProgress, Alert, Chip, Avatar, Switch, FormControlLabel,
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
+  Accordion, AccordionSummary, AccordionDetails, Tooltip, Stack,
+  Paper, Divider, List, ListItem, ListItemAvatar, ListItemText
 } from '@mui/material';
 import {
-  Save,
-  Cancel,
-  EmojiEvents,
-  SwapVert,
-  ExpandMore,
-  CheckCircle,
-  Warning,
-  Info,
-  Timer,
-  SportsMotorsports,
+  SportsMotorsports, Timer, Flag, ExpandMore, Info, Save,
+  CheckCircle, Warning, HelpOutline, TrendingUp, BarChart
 } from '@mui/icons-material';
-import { format, isPast } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { getTeamById, getRaceById, setLineup, getLineup } from '../services/api';
+import { getTeamById, getLineup, setLineup, getRaceById } from '../services/api';
 import { useNotification } from '../contexts/NotificationContext';
 
-interface Rider {
-  id: string;
-  name: string;
-  number: number;
-  team: string;
-  category: 'MOTOGP' | 'MOTO2' | 'MOTO3';
-  value: number;
+interface LineupData {
+  [riderId: string]: {
+    selected: boolean;
+    predictedPosition: string;
+  };
 }
-
-const categoryColors = {
-  MOTOGP: '#FF6B00',
-  MOTO2: '#1976D2',
-  MOTO3: '#388E3C',
-};
 
 export default function LineupPage() {
   const { teamId, raceId } = useParams<{ teamId: string; raceId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { notify } = useNotification();
-
-  const [activeRiders, setActiveRiders] = useState<string[]>([]);
-  const [captainId, setCaptainId] = useState<string>('');
-  const [substitutions, setSubstitutions] = useState<Map<string, string>>(new Map());
+  
+  const [lineup, setLineupState] = useState<LineupData>({});
+  const [showPredictionHelper, setShowPredictionHelper] = useState(false);
 
   // Query dati
-  const { data: teamData, isLoading: isLoadingTeam } = useQuery({
+  const { data: teamData, isLoading: loadingTeam } = useQuery({
     queryKey: ['team', teamId],
-    queryFn: () => getTeamById(teamId!),
+    queryFn: () => getTeamById(teamId!)
   });
 
-  const { data: raceData, isLoading: isLoadingRace } = useQuery({
+  const { data: raceData, isLoading: loadingRace } = useQuery({
     queryKey: ['race', raceId],
-    queryFn: () => getRaceById(raceId!),
+    queryFn: () => getRaceById(raceId!)
   });
 
   const { data: existingLineup } = useQuery({
     queryKey: ['lineup', teamId, raceId],
     queryFn: () => getLineup(teamId!, raceId!),
-    enabled: !!teamId && !!raceId,
+    enabled: !!teamId && !!raceId
   });
 
   // Inizializza lineup esistente
   React.useEffect(() => {
-    if (existingLineup) {
-      setActiveRiders(existingLineup.activeRiderIds || []);
-      setCaptainId(existingLineup.captainId || '');
-    } else if (teamData?.team?.riders) {
-      // Se non c'è lineup, usa i primi 6 piloti di default
-      const defaultActive = teamData.team.riders.slice(0, 6).map((r: Rider) => r.id);
-      setActiveRiders(defaultActive);
+    if (existingLineup?.lineup) {
+      const lineupMap: LineupData = {};
+      existingLineup.lineup.forEach((item: any) => {
+        lineupMap[item.riderId] = {
+          selected: true,
+          predictedPosition: item.predictedPosition?.toString() || ''
+        };
+      });
+      setLineupState(lineupMap);
     }
-  }, [existingLineup, teamData]);
+  }, [existingLineup]);
 
+  // Mutation per salvare lineup
   const saveLineupMutation = useMutation({
-    mutationFn: (data: { activeRiderIds: string[]; captainId?: string }) =>
-      setLineup(raceId!, { teamId: teamId!, ...data }),
+    mutationFn: (data: any) => setLineup(raceId!, data),
     onSuccess: () => {
+      notify('Lineup salvato con successo!', 'success');
       queryClient.invalidateQueries({ queryKey: ['lineup', teamId, raceId] });
-      notify('Formazione salvata con successo!', 'success');
-      navigate(-1);
+      queryClient.invalidateQueries({ queryKey: ['myTeams'] });
+      navigate(`/teams`);
     },
-    onError: () => {
-      notify('Errore nel salvataggio della formazione', 'error');
-    },
+    onError: (error: any) => {
+      notify(error.response?.data?.error || 'Errore nel salvataggio', 'error');
+    }
   });
 
-  const handleToggleRider = (riderId: string) => {
-    setActiveRiders(prev => {
-      if (prev.includes(riderId)) {
-        // Rimuovi dalla formazione
-        if (riderId === captainId) setCaptainId('');
-        return prev.filter(id => id !== riderId);
-      } else if (prev.length < 6) {
-        // Aggiungi alla formazione
-        return [...prev, riderId];
+  // Gestione selezione piloti
+  const handleRiderToggle = (riderId: string, category: string) => {
+    const categoryCount = Object.entries(lineup).filter(([id, data]) => {
+      const rider = teamData?.team.riders.find((r: any) => r.rider.id === id)?.rider;
+      return data.selected && rider?.category === category;
+    }).length;
+
+    if (!lineup[riderId]?.selected && categoryCount >= 2) {
+      notify(`Hai già selezionato 2 piloti ${category}`, 'warning');
+      return;
+    }
+
+    setLineupState(prev => ({
+      ...prev,
+      [riderId]: {
+        selected: !prev[riderId]?.selected,
+        predictedPosition: prev[riderId]?.predictedPosition || ''
       }
-      return prev;
+    }));
+  };
+
+  // Gestione previsioni
+  const handlePredictionChange = (riderId: string, position: string) => {
+    setLineupState(prev => ({
+      ...prev,
+      [riderId]: {
+        ...prev[riderId],
+        predictedPosition: position
+      }
+    }));
+  };
+
+  // Validazione
+  const lineupStats = useMemo(() => {
+    const stats = {
+      categoryCounts: { MOTOGP: 0, MOTO2: 0, MOTO3: 0 } as Record<string, number>,
+      isValid: false,
+      validationErrors: [] as string[],
+      selectedRiders: [] as any[]
+    };
+
+    if (!teamData) return stats;
+
+    Object.entries(lineup).forEach(([riderId, data]) => {
+      if (data.selected) {
+        const riderData = teamData.team.riders.find((r: any) => r.rider.id === riderId)?.rider;
+        if (riderData) {
+          stats.categoryCounts[riderData.category]++;
+          stats.selectedRiders.push({
+            ...riderData,
+            predictedPosition: data.predictedPosition
+          });
+        }
+      }
+    });
+
+    // Validazione regole
+    if (stats.categoryCounts.MOTOGP !== 2) {
+      stats.validationErrors.push(`MotoGP: ${stats.categoryCounts.MOTOGP}/2 piloti`);
+    }
+    if (stats.categoryCounts.MOTO2 !== 2) {
+      stats.validationErrors.push(`Moto2: ${stats.categoryCounts.MOTO2}/2 piloti`);
+    }
+    if (stats.categoryCounts.MOTO3 !== 2) {
+      stats.validationErrors.push(`Moto3: ${stats.categoryCounts.MOTO3}/2 piloti`);
+    }
+
+    // Validazione posizioni
+    stats.selectedRiders.forEach(rider => {
+      const pos = parseInt(rider.predictedPosition);
+      if (!rider.predictedPosition || isNaN(pos) || pos < 1 || pos > 30) {
+        stats.validationErrors.push(`Posizione non valida per ${rider.name}`);
+      }
+    });
+
+    stats.isValid = stats.validationErrors.length === 0 && stats.selectedRiders.length === 6;
+    return stats;
+  }, [lineup, teamData]);
+
+  // Salva lineup
+  const handleSaveLineup = () => {
+    const activeRiderIds = Object.entries(lineup)
+      .filter(([_, data]) => data.selected)
+      .map(([riderId, data]) => ({
+        riderId,
+        predictedPosition: parseInt(data.predictedPosition)
+      }));
+
+    saveLineupMutation.mutate({
+      teamId: teamId!,
+      lineupData: activeRiderIds
     });
   };
 
-  const handleSetCaptain = (riderId: string) => {
-    if (activeRiders.includes(riderId)) {
-      setCaptainId(riderId === captainId ? '' : riderId);
-    }
+  if (loadingTeam || loadingRace) return <CircularProgress />;
+  if (!teamData || !raceData) return <Alert severity="error">Dati non trovati</Alert>;
+
+  const team = teamData.team;
+  const race = raceData.race;
+  const deadline = race.sprintDate || race.gpDate;
+  const isDeadlinePassed = new Date() > new Date(deadline);
+  const daysUntilRace = differenceInDays(new Date(race.gpDate), new Date());
+
+  const categoryColors = {
+    MOTOGP: '#E60023',
+    MOTO2: '#FF6B00', 
+    MOTO3: '#1976D2'
   };
-
-  const handleSave = () => {
-    if (activeRiders.length !== 6) {
-      notify('Devi schierare esattamente 6 piloti', 'warning');
-      return;
-    }
-    if (!captainId) {
-      notify('Devi selezionare un capitano', 'warning');
-      return;
-    }
-    saveLineupMutation.mutate({ activeRiderIds: activeRiders, captainId });
-  };
-
-  const isDeadlinePassed = raceData?.race && isPast(new Date(raceData.race.qualifyingDate));
-
-  const getRidersByCategory = useMemo(() => {
-    if (!teamData?.team?.riders) return { MOTOGP: [], MOTO2: [], MOTO3: [] };
-    
-    return teamData.team.riders.reduce((acc: any, rider: Rider) => {
-      if (!acc[rider.category]) acc[rider.category] = [];
-      acc[rider.category].push(rider);
-      return acc;
-    }, { MOTOGP: [], MOTO2: [], MOTO3: [] });
-  }, [teamData]);
-
-  if (isLoadingTeam || isLoadingRace) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" fontWeight="bold">
-          Schiera Formazione
-        </Typography>
-        {raceData?.race && (
-          <Chip
+      {/* Header Gara */}
+      <Paper 
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+          color: 'white'
+        }}
+      >
+        <Typography variant="h4" gutterBottom>{team.name}</Typography>
+        <Typography variant="h5" gutterBottom>{race.name}</Typography>
+        <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+          <Chip 
             icon={<Timer />}
-            label={`Deadline: ${format(new Date(raceData.race.qualifyingDate), 'dd MMM HH:mm', { locale: it })}`}
-            color={isDeadlinePassed ? 'error' : 'success'}
+            label={`Sprint: ${format(new Date(race.sprintDate), 'dd MMM', { locale: it })}`}
+            sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
           />
-        )}
-      </Stack>
+          <Chip 
+            icon={<Flag />}
+            label={`Gara: ${format(new Date(race.gpDate), 'dd MMM', { locale: it })}`}
+            sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+          />
+          {daysUntilRace > 0 && (
+            <Chip 
+              label={`${daysUntilRace} giorni rimanenti`}
+              sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+            />
+          )}
+        </Stack>
+      </Paper>
 
+      {/* Alert Deadline */}
       {isDeadlinePassed && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          La deadline per questa gara è scaduta. Non puoi più modificare la formazione.
+          La deadline per questa gara è scaduta. Non puoi più modificare il lineup.
         </Alert>
       )}
 
-      <Grid container spacing={3}>
-        {/* Colonna sinistra: Selezione piloti */}
-        <Grid item xs={12} md={7}>
-          {Object.entries(getRidersByCategory).map(([category, riders]) => (
-            <Accordion key={category} defaultExpanded={category === 'MOTOGP'}>
-              <AccordionSummary expandIcon={<ExpandMore />}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Chip
-                    label={category}
-                    sx={{ 
-                      backgroundColor: categoryColors[category as keyof typeof categoryColors],
-                      color: 'white' 
-                    }}
-                  />
-                  <Typography>
-                    {(riders as Rider[]).filter(r => activeRiders.includes(r.id)).length}/{(riders as Rider[]).length} schierati
+      {/* Progress */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Box display="flex" justifyContent="space-between" mb={2}>
+            <Typography variant="h6">Piloti Selezionati</Typography>
+            <Typography 
+              variant="h6" 
+              color={lineupStats.selectedRiders.length === 6 ? 'success.main' : 'text.secondary'}
+            >
+              {lineupStats.selectedRiders.length}/6
+            </Typography>
+          </Box>
+          <LinearProgress 
+            variant="determinate" 
+            value={(lineupStats.selectedRiders.length / 6) * 100}
+            sx={{ height: 10, borderRadius: 5 }}
+          />
+          
+          {/* Contatori per categoria */}
+          <Grid container spacing={2} sx={{ mt: 2 }}>
+            {Object.entries(lineupStats.categoryCounts).map(([category, count]) => (
+              <Grid item xs={4} key={category}>
+                <Box textAlign="center">
+                  <Typography variant="caption" color="text.secondary">
+                    {category}
                   </Typography>
-                </Stack>
-              </AccordionSummary>
-              <AccordionDetails>
-                <List>
-                  {(riders as Rider[]).map((rider) => {
-                    const isActive = activeRiders.includes(rider.id);
-                    const isCaptain = rider.id === captainId;
-                    
-                    return (
-                      <ListItem
-                        key={rider.id}
-                        sx={{
-                          border: '1px solid',
-                          borderColor: isActive ? 'primary.main' : 'divider',
-                          borderRadius: 1,
-                          mb: 1,
-                          backgroundColor: isActive ? 'action.hover' : 'transparent',
-                          opacity: !isActive && activeRiders.length >= 6 ? 0.5 : 1,
-                        }}
-                      >
-                        <ListItemAvatar>
-                          <Badge
-                            invisible={!isCaptain}
-                            badgeContent={<EmojiEvents sx={{ fontSize: 16 }} />}
-                            color="warning"
-                          >
-                            <Avatar sx={{ bgcolor: categoryColors[category as keyof typeof categoryColors] }}>
-                              {rider.number}
-                            </Avatar>
-                          </Badge>
-                        </ListItemAvatar>
-                        
-                        <ListItemText
-                          primary={
-                            <Typography fontWeight={isActive ? 'bold' : 'normal'}>
-                              {rider.name}
-                            </Typography>
-                          }
-                          secondary={rider.team}
-                        />
-                        
-                        <ListItemSecondaryAction>
-                          <Stack direction="row" spacing={1}>
-                            {isActive && (
-                              <Tooltip title={isCaptain ? "Rimuovi capitano" : "Imposta come capitano"}>
-                                <IconButton
-                                  onClick={() => handleSetCaptain(rider.id)}
-                                  disabled={isDeadlinePassed}
-                                  color={isCaptain ? "warning" : "default"}
-                                >
-                                  <EmojiEvents />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            <ToggleButton
-                              value="active"
-                              selected={isActive}
-                              onChange={() => handleToggleRider(rider.id)}
-                              disabled={isDeadlinePassed || (!isActive && activeRiders.length >= 6)}
-                              size="small"
-                            >
-                              {isActive ? 'Schierato' : 'Panchina'}
-                            </ToggleButton>
-                          </Stack>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    );
-                  })}
-                </List>
-              </AccordionDetails>
-            </Accordion>
-          ))}
-        </Grid>
+                  <Typography 
+                    variant="h6" 
+                    color={count === 2 ? 'success.main' : 'text.secondary'}
+                  >
+                    {count}/2
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </CardContent>
+      </Card>
 
-        {/* Colonna destra: Riepilogo formazione */}
-        <Grid item xs={12} md={5}>
-          <Card sx={{ position: 'sticky', top: 20 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Formazione Schierata
-              </Typography>
-              
-              <Box sx={{ mb: 3 }}>
-                <Stack direction="row" spacing={2} mb={2}>
-                  <Chip
-                    icon={<CheckCircle />}
-                    label={`${activeRiders.length}/6 Piloti`}
-                    color={activeRiders.length === 6 ? 'success' : 'default'}
-                  />
-                  <Chip
-                    icon={<EmojiEvents />}
-                    label={captainId ? 'Capitano OK' : 'Manca Capitano'}
-                    color={captainId ? 'warning' : 'default'}
-                  />
-                </Stack>
-
-                <Divider sx={{ my: 2 }} />
-
-                {['MOTOGP', 'MOTO2', 'MOTO3'].map(category => {
-                  const categoryRiders = getRidersByCategory[category as keyof typeof getRidersByCategory]
-                    .filter((r: Rider) => activeRiders.includes(r.id));
+      {/* Selezione Piloti per Categoria */}
+      {['MOTOGP', 'MOTO2', 'MOTO3'].map(category => {
+        const categoryRiders = team.riders.filter((tr: any) => tr.rider.category === category);
+        
+        return (
+          <Accordion key={category} defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMore />}>
+              <Box display="flex" alignItems="center" gap={2} width="100%">
+                <Chip 
+                  label={category}
+                  sx={{ 
+                    backgroundColor: categoryColors[category as keyof typeof categoryColors],
+                    color: 'white'
+                  }}
+                />
+                <Typography sx={{ flexGrow: 1 }}>
+                  Seleziona 2 piloti
+                </Typography>
+                <Chip 
+                  label={`${lineupStats.categoryCounts[category]}/2`}
+                  color={lineupStats.categoryCounts[category] === 2 ? 'success' : 'default'}
+                />
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <List>
+                {categoryRiders.map((tr: any) => {
+                  const isSelected = lineup[tr.rider.id]?.selected;
                   
                   return (
-                    <Box key={category} sx={{ mb: 2 }}>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        {category}
-                      </Typography>
-                      {categoryRiders.length > 0 ? (
-                        <Stack spacing={1}>
-                          {categoryRiders.map((rider: Rider) => (
-                            <Paper
-                              key={rider.id}
-                              sx={{
-                                p: 1.5,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                borderLeft: '3px solid',
-                                borderColor: categoryColors[category as keyof typeof categoryColors],
-                              }}
-                            >
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                {rider.id === captainId && (
-                                  <EmojiEvents sx={{ color: 'warning.main', fontSize: 20 }} />
-                                )}
-                                <Box>
-                                  <Typography variant="body2" fontWeight="bold">
-                                    {rider.name}
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    #{rider.number} - {rider.team}
-                                  </Typography>
-                                </Box>
-                              </Stack>
-                            </Paper>
-                          ))}
-                        </Stack>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                          Nessun pilota schierato
-                        </Typography>
+                    <ListItem 
+                      key={tr.rider.id}
+                      sx={{ 
+                        mb: 2,
+                        border: isSelected ? 2 : 1,
+                        borderColor: isSelected ? 'primary.main' : 'divider',
+                        borderRadius: 2,
+                        backgroundColor: isSelected ? 'action.selected' : 'inherit'
+                      }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={isSelected || false}
+                            onChange={() => handleRiderToggle(tr.rider.id, category)}
+                            disabled={isDeadlinePassed}
+                          />
+                        }
+                        label=""
+                      />
+                      
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                          {tr.rider.number}
+                        </Avatar>
+                      </ListItemAvatar>
+                      
+                      <ListItemText
+                        primary={tr.rider.name}
+                        secondary={`${tr.rider.team} • ${tr.rider.value}€`}
+                      />
+                      
+                      {isSelected && (
+                        <Box display="flex" alignItems="center" gap={2}>
+                          <TextField
+                            label="Posizione Prevista"
+                            type="number"
+                            size="small"
+                            value={lineup[tr.rider.id]?.predictedPosition || ''}
+                            onChange={(e) => handlePredictionChange(tr.rider.id, e.target.value)}
+                            disabled={isDeadlinePassed}
+                            inputProps={{ min: 1, max: 30 }}
+                            sx={{ width: 120 }}
+                            helperText="1-30"
+                          />
+                          <Tooltip title="Media punti">
+                            <Chip 
+                              icon={<TrendingUp />}
+                              label={`${tr.rider.averagePoints?.toFixed(1) || 'N/D'} pt`}
+                              size="small"
+                            />
+                          </Tooltip>
+                        </Box>
                       )}
-                    </Box>
+                    </ListItem>
                   );
                 })}
-              </Box>
+              </List>
+            </AccordionDetails>
+          </Accordion>
+        );
+      })}
 
-              <Stack direction="row" spacing={2}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  fullWidth
-                  startIcon={<Save />}
-                  onClick={handleSave}
-                  disabled={isDeadlinePassed || activeRiders.length !== 6 || !captainId || saveLineupMutation.isPending}
-                >
-                  Salva Formazione
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  fullWidth
-                  startIcon={<Cancel />}
-                  onClick={() => navigate(-1)}
-                >
-                  Annulla
-                </Button>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      {/* Errori di Validazione */}
+      {lineupStats.validationErrors.length > 0 && (
+        <Alert severity="error" sx={{ mt: 3 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Correggere i seguenti errori:
+          </Typography>
+          <ul>
+            {lineupStats.validationErrors.map((error, idx) => (
+              <li key={idx}>{error}</li>
+            ))}
+          </ul>
+        </Alert>
+      )}
+
+      {/* Azioni */}
+      <Paper sx={{ p: 3, mt: 3, position: 'sticky', bottom: 0, zIndex: 10 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Button
+            variant="outlined"
+            startIcon={<HelpOutline />}
+            onClick={() => setShowPredictionHelper(true)}
+          >
+            Come Funzionano le Previsioni
+          </Button>
+          
+          <Box display="flex" gap={2}>
+            <Button
+              variant="outlined"
+              onClick={() => navigate(-1)}
+            >
+              Annulla
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<Save />}
+              onClick={handleSaveLineup}
+              disabled={!lineupStats.isValid || isDeadlinePassed || saveLineupMutation.isPending}
+            >
+              {saveLineupMutation.isPending ? 'Salvataggio...' : 'Salva Lineup'}
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
+
+      {/* Dialog Helper Previsioni */}
+      <Dialog 
+        open={showPredictionHelper} 
+        onClose={() => setShowPredictionHelper(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Info color="primary" />
+            Sistema di Previsioni e Punteggio
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3}>
+            <Alert severity="info">
+              Prevedi la posizione di arrivo di ogni pilota per guadagnare punti bonus!
+            </Alert>
+            
+            <Box>
+              <Typography variant="h6" gutterBottom>Sistema Punteggio:</Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText 
+                    primary="Previsione Esatta"
+                    secondary="+10 punti bonus"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="Errore di 1 posizione"
+                    secondary="+5 punti bonus"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="Errore di 2-3 posizioni"
+                    secondary="+2 punti bonus"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="Previsione DNF corretta"
+                    secondary="+8 punti bonus"
+                  />
+                </ListItem>
+              </List>
+            </Box>
+            
+            <Box>
+              <Typography variant="h6" gutterBottom>Suggerimenti:</Typography>
+              <Typography variant="body2" component="div">
+                • Analizza le performance recenti dei piloti<br/>
+                • Considera le caratteristiche del circuito<br/>
+                • Valuta le condizioni meteo previste<br/>
+                • Tieni conto dello storico del pilota sul tracciato<br/>
+                • Non sottovalutare i piloti delle categorie minori
+              </Typography>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowPredictionHelper(false)}>
+            Chiudi
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

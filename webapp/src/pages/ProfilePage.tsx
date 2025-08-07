@@ -1,266 +1,817 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+// webapp/src/pages/ProfilePage.tsx
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMyStats, updateProfile, changePassword } from '../services/api';
 import {
-  Box, Typography, Card, CardContent, Button, Avatar, Grid,
-  Paper, Stack, Divider, List, ListItem, ListItemText,
-  ListItemIcon, Chip, CircularProgress, TextField,
-  Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControlLabel, Switch, Alert
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  Grid,
+  Button,
+  TextField,
+  Switch,
+  FormControlLabel,
+  Avatar,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Paper,
+  Alert,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Stack,
+  Chip,
+  LinearProgress,
+  IconButton,
+  InputAdornment,
+  FormControl,
+  FormGroup
 } from '@mui/material';
 import {
-  EmojiEvents, SportsMotorsports, Groups, TrendingUp, Star,
-  AccountCircle, Logout, Settings, Edit, Save, Cancel,
-  Lock, Delete, Notifications, Email, CalendarToday
+  Person,
+  Email,
+  Lock,
+  Edit,
+  Save,
+  Cancel,
+  Notifications,
+  NotificationsOff,
+  DarkMode,
+  LightMode,
+  Trophy,
+  EmojiEvents,
+  Groups,
+  SportsMotorsports,
+  TrendingUp,
+  Timeline,
+  AttachMoney,
+  CalendarToday,
+  CheckCircle,
+  Visibility,
+  VisibilityOff,
+  Delete,
+  Logout,
+  Settings,
+  Security,
+  AccountCircle,
+  Badge,
+  WorkspacePremium,
+  Star
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { getProfile, getMyStats } from '../services/api';
+import api from '../services/api';
+
+interface UserStats {
+  totalTeams: number;
+  totalLeagues: number;
+  totalPoints: number;
+  bestPosition: number;
+  gamesPlayed: number;
+  winRate: number;
+  averagePointsPerRace: number;
+  favoriteCategory: string;
+  totalWins: number;
+  totalPodiums: number;
+}
 
 export default function ProfilePage() {
-  const { user, logout, updateUser: updateAuthUser } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { notify } = useNotification();
   const queryClient = useQueryClient();
-
+  
   const [editMode, setEditMode] = useState(false);
-  const [username, setUsername] = useState(user?.username || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Form states
+  const [profileForm, setProfileForm] = useState({
+    username: user?.username || '',
+    email: user?.email || ''
+  });
+  
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  
+  const [settings, setSettings] = useState({
+    notificationsEnabled: true,
+    emailNotifications: false,
+    raceReminders: true,
+    resultNotifications: true,
+    leagueUpdates: true,
+    darkMode: false
+  });
 
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  // Query profilo completo
+  const { data: profileData, isLoading: loadingProfile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: getProfile
+  });
 
-  const { data: statsData, isLoading: isLoadingStats } = useQuery({
+  // Query statistiche
+  const { data: statsData, isLoading: loadingStats } = useQuery({
     queryKey: ['myStats'],
-    queryFn: getMyStats,
-    enabled: !!user,
+    queryFn: getMyStats
   });
 
-  useEffect(() => {
-    if (user) {
-      setUsername(user.username);
-      setEmail(user.email);
-    }
-  }, [user]);
-
-  const profileUpdateMutation = useMutation({
-    mutationFn: (data: { username?: string; email?: string }) => updateProfile(data),
-    onSuccess: (response: any) => {
-        const updatedUser = response.user;
-        notify('Profilo aggiornato con successo!', 'success');
-        if (updatedUser) {
-            const newUser = { ...user, ...updatedUser };
-            updateAuthUser(newUser as any);
-        }
-        queryClient.invalidateQueries({ queryKey: ['myStats'] });
-        setEditMode(false);
-    },
-    onError: (error: any) => {
-      notify(error.response?.data?.error || 'Errore durante l\'aggiornamento', 'error');
-    },
-  });
-
-  const passwordChangeMutation = useMutation({
-    mutationFn: (data: { currentPassword: string; newPassword: string }) => changePassword(data),
-    onSuccess: () => {
-      notify('Password cambiata con successo!', 'success');
-      setShowPasswordModal(false);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    },
-    onError: (error: any) => {
-      notify(error.response?.data?.error || 'Errore durante il cambio password', 'error');
-    },
-  });
-
-  const handleProfileSave = () => {
-    const changes: { username?: string; email?: string } = {};
-    if (username !== user?.username) changes.username = username;
-    if (email !== user?.email) changes.email = email;
-
-    if (Object.keys(changes).length > 0) {
-      profileUpdateMutation.mutate(changes);
-    } else {
+  // Mutation aggiornamento profilo
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: any) => api.put('/auth/profile', data),
+    onSuccess: (response) => {
+      notify('Profilo aggiornato con successo', 'success');
+      updateUser(response.data.user);
       setEditMode(false);
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+    onError: (error: any) => {
+      notify(error.response?.data?.error || 'Errore aggiornamento profilo', 'error');
     }
+  });
+
+  // Mutation cambio password
+  const changePasswordMutation = useMutation({
+    mutationFn: (data: any) => api.post('/auth/change-password', data),
+    onSuccess: () => {
+      notify('Password aggiornata con successo', 'success');
+      setShowPasswordDialog(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    },
+    onError: (error: any) => {
+      notify(error.response?.data?.error || 'Errore cambio password', 'error');
+    }
+  });
+
+  // Mutation eliminazione account
+  const deleteAccountMutation = useMutation({
+    mutationFn: () => api.delete('/auth/account'),
+    onSuccess: () => {
+      notify('Account eliminato con successo', 'success');
+      logout();
+    },
+    onError: (error: any) => {
+      notify(error.response?.data?.error || 'Errore eliminazione account', 'error');
+    }
+  });
+
+  const handleSaveProfile = () => {
+    updateProfileMutation.mutate(profileForm);
   };
 
-  const handlePasswordChange = () => {
-    if (newPassword !== confirmPassword) {
-      notify('Le nuove password non coincidono', 'error');
+  const handleChangePassword = () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      notify('Le password non coincidono', 'error');
       return;
     }
-    if (newPassword.length < 6) {
-      notify('La nuova password deve essere di almeno 6 caratteri', 'warning');
+    
+    if (passwordForm.newPassword.length < 6) {
+      notify('La password deve essere almeno 6 caratteri', 'error');
       return;
     }
-    passwordChangeMutation.mutate({ currentPassword, newPassword });
+    
+    changePasswordMutation.mutate({
+      currentPassword: passwordForm.currentPassword,
+      newPassword: passwordForm.newPassword
+    });
   };
 
-  if (isLoadingStats || !user) {
+  const handleDeleteAccount = () => {
+    deleteAccountMutation.mutate();
+  };
+
+  const handleSettingChange = (setting: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSettings(prev => ({
+      ...prev,
+      [setting]: event.target.checked
+    }));
+    
+    // Salva impostazioni (potresti voler fare una chiamata API qui)
+    notify('Impostazioni aggiornate', 'success');
+  };
+
+  if (loadingProfile || loadingStats) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
         <CircularProgress />
       </Box>
     );
   }
-  
-  // Utilizziamo i dati utente dal contesto Auth, che sono sempre aggiornati
-  const stats = statsData?.user || {};
+
+  const stats: UserStats = statsData?.stats || {
+    totalTeams: 0,
+    totalLeagues: 0,
+    totalPoints: 0,
+    bestPosition: 0,
+    gamesPlayed: 0,
+    winRate: 0,
+    averagePointsPerRace: 0,
+    favoriteCategory: 'MOTOGP',
+    totalWins: 0,
+    totalPodiums: 0
+  };
+
+  const profileUser = profileData?.user || user;
 
   return (
-    <Box className="fade-in">
-      <Typography variant="h4" gutterBottom fontWeight="bold">
+    <Box>
+      <Typography variant="h4" gutterBottom>
         Profilo Utente
       </Typography>
 
       <Grid container spacing={3}>
-        {/* Profile Info Column */}
+        {/* Colonna Sinistra - Info Profilo */}
         <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent sx={{ textAlign: 'center', p: 4 }}>
-              <Avatar
-                sx={{
-                  width: 120,
-                  height: 120,
-                  bgcolor: 'primary.main',
-                  fontSize: 48,
-                  mb: 2,
-                  mx: 'auto'
-                }}
-              >
-                {user.username.charAt(0).toUpperCase()}
-              </Avatar>
-              
-              {!editMode ? (
-                <>
-                  <Typography variant="h5" fontWeight="bold">{user.username}</Typography>
-                  <Typography color="text.secondary" gutterBottom>{user.email}</Typography>
-                </>
-              ) : (
-                <Stack spacing={2} sx={{ my: 2 }}>
-                  <TextField label="Username" value={username} onChange={e => setUsername(e.target.value)} />
-                  <TextField label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-                </Stack>
-              )}
-
-              <Divider sx={{ my: 2 }} />
-
-              <List dense sx={{ textAlign: 'left' }}>
-                  <ListItem disableGutters>
-                      <ListItemIcon><Star sx={{color: 'warning.main'}} /></ListItemIcon>
-                      <ListItemText primary="Crediti Disponibili" secondary={`${user.credits || 0}`} />
-                  </ListItem>
-                  <ListItem disableGutters>
-                      <ListItemIcon><CalendarToday sx={{color: 'info.main'}}/></ListItemIcon>
-                      <ListItemText primary="Membro dal" secondary={user.createdAt ? format(new Date(user.createdAt), 'MMMM yyyy', { locale: it }) : 'N/A'} />
-                  </ListItem>
-              </List>
-
-              <Box sx={{ mt: 3 }}>
+          {/* Card Profilo */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Box display="flex" flexDirection="column" alignItems="center">
+                <Avatar 
+                  sx={{ 
+                    width: 120, 
+                    height: 120, 
+                    mb: 2,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    fontSize: '3rem'
+                  }}
+                >
+                  {profileUser?.username?.charAt(0).toUpperCase()}
+                </Avatar>
+                
                 {!editMode ? (
-                  <Button variant="contained" startIcon={<Edit />} onClick={() => setEditMode(true)}>
-                    Modifica Profilo
-                  </Button>
+                  <>
+                    <Typography variant="h5" gutterBottom>
+                      {profileUser?.username}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {profileUser?.email}
+                    </Typography>
+                    
+                    <Box width="100%" mt={3}>
+                      <List>
+                        <ListItem>
+                          <ListItemIcon>
+                            <AttachMoney />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="Crediti Disponibili"
+                            secondary={`${profileUser?.credits || 0}€`}
+                          />
+                        </ListItem>
+                        <ListItem>
+                          <ListItemIcon>
+                            <CalendarToday />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="Membro dal"
+                            secondary={profileUser?.createdAt ? 
+                              format(new Date(profileUser.createdAt), 'MMMM yyyy', { locale: it }) 
+                              : 'N/D'
+                            }
+                          />
+                        </ListItem>
+                        <ListItem>
+                          <ListItemIcon>
+                            <CheckCircle color="success" />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="Stato Account"
+                            secondary={
+                              <Chip 
+                                label="Attivo" 
+                                size="small" 
+                                color="success"
+                              />
+                            }
+                          />
+                        </ListItem>
+                      </List>
+                    </Box>
+                    
+                    <Button
+                      variant="outlined"
+                      startIcon={<Edit />}
+                      onClick={() => setEditMode(true)}
+                      fullWidth
+                      sx={{ mt: 2 }}
+                    >
+                      Modifica Profilo
+                    </Button>
+                  </>
                 ) : (
-                  <Stack direction="row" spacing={2}>
-                    <Button variant="outlined" startIcon={<Cancel />} onClick={() => setEditMode(false)}>
-                      Annulla
-                    </Button>
-                    <Button variant="contained" startIcon={<Save />} onClick={handleProfileSave} disabled={profileUpdateMutation.isPending}>
-                      {profileUpdateMutation.isPending ? 'Salvataggio...' : 'Salva'}
-                    </Button>
-                  </Stack>
+                  <Box width="100%" mt={2}>
+                    <TextField
+                      fullWidth
+                      label="Username"
+                      value={profileForm.username}
+                      onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
+                      margin="normal"
+                      inputProps={{ maxLength: 20 }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Email"
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                      margin="normal"
+                    />
+                    
+                    <Stack direction="row" spacing={2} mt={3}>
+                      <Button
+                        variant="contained"
+                        startIcon={<Save />}
+                        onClick={handleSaveProfile}
+                        disabled={updateProfileMutation.isPending}
+                        fullWidth
+                      >
+                        Salva
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<Cancel />}
+                        onClick={() => {
+                          setEditMode(false);
+                          setProfileForm({
+                            username: profileUser?.username || '',
+                            email: profileUser?.email || ''
+                          });
+                        }}
+                        fullWidth
+                      >
+                        Annulla
+                      </Button>
+                    </Stack>
+                  </Box>
                 )}
               </Box>
-              
+            </CardContent>
+          </Card>
+
+          {/* Card Badge e Achievements */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Badge e Riconoscimenti
+              </Typography>
+              <Grid container spacing={2}>
+                {stats.totalWins > 0 && (
+                  <Grid item xs={4}>
+                    <Box textAlign="center">
+                      <WorkspacePremium sx={{ color: '#FFD700', fontSize: 40 }} />
+                      <Typography variant="caption" display="block">
+                        Vincitore
+                      </Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        x{stats.totalWins}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+                {stats.totalPodiums > 0 && (
+                  <Grid item xs={4}>
+                    <Box textAlign="center">
+                      <EmojiEvents sx={{ color: '#C0C0C0', fontSize: 40 }} />
+                      <Typography variant="caption" display="block">
+                        Podio
+                      </Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        x{stats.totalPodiums}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+                {stats.gamesPlayed >= 10 && (
+                  <Grid item xs={4}>
+                    <Box textAlign="center">
+                      <Star sx={{ color: '#CD7F32', fontSize: 40 }} />
+                      <Typography variant="caption" display="block">
+                        Veterano
+                      </Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        10+ GP
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Stats and Settings Column */}
+        {/* Colonna Destra - Statistiche e Impostazioni */}
         <Grid item xs={12} md={8}>
-          <Stack spacing={3}>
-            {/* Stats Card */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Le Tue Statistiche</Typography>
-                <Grid container spacing={2}>
-                  {[
-                    { label: 'Team Totali', value: stats.teams?.length || 0, icon: SportsMotorsports, color: 'primary' },
-                    { label: 'Leghe Attive', value: stats.leagues?.length || 0, icon: Groups, color: 'secondary' },
-                    { label: 'Punti Totali', value: 'N/A', icon: TrendingUp, color: 'success' },
-                    { label: 'Miglior Pos.', value: 'N/A', icon: EmojiEvents, color: 'warning' }
-                  ].map(stat => {
-                    const Icon = stat.icon;
-                    return (
-                    <Grid item xs={6} sm={3} key={stat.label}>
-                      <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', height: '100%' }}>
-                         <Icon sx={{ fontSize: 32, color: `${stat.color}.main`, mb: 1 }} />
-                        <Typography variant="h5" fontWeight="bold">{stat.value}</Typography>
-                        <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
-                      </Paper>
-                    </Grid>
-                  )})}
+          {/* Card Statistiche */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Le Tue Statistiche
+              </Typography>
+              
+              <Grid container spacing={3}>
+                <Grid item xs={6} sm={4}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.lighter' }}>
+                    <Trophy sx={{ fontSize: 30, color: 'primary.main', mb: 1 }} />
+                    <Typography variant="h5" fontWeight="bold">
+                      {stats.totalPoints}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Punti Totali
+                    </Typography>
+                  </Paper>
                 </Grid>
-              </CardContent>
-            </Card>
+                
+                <Grid item xs={6} sm={4}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.lighter' }}>
+                    <EmojiEvents sx={{ fontSize: 30, color: 'success.main', mb: 1 }} />
+                    <Typography variant="h5" fontWeight="bold">
+                      #{stats.bestPosition || '-'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Miglior Posizione
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={6} sm={4}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.lighter' }}>
+                    <Groups sx={{ fontSize: 30, color: 'warning.main', mb: 1 }} />
+                    <Typography variant="h5" fontWeight="bold">
+                      {stats.totalTeams}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Team Attivi
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={6} sm={4}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.lighter' }}>
+                    <SportsMotorsports sx={{ fontSize: 30, color: 'info.main', mb: 1 }} />
+                    <Typography variant="h5" fontWeight="bold">
+                      {stats.totalLeagues}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Leghe Attive
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={6} sm={4}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'error.lighter' }}>
+                    <Timeline sx={{ fontSize: 30, color: 'error.main', mb: 1 }} />
+                    <Typography variant="h5" fontWeight="bold">
+                      {stats.gamesPlayed}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Gare Giocate
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={6} sm={4}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'secondary.lighter' }}>
+                    <TrendingUp sx={{ fontSize: 30, color: 'secondary.main', mb: 1 }} />
+                    <Typography variant="h5" fontWeight="bold">
+                      {stats.winRate}%
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Win Rate
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
 
-            {/* Settings Card */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Impostazioni</Typography>
-                <List>
-                  <ListItem>
-                    <ListItemIcon><Notifications /></ListItemIcon>
-                    <ListItemText primary="Notifiche Push" secondary="Ricevi notifiche per gare e risultati" />
-                    <Switch edge="end" defaultChecked />
-                  </ListItem>
-                  <Divider component="li" />
-                  <ListItem>
-                    <ListItemIcon><Email /></ListItemIcon>
-                    <ListItemText primary="Notifiche Email" secondary="Ricevi aggiornamenti settimanali" />
-                    <Switch edge="end" />
-                  </ListItem>
-                  <Divider component="li" />
-                  <ListItem button onClick={() => setShowPasswordModal(true)}>
-                    <ListItemIcon><Lock /></ListItemIcon>
-                    <ListItemText primary="Cambia Password" />
-                  </ListItem>
-                  <Divider component="li" />
-                  <ListItem button onClick={() => alert('Funzionalità in arrivo!')}>
-                    <ListItemIcon><Delete sx={{ color: 'error.main' }} /></ListItemIcon>
-                    <ListItemText primary="Elimina Account" sx={{ color: 'error.main' }} />
-                  </ListItem>
-                  <Divider component="li" />
-                  <ListItem button onClick={logout}>
-                    <ListItemIcon><Logout /></ListItemIcon>
-                    <ListItemText primary="Logout" />
-                  </ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Stack>
+              {/* Progress Stats */}
+              <Box mt={3}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Media Punti per Gara
+                </Typography>
+                <Box display="flex" alignItems="center" gap={2}>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={Math.min(100, (stats.averagePointsPerRace / 100) * 100)}
+                    sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
+                  />
+                  <Typography variant="body2" fontWeight="bold">
+                    {stats.averagePointsPerRace.toFixed(1)}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box mt={2}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Categoria Preferita
+                </Typography>
+                <Chip 
+                  label={stats.favoriteCategory}
+                  color="primary"
+                  sx={{ mt: 1 }}
+                />
+              </Box>
+            </CardContent>
+          </Card>
+
+          {/* Card Impostazioni */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Impostazioni
+              </Typography>
+              
+              <List>
+                {/* Notifiche */}
+                <ListItem>
+                  <ListItemIcon>
+                    <Notifications />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Notifiche Push"
+                    secondary="Ricevi notifiche per gare e risultati"
+                  />
+                  <Switch
+                    checked={settings.notificationsEnabled}
+                    onChange={handleSettingChange('notificationsEnabled')}
+                  />
+                </ListItem>
+                
+                <ListItem>
+                  <ListItemIcon>
+                    <Email />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Notifiche Email"
+                    secondary="Ricevi aggiornamenti via email"
+                  />
+                  <Switch
+                    checked={settings.emailNotifications}
+                    onChange={handleSettingChange('emailNotifications')}
+                  />
+                </ListItem>
+
+                <Divider />
+
+                {/* Preferenze Notifiche */}
+                <ListItem>
+                  <ListItemText 
+                    primary="Promemoria Gare"
+                    secondary="Notifica prima dell'inizio delle gare"
+                    inset
+                  />
+                  <Switch
+                    checked={settings.raceReminders}
+                    onChange={handleSettingChange('raceReminders')}
+                    disabled={!settings.notificationsEnabled}
+                  />
+                </ListItem>
+                
+                <ListItem>
+                  <ListItemText 
+                    primary="Risultati Gare"
+                    secondary="Notifica quando sono disponibili i risultati"
+                    inset
+                  />
+                  <Switch
+                    checked={settings.resultNotifications}
+                    onChange={handleSettingChange('resultNotifications')}
+                    disabled={!settings.notificationsEnabled}
+                  />
+                </ListItem>
+                
+                <ListItem>
+                  <ListItemText 
+                    primary="Aggiornamenti Lega"
+                    secondary="Notifica per cambiamenti nelle tue leghe"
+                    inset
+                  />
+                  <Switch
+                    checked={settings.leagueUpdates}
+                    onChange={handleSettingChange('leagueUpdates')}
+                    disabled={!settings.notificationsEnabled}
+                  />
+                </ListItem>
+
+                <Divider />
+
+                {/* Tema */}
+                <ListItem>
+                  <ListItemIcon>
+                    {settings.darkMode ? <DarkMode /> : <LightMode />}
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Tema Scuro"
+                    secondary="Attiva il tema scuro dell'applicazione"
+                  />
+                  <Switch
+                    checked={settings.darkMode}
+                    onChange={handleSettingChange('darkMode')}
+                  />
+                </ListItem>
+              </List>
+            </CardContent>
+          </Card>
+
+          {/* Card Sicurezza */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Sicurezza e Privacy
+              </Typography>
+              
+              <Stack spacing={2}>
+                <Button
+                  variant="outlined"
+                  startIcon={<Lock />}
+                  onClick={() => setShowPasswordDialog(true)}
+                  fullWidth
+                >
+                  Cambia Password
+                </Button>
+                
+                <Button
+                  variant="outlined"
+                  startIcon={<Security />}
+                  onClick={() => notify('Funzione in sviluppo', 'info')}
+                  fullWidth
+                >
+                  Verifica in Due Passaggi
+                </Button>
+                
+                <Button
+                  variant="outlined"
+                  startIcon={<Logout />}
+                  onClick={logout}
+                  fullWidth
+                >
+                  Disconnetti
+                </Button>
+                
+                <Divider />
+                
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<Delete />}
+                  onClick={() => setShowDeleteDialog(true)}
+                  fullWidth
+                >
+                  Elimina Account
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
-      
-      {/* Password Change Modal */}
-      <Dialog open={showPasswordModal} onClose={() => setShowPasswordModal(false)} maxWidth="xs" fullWidth>
+
+      {/* Dialog Cambio Password */}
+      <Dialog open={showPasswordDialog} onClose={() => setShowPasswordDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Cambia Password</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField type="password" label="Password Attuale" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} fullWidth />
-            <TextField type="password" label="Nuova Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} fullWidth />
-            <TextField type="password" label="Conferma Nuova Password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} fullWidth />
+          <Stack spacing={3} sx={{ mt: 2 }}>
+            <TextField
+              type={showCurrentPassword ? 'text' : 'password'}
+              label="Password Attuale"
+              fullWidth
+              value={passwordForm.currentPassword}
+              onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      edge="end"
+                    >
+                      {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            
+            <TextField
+              type={showNewPassword ? 'text' : 'password'}
+              label="Nuova Password"
+              fullWidth
+              value={passwordForm.newPassword}
+              onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+              helperText="Minimo 6 caratteri"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      edge="end"
+                    >
+                      {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            
+            <TextField
+              type={showConfirmPassword ? 'text' : 'password'}
+              label="Conferma Nuova Password"
+              fullWidth
+              value={passwordForm.confirmPassword}
+              onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+              error={passwordForm.confirmPassword !== '' && passwordForm.newPassword !== passwordForm.confirmPassword}
+              helperText={
+                passwordForm.confirmPassword !== '' && passwordForm.newPassword !== passwordForm.confirmPassword
+                  ? "Le password non coincidono"
+                  : ""
+              }
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      edge="end"
+                    >
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowPasswordModal(false)}>Annulla</Button>
-          <Button variant="contained" onClick={handlePasswordChange} disabled={passwordChangeMutation.isPending}>
-            {passwordChangeMutation.isPending ? 'Aggiornamento...' : 'Aggiorna'}
+          <Button onClick={() => {
+            setShowPasswordDialog(false);
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+          }}>
+            Annulla
+          </Button>
+          <Button 
+            variant="contained"
+            onClick={handleChangePassword}
+            disabled={
+              !passwordForm.currentPassword || 
+              !passwordForm.newPassword || 
+              passwordForm.newPassword !== passwordForm.confirmPassword ||
+              passwordForm.newPassword.length < 6 ||
+              changePasswordMutation.isPending
+            }
+          >
+            {changePasswordMutation.isPending ? 'Aggiornamento...' : 'Aggiorna Password'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Elimina Account */}
+      <Dialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1} color="error.main">
+            <Delete />
+            Elimina Account
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Attenzione! Questa azione è irreversibile.
+          </Alert>
+          <Typography variant="body2">
+            Eliminando il tuo account:
+          </Typography>
+          <List dense>
+            <ListItem>
+              <ListItemText primary="• Perderai tutti i tuoi team e le statistiche" />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="• Sarai rimosso da tutte le leghe" />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="• Non potrai recuperare i tuoi dati" />
+            </ListItem>
+          </List>
+          <Typography variant="body2" sx={{ mt: 2 }}>
+            Sei sicuro di voler procedere?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteDialog(false)}>
+            Annulla
+          </Button>
+          <Button 
+            variant="contained"
+            color="error"
+            onClick={handleDeleteAccount}
+            disabled={deleteAccountMutation.isPending}
+          >
+            {deleteAccountMutation.isPending ? 'Eliminazione...' : 'Elimina Account'}
           </Button>
         </DialogActions>
       </Dialog>

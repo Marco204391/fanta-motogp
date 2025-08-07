@@ -1,90 +1,166 @@
 // webapp/src/components/RaceEventCard.tsx
-import { Card, CardActionArea, CardContent, Typography, Chip, Box, Divider } from '@mui/material';
+import React from 'react';
+import { 
+  Card, CardContent, CardActions, Box, Typography, 
+  Chip, Button, LinearProgress 
+} from '@mui/material';
+import { 
+  Flag, Timer, CalendarToday, LocationOn 
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { format, isPast, isFuture, differenceInDays } from 'date-fns';
+import { format, differenceInDays, isPast, isFuture } from 'date-fns';
 import { it } from 'date-fns/locale';
 
 interface Race {
   id: string;
   name: string;
+  circuit: string;
   country: string;
+  gpDate: string;
+  sprintDate?: string;
   startDate: string;
   endDate: string;
-  gpDate: string;
   round: number;
 }
 
-const countryFlags: Record<string, string> = {
-    'Thailand': '🇹🇭', 'Argentina': '🇦🇷', 'USA': '🇺🇸', 'Qatar': '🇶🇦', 'Spain': '🇪🇸', 
-    'France': '🇫🇷', 'United Kingdom': '🇬🇧', 'Aragon': '🇪🇸', 'Italy': '🇮🇹', 
-    'Netherlands': '🇳🇱', 'Germany': '🇩🇪', 'Czechia': '🇨🇿', 'Austria': '🇦🇹', 
-    'Hungary': '🇭🇺', 'Catalonia': '🇪🇸', 'San Marino': '🇸🇲', 'Japan': '🇯🇵', 
-    'Indonesia': '🇮🇩', 'Australia': '🇦🇺', 'Malaysia': '🇲🇾'
-};
-
 export function RaceEventCard({ race }: { race: Race }) {
   const navigate = useNavigate();
+  
   const raceDate = new Date(race.gpDate);
   const now = new Date();
-  const daysDiff = differenceInDays(raceDate, now);
+  const daysUntil = differenceInDays(raceDate, now);
+  const isUpcoming = isFuture(raceDate);
+  const isPastRace = isPast(raceDate);
+  const isLive = daysUntil === 0;
 
-  let status: 'finished' | 'upcoming' | 'next' = 'upcoming';
-  if (isPast(raceDate)) {
-    status = 'finished';
-  } else if (isFuture(raceDate) && daysDiff >= 0 && daysDiff <= 14) {
-    const upcomingRaces = document.querySelectorAll('[data-status="upcoming"]');
-    if (upcomingRaces.length === 0) status = 'next';
-  }
-
-  const getStatusChip = () => {
-    if (status === 'finished') {
-      return <Chip label="Finished" color="default" size="small" />;
-    }
-    if (status === 'next') {
-      return <Chip label="Up Next" color="error" size="small" />;
-    }
-    return null;
+  const getStatusColor = () => {
+    if (isLive) return 'error';
+    if (isUpcoming && daysUntil <= 7) return 'warning';
+    if (isPastRace) return 'default';
+    return 'primary';
   };
 
-  const formatDateRange = (start: string, end: string) => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    const startDay = format(startDate, 'dd');
-    const endDay = format(endDate, 'dd');
-    const month = format(startDate, 'MMM', { locale: it });
-    return `${startDay} ${month.toUpperCase()} - ${endDay} ${month.toUpperCase()}`;
+  const getStatusLabel = () => {
+    if (isLive) return 'IN CORSO';
+    if (isPastRace) return 'CONCLUSA';
+    if (daysUntil <= 7) return `${daysUntil} GIORNI`;
+    return format(raceDate, 'dd MMM', { locale: it });
   };
 
   return (
     <Card 
       sx={{ 
-        width: '100%',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        borderTop: `4px solid ${status === 'next' ? 'error.main' : 'transparent'}` 
+        position: 'relative',
+        overflow: 'visible',
+        '&:hover': {
+          boxShadow: 6,
+          transform: 'translateY(-4px)',
+          transition: 'all 0.3s ease'
+        }
       }}
-      data-status={status}
     >
-      <CardActionArea 
-        onClick={() => navigate(`/races/${race.id}`)}
-        sx={{ flexGrow: 1 }}
-      >
-        <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="body2" color="text.secondary">
-              {formatDateRange(race.startDate, race.endDate)}
-            </Typography>
-            {getStatusChip()}
-          </Box>
-          <Divider sx={{ my: 1 }} />
-          <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-            {race.round} {countryFlags[race.country] || '🏁'} {race.country.toUpperCase()}
-          </Typography>
+      {isLive && (
+        <Box 
+          sx={{ 
+            position: 'absolute',
+            top: -10,
+            right: 10,
+            zIndex: 1
+          }}
+        >
+          <Chip 
+            label="LIVE" 
+            color="error" 
+            size="small"
+            sx={{ 
+              animation: 'pulse 2s infinite',
+              '@keyframes pulse': {
+                '0%': { opacity: 1 },
+                '50%': { opacity: 0.5 },
+                '100%': { opacity: 1 }
+              }
+            }}
+          />
+        </Box>
+      )}
+
+      <CardContent sx={{ flexGrow: 1 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="start" mb={2}>
+          <Chip 
+            label={`Round ${race.round}`}
+            size="small"
+            variant="outlined"
+          />
+          <Chip 
+            label={getStatusLabel()}
+            color={getStatusColor()}
+            size="small"
+          />
+        </Box>
+
+        <Typography variant="h6" gutterBottom>
+          {race.name}
+        </Typography>
+        
+        <Box display="flex" alignItems="center" gap={1} mb={1}>
+          <LocationOn fontSize="small" color="action" />
           <Typography variant="body2" color="text.secondary">
-            {race.name}
+            {race.circuit}
           </Typography>
-        </CardContent>
-      </CardActionArea>
+        </Box>
+
+        <Box display="flex" alignItems="center" gap={1} mb={2}>
+          <Flag fontSize="small" color="action" />
+          <Typography variant="body2" color="text.secondary">
+            {race.country}
+          </Typography>
+        </Box>
+
+        {race.sprintDate && (
+          <Box display="flex" alignItems="center" gap={1} mb={1}>
+            <Timer fontSize="small" color="action" />
+            <Typography variant="body2" color="text.secondary">
+              Sprint: {format(new Date(race.sprintDate), 'dd/MM', { locale: it })}
+            </Typography>
+          </Box>
+        )}
+
+        <Box display="flex" alignItems="center" gap={1}>
+          <CalendarToday fontSize="small" color="action" />
+          <Typography variant="body2" color="text.secondary">
+            Gara: {format(raceDate, 'dd/MM', { locale: it })}
+          </Typography>
+        </Box>
+
+        {isUpcoming && daysUntil > 0 && (
+          <Box mt={2}>
+            <Box display="flex" justifyContent="space-between" mb={1}>
+              <Typography variant="caption">Countdown</Typography>
+              <Typography variant="caption" fontWeight="bold">
+                {daysUntil} giorni
+              </Typography>
+            </Box>
+            <LinearProgress 
+              variant="determinate" 
+              value={Math.max(0, Math.min(100, ((30 - daysUntil) / 30) * 100))}
+              sx={{ height: 6, borderRadius: 3 }}
+            />
+          </Box>
+        )}
+      </CardContent>
+
+      <CardActions>
+        <Button 
+          size="small" 
+          fullWidth
+          onClick={() => navigate(`/races/${race.id}`)}
+        >
+          Dettagli Gara
+        </Button>
+      </CardActions>
     </Card>
   );
 }

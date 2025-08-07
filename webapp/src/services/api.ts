@@ -115,8 +115,8 @@ export const joinLeague = async (code: string) => {
   return response.data;
 };
 
-export const updateLeagueSettings = async (leagueId: string, data: any) => {
-  const response = await api.put(`/leagues/${leagueId}/settings`, data);
+export const updateLeagueSettings = async (leagueId: string, settings: any) => {
+  const response = await api.put(`/leagues/${leagueId}/settings`, settings);
   return response.data;
 };
 
@@ -148,8 +148,8 @@ export const getQualifyingResults = async (raceId: string) => {
 
 // Stats
 export const getMyStats = async () => {
-  const response = await api.get('/auth/profile'); // Assuming stats are part of the profile for now
-  return { stats: response.data.user }; // Adapt if you have a dedicated stats endpoint
+  const response = await api.get('/stats/my-stats');
+  return response.data;
 };
 
 // Riders
@@ -183,11 +183,7 @@ export const getLineup = async (teamId: string, raceId: string) => {
   return response.data;
 };
 
-export const setLineup = async (raceId: string, lineupData: {
-  teamId: string;
-  activeRiderIds: string[];
-  captainId?: string;
-}) => {
+export const setLineup = async (raceId: string, lineupData: any) => {
   const response = await api.post(`/lineups/${raceId}`, lineupData);
   return response.data;
 };
