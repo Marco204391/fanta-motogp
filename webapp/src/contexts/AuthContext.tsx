@@ -8,6 +8,8 @@ interface User {
   email: string;
   username: string;
   credits: number;
+  isAdmin?: boolean;
+  createdAt: string;
 }
 
 interface AuthContextType {
@@ -18,6 +20,7 @@ interface AuthContextType {
   login: (emailOrUsername: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -88,7 +91,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     queryClient.clear();
   };
 
-  const value = { user, token, isAuthenticated: !!token, isLoading, login, register, logout };
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  };
+
+  const value = { user, token, isAuthenticated: !!token, isLoading, login, register, logout, updateUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

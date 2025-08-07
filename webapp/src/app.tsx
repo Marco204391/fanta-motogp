@@ -15,12 +15,11 @@ import RaceCalendarPage from './pages/RaceCalendarPage';
 import RaceDetailPage from './pages/RaceDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import EditTeamPage from './pages/EditTeamPage';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import { AppBar, Toolbar, Typography, Button, Container, Box, CircularProgress, Menu, MenuItem, IconButton, Avatar } from '@mui/material';
-import { AccountCircle } from '@mui/icons-material';
 import React from 'react';
 import CreateLeaguePage from './pages/CreateLeaguePage';
 
-// Logo SVG per la AppBar
 const Logo = () => (
     <svg width="40" height="40" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M100 0L122.451 69.0983H195.106L136.327 111.803L158.779 180.902L100 138.197L41.2215 180.902L63.6729 111.803L4.89435 69.0983H77.5492L100 0Z" fill="#E60023"/>
@@ -42,6 +41,10 @@ function MainLayout() {
     { label: 'Piloti', path: '/riders' },
     { label: 'Calendario', path: '/calendar' },
   ];
+
+  if (user?.isAdmin) {
+    navLinks.push({ label: 'Admin', path: '/admin' });
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -83,7 +86,7 @@ function MainLayout() {
                       height: '2px',
                       bottom: 0,
                       left: 0,
-                      backgroundColor: 'primary.main',
+                      backgroundColor: 'secondary.main',
                       transformOrigin: 'bottom center',
                       transition: 'transform 0.25s ease-out',
                     }
@@ -96,8 +99,8 @@ function MainLayout() {
 
             <Box sx={{ flexGrow: 0 }}>
                 <IconButton onClick={handleMenu} sx={{ p: 0 }}>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
-                        {user?.username.charAt(0).toUpperCase()}
+                    <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                        {user?.username ? user.username.charAt(0).toUpperCase() : '?'}
                     </Avatar>
                 </IconButton>
               <Menu
@@ -135,9 +138,8 @@ function AuthLayout() {
   );
 }
 
-
 function App() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -149,14 +151,14 @@ function App() {
 
   return (
     <Routes>
-      {isAuthenticated ? (
+      {isAuthenticated && user ? (
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/teams/:teamId/edit" element={<EditTeamPage />} />
           <Route path="/teams/:teamId/lineup/:raceId" element={<LineupPage />} />
           <Route path="/leagues" element={<LeaguesPage />} />
-          <Route path="/leagues/create" element={<CreateLeaguePage />} /> {/* Nuova rotta */}
+          <Route path="/leagues/create" element={<CreateLeaguePage />} />
           <Route path="/leagues/:leagueId" element={<LeagueDetailPage />} />
           <Route path="/leagues/:leagueId/create-team" element={<CreateTeamPage />} />
           <Route path="/riders" element={<RidersPage />} />
@@ -164,6 +166,7 @@ function App() {
           <Route path="/calendar" element={<RaceCalendarPage />} />
           <Route path="/races/:raceId" element={<RaceDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          {user.isAdmin && <Route path="/admin" element={<AdminDashboard />} />}
           <Route path="*" element={<Navigate to="/" />} />
         </Route>
       ) : (

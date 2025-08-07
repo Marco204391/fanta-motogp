@@ -1,217 +1,203 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Button,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Stack,
-  Chip,
-  IconButton,
-  Alert,
-  CircularProgress,
+  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, TextField,
+  Select, MenuItem, FormControl, InputLabel, Stack, Chip, IconButton, Alert, CircularProgress
 } from '@mui/material';
-import {
-  Edit,
-  Save,
-  Cancel,
-  Upload,
-  Download,
-  CheckCircle,
-  Pending,
-} from '@mui/icons-material';
+import { Edit, Save, Cancel, CheckCircle, Pending } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-
-interface RaceResult {
-  riderId: string;
-  riderName: string;
-  position: number;
-  points: number;
-  qualifyingPosition?: number;
-}
+import { getPastRacesWithStatus, getResultsTemplate, postRaceResults } from '../../services/api';
+import { useNotification } from '../../contexts/NotificationContext';
 
 interface Race {
   id: string;
   name: string;
-  date: string;
+  gpDate: string;
   hasResults: boolean;
-  status: 'upcoming' | 'completed' | 'in_progress';
+}
+
+interface RiderResult {
+  riderId: string;
+  riderName: string;
+  riderNumber: number;
+  position: number | null;
+  status: 'FINISHED' | 'DNF' | 'DNS' | 'DSQ';
 }
 
 export default function RaceResultsManager() {
   const queryClient = useQueryClient();
+  const { notify } = useNotification();
   const [selectedRace, setSelectedRace] = useState<Race | null>(null);
-  const [editMode, setEditMode] = useState(false);
-  const [results, setResults] = useState<RaceResult[]>([]);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<'MOTOGP' | 'MOTO2' | 'MOTO3'>('MOTOGP');
+  const [sessionType, setSessionType] = useState<'RACE' | 'SPRINT'>('RACE');
+  const [results, setResults] = useState<RiderResult[]>([]);
 
-  const { data: races, isLoading } = useQuery({
-    queryKey: ['admin-races'],
-    queryFn: async () => {
-      // Chiamata API per ottenere le gare
-      const response = await fetch('/api/races');
-      return response.json();
-    },
+  const { data: racesData, isLoading: isLoadingRaces } = useQuery<{ races: Race[] }>({
+    queryKey: ['adminRaces'],
+    queryFn: getPastRacesWithStatus,
   });
+
+  const { data: templateData, isLoading: isLoadingTemplate } = useQuery({
+    queryKey: ['resultsTemplate', selectedRace?.id, selectedCategory],
+    queryFn: () => getResultsTemplate(selectedRace!.id, selectedCategory),
+    enabled: !!selectedRace,
+  });
+
+  useEffect(() => {
+    if (templateData?.template) {
+      setResults(templateData.template.map((r: any) => ({ ...r, position: r.position || '' })));
+    }
+  }, [templateData]);
 
   const saveResultsMutation = useMutation({
-    mutationFn: async (data: { raceId: string; results: RaceResult[] }) => {
-      const response = await fetch('/api/admin/race-results', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      return response.json();
-    },
+    mutationFn: (data: { raceId: string; results: RiderResult[], session: 'RACE' | 'SPRINT' }) => postRaceResults(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-races'] });
-      setEditMode(false);
-      // Notifica successo
+      notify('Risultati salvati e punteggi ricalcolati!', 'success');
+      queryClient.invalidateQueries({ queryKey: ['adminRaces'] });
+      setSelectedRace(null);
+      setResults([]);
     },
+    onError: (err: any) => notify(err.response?.data?.error || 'Errore salvataggio risultati', 'error'),
   });
 
-  const handleEditResults = (race: Race) => {
-    setSelectedRace(race);
-    setEditMode(true);
-    // Carica risultati esistenti se presenti
+  const handleResultChange = (riderId: string, field: 'position' | 'status', value: any) => {
+    setResults(prev =>
+      prev.map(r =>
+        r.riderId === riderId
+          ? {
+              ...r,
+              [field]: value,
+              ...(field === 'status' && value !== 'FINISHED' && { position: null }),
+              ...(field === 'position' && { status: 'FINISHED' }),
+            }
+          : r
+      )
+    );
   };
 
-  const handleSaveResults = () => {
-    if (selectedRace) {
-      saveResultsMutation.mutate({
-        raceId: selectedRace.id,
-        results,
-      });
-    }
+  const handleSave = () => {
+    if (!selectedRace) return;
+    const finalResults = results
+      .filter(r => r.position || r.status !== 'FINISHED')
+      .map(r => ({ ...r, position: Number(r.position) || null }));
+      
+    saveResultsMutation.mutate({ raceId: selectedRace.id, results: finalResults, session: sessionType });
   };
 
-  const handleImportCSV = async (file: File) => {
-    // Logica per importare CSV
-    const text = await file.text();
-    // Parse CSV e popola results
-    setImportDialogOpen(false);
-  };
+  if (isLoadingRaces) return <CircularProgress />;
 
-  const exportTemplate = () => {
-    // Genera e scarica template CSV
-    const csvContent = "data:text/csv;charset=utf-8,Position,RiderName,RiderId,Points,QualifyingPosition\n";
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "race_results_template.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  if (selectedRace) {
+    return (
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="h6">Inserisci Risultati per: {selectedRace.name}</Typography>
+        <Stack direction="row" spacing={2} my={2}>
+          <FormControl>
+            <InputLabel>Categoria</InputLabel>
+            <Select value={selectedCategory} label="Categoria" onChange={e => setSelectedCategory(e.target.value as any)}>
+              <MenuItem value="MOTOGP">MotoGP</MenuItem>
+              <MenuItem value="MOTO2">Moto2</MenuItem>
+              <MenuItem value="MOTO3">Moto3</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl>
+            <InputLabel>Sessione</InputLabel>
+            <Select value={sessionType} label="Sessione" onChange={e => setSessionType(e.target.value as any)}>
+              <MenuItem value="RACE">Gara</MenuItem>
+              <MenuItem value="SPRINT">Sprint</MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
+        
+        {isLoadingTemplate ? <CircularProgress /> : (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Pilota</TableCell>
+                  <TableCell>Posizione</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {results.map(r => (
+                  <TableRow key={r.riderId}>
+                    <TableCell>{r.riderName} (#{r.riderNumber})</TableCell>
+                    <TableCell>
+                      <TextField
+                        type="number"
+                        size="small"
+                        variant="standard"
+                        value={r.position || ''}
+                        onChange={e => handleResultChange(r.riderId, 'position', e.target.value)}
+                        disabled={r.status !== 'FINISHED'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        size="small"
+                        variant="standard"
+                        value={r.status}
+                        onChange={e => handleResultChange(r.riderId, 'status', e.target.value)}
+                      >
+                        <MenuItem value="FINISHED">Arrivato</MenuItem>
+                        <MenuItem value="DNF">DNF</MenuItem>
+                        <MenuItem value="DNS">DNS</MenuItem>
+                        <MenuItem value="DSQ">DSQ</MenuItem>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
 
-  return (
-    <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5">Gestione Risultati Gare</Typography>
-        <Stack direction="row" spacing={2}>
-          <Button
-            variant="outlined"
-            startIcon={<Download />}
-            onClick={exportTemplate}
-          >
-            Scarica Template
+        <Stack direction="row" spacing={2} mt={3}>
+          <Button variant="contained" startIcon={<Save />} onClick={handleSave} disabled={saveResultsMutation.isPending}>
+            Salva Risultati
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<Upload />}
-            onClick={() => setImportDialogOpen(true)}
-          >
-            Importa CSV
+          <Button variant="outlined" startIcon={<Cancel />} onClick={() => setSelectedRace(null)}>
+            Annulla
           </Button>
         </Stack>
-      </Stack>
+      </Paper>
+    );
+  }
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Gara</TableCell>
-              <TableCell>Data</TableCell>
-              <TableCell>Stato</TableCell>
-              <TableCell>Risultati</TableCell>
-              <TableCell align="right">Azioni</TableCell>
+  return (
+    <TableContainer component={Paper}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Gara</TableCell>
+            <TableCell>Data</TableCell>
+            <TableCell>Risultati</TableCell>
+            <TableCell align="right">Azioni</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {racesData?.races.map((race: Race) => (
+            <TableRow key={race.id} hover>
+              <TableCell>{race.name}</TableCell>
+              <TableCell>{format(new Date(race.gpDate), 'dd MMM yyyy', { locale: it })}</TableCell>
+              <TableCell>
+                <Chip
+                  label={race.hasResults ? 'Inseriti' : 'Mancanti'}
+                  color={race.hasResults ? 'success' : 'warning'}
+                  size="small"
+                  icon={race.hasResults ? <CheckCircle /> : <Pending />}
+                />
+              </TableCell>
+              <TableCell align="right">
+                <Button startIcon={<Edit />} onClick={() => setSelectedRace(race)}>
+                  Gestisci
+                </Button>
+              </TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {races?.map((race: Race) => (
-              <TableRow key={race.id}>
-                <TableCell>
-                  <Typography fontWeight="bold">{race.name}</Typography>
-                </TableCell>
-                <TableCell>
-                  {format(new Date(race.date), 'dd MMM yyyy', { locale: it })}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={race.status}
-                    color={race.status === 'completed' ? 'success' : 'default'}
-                    size="small"
-                    icon={race.status === 'completed' ? <CheckCircle /> : <Pending />}
-                  />
-                </TableCell>
-                <TableCell>
-                  {race.hasResults ? (
-                    <Chip label="Inseriti" color="success" size="small" />
-                  ) : (
-                    <Chip label="Mancanti" color="warning" size="small" />
-                  )}
-                </TableCell>
-                <TableCell align="right">
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleEditResults(race)}
-                  >
-                    <Edit />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Dialog per importazione CSV */}
-      <Dialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)}>
-        <DialogTitle>Importa Risultati da CSV</DialogTitle>
-        <DialogContent>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Il file CSV deve contenere le colonne: Position, RiderName, RiderId, Points, QualifyingPosition
-          </Alert>
-          <Button variant="contained" component="label" fullWidth>
-            Seleziona File CSV
-            <input
-              type="file"
-              accept=".csv"
-              hidden
-              onChange={(e) => e.target.files && handleImportCSV(e.target.files[0])}
-            />
-          </Button>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setImportDialogOpen(false)}>Annulla</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

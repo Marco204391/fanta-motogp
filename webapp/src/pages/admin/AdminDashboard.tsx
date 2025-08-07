@@ -1,31 +1,14 @@
-// webapp/src/pages/admin/AdminDashboard.tsx
-
 import React, { useState } from 'react';
 import {
-  Box,
-  Typography,
-  Tabs,
-  Tab,
-  Paper,
-  Grid,
-  Card,
-  CardContent,
-  Button,
-  Stack,
-  Chip,
-  Alert,
+  Box, Typography, Tabs, Tab, Paper, Grid, Card, CardContent, Alert
 } from '@mui/material';
 import {
-  AdminPanelSettings,
-  SportsScore,
-  Sync,
-  Group,
-  EmojiEvents,
-  Settings,
+  AdminPanelSettings, SportsScore, Sync, Group, EmojiEvents, Settings
 } from '@mui/icons-material';
 import RaceResultsManager from './RaceResultsManager';
 import RiderSyncManager from './RiderSyncManager';
 import LeagueAdminPanel from './LeagueAdminPanel';
+import SystemSettings from './SystemSettings';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface TabPanelProps {
@@ -47,20 +30,20 @@ export default function AdminDashboard() {
   const { user } = useAuth();
   const [tabValue, setTabValue] = useState(0);
 
-  // Verifica permessi admin
   if (!user?.isAdmin) {
     return (
-      <Alert severity="error">
-        Non hai i permessi per accedere a questa sezione.
+      <Alert severity="error" sx={{ mt: 4 }}>
+        <Typography>Accesso Negato</Typography>
+        Non hai i permessi necessari per visualizzare questa pagina.
       </Alert>
     );
   }
 
   const stats = [
-    { label: 'Utenti Totali', value: 1234, icon: Group, color: 'primary' },
-    { label: 'Leghe Attive', value: 56, icon: EmojiEvents, color: 'success' },
-    { label: 'Gare Completate', value: 18, icon: SportsScore, color: 'info' },
-    { label: 'Sincronizzazioni', value: 342, icon: Sync, color: 'warning' },
+    { label: 'Utenti Totali', value: 'N/A', icon: Group, color: 'primary' },
+    { label: 'Leghe Attive', value: 'N/A', icon: EmojiEvents, color: 'success' },
+    { label: 'Gare Gestite', value: 'N/A', icon: SportsScore, color: 'info' },
+    { label: 'Sincronizzazioni Oggi', value: 'N/A', icon: Sync, color: 'warning' },
   ];
 
   return (
@@ -72,7 +55,7 @@ export default function AdminDashboard() {
             Pannello Amministrazione
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Gestisci risultati, sincronizzazioni e impostazioni del sistema
+            Gestisci dati, utenti e impostazioni del sistema Fanta MotoGP
           </Typography>
         </Box>
       </Stack>
@@ -103,14 +86,14 @@ export default function AdminDashboard() {
       </Grid>
 
       <Paper sx={{ width: '100%' }}>
-        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
+        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} variant="scrollable" scrollButtons="auto">
           <Tab label="Risultati Gare" icon={<SportsScore />} iconPosition="start" />
-          <Tab label="Sincronizzazione Piloti" icon={<Sync />} iconPosition="start" />
+          <Tab label="Sincronizzazione Dati" icon={<Sync />} iconPosition="start" />
           <Tab label="Gestione Leghe" icon={<EmojiEvents />} iconPosition="start" />
           <Tab label="Impostazioni" icon={<Settings />} iconPosition="start" />
         </Tabs>
 
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
           <TabPanel value={tabValue} index={0}>
             <RaceResultsManager />
           </TabPanel>

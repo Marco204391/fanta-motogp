@@ -40,6 +40,15 @@ api.interceptors.response.use(
 export const login = (data: any) => api.post('/auth/login', data);
 export const register = (data: any) => api.post('/auth/register', data);
 export const getProfile = () => api.get('/auth/profile');
+export const updateProfile = async (data: { username?: string; email?: string }) => {
+  const response = await api.put('/auth/profile', data);
+  return response.data;
+};
+export const changePassword = async (data: { currentPassword: string; newPassword: string }) => {
+  const response = await api.post('/auth/change-password', data);
+  return response.data;
+};
+
 
 // Teams
 export const getMyTeams = async () => {
@@ -70,7 +79,7 @@ export const updateTeam = async (teamId: string, data: {
 };
 
 export const getMyTeamInLeague = async (leagueId: string) => {
-  const response = await api.get(`/teams/my-team-in-league/${leagueId}`);
+  const response = await api.get(`/teams/my-team/${leagueId}`);
   return response.data;
 };
 
@@ -137,9 +146,10 @@ export const getQualifyingResults = async (raceId: string) => {
   return response.data;
 };
 
+// Stats
 export const getMyStats = async () => {
-  const response = await api.get('/stats/my-stats');
-  return response.data;
+  const response = await api.get('/auth/profile'); // Assuming stats are part of the profile for now
+  return { stats: response.data.user }; // Adapt if you have a dedicated stats endpoint
 };
 
 // Riders
@@ -183,34 +193,46 @@ export const setLineup = async (raceId: string, lineupData: {
 };
 
 export const getLeagueRaceLineups = async (leagueId: string, raceId: string) => {
-  const response = await api.get(`/lineups/league/${leagueId}/race/${raceId}`);
+  const response = await api.get(`/leagues/${leagueId}/race/${raceId}/lineups`);
   return response.data;
 };
 
-// Results
-export const getRaceResults = async (raceId: string) => {
-  const response = await api.get(`/results/race/${raceId}`);
+// Admin / Sync
+export const getSyncStatus = async () => {
+  const response = await api.get('/sync/status');
   return response.data;
 };
 
-export const getTeamRaceResults = async (teamId: string, raceId: string) => {
-  const response = await api.get(`/results/team/${teamId}/race/${raceId}`);
+export const syncRiders = async () => {
+  const response = await api.post('/sync/riders');
   return response.data;
 };
 
-// Statistics
-export const getLeagueStats = async (leagueId: string) => {
-  const response = await api.get(`/stats/league/${leagueId}`);
+export const syncCalendar = async (year: number) => {
+  const response = await api.post('/sync/calendar', { year });
   return response.data;
 };
 
-export const getTeamStats = async (teamId: string) => {
-  const response = await api.get(`/stats/team/${teamId}`);
+export const syncRaceResults = async (raceId: string) => {
+  const response = await api.post(`/sync/race-results/${raceId}`);
+  return response.data;
+};
+
+export const getPastRacesWithStatus = async () => {
+  return getPastRaces(); 
+};
+
+export const getResultsTemplate = async (raceId: string, category: string) => {
+  const response = await api.get(`/sync/results/template/${raceId}/${category}`);
+  return response.data;
+};
+
+export const postRaceResults = async (data: { raceId: string; results: any[]; session: 'RACE' | 'SPRINT' }) => {
+  const response = await api.post('/sync/results', data);
   return response.data;
 };
 
 export const alpha = (color: string, opacity: number): string => {
-  // Utility per trasparenza colori
   return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
 };
 
