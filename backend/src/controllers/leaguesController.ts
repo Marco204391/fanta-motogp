@@ -61,17 +61,15 @@ export const getMyLeagues = async (req: AuthRequest, res: Response) => {
 };
 
 
-// GET /api/leagues/public - Leghe pubbliche
-export const getPublicLeagues = async (req: Request, res: Response) => {
+//GET /api/leagues/public - Leghe pubbliche
+export const getPublicLeagues = async (req: AuthRequest, res: Response) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
+    const userId = req.userId; // Recupera l'ID utente se loggato
 
     const where: any = {
       isPrivate: false,
-      startDate: {
-        gte: new Date() // Non ancora iniziate
-      }
     };
 
     if (search) {
@@ -79,6 +77,16 @@ export const getPublicLeagues = async (req: Request, res: Response) => {
         contains: String(search),
         mode: 'insensitive'
       };
+    }
+    
+
+    let userTeamLeagueIds = new Set<string>();
+    if (userId) {
+      const userTeams = await prisma.team.findMany({
+        where: { userId },
+        select: { leagueId: true }
+      });
+      userTeamLeagueIds = new Set(userTeams.map(t => t.leagueId));
     }
 
     const [leagues, total] = await Promise.all([
@@ -101,7 +109,8 @@ export const getPublicLeagues = async (req: Request, res: Response) => {
     const formattedLeagues = leagues.map(league => ({
       ...league,
       currentTeams: league._count.teams,
-      isFull: league._count.teams >= league.maxTeams
+      isFull: league._count.teams >= league.maxTeams,
+      hasTeam: userTeamLeagueIds.has(league.id) // Aggiunge il nuovo campo
     }));
 
     res.json({

@@ -5,6 +5,85 @@ import { validationResult } from 'express-validator';
 
 const prisma = new PrismaClient();
 
+// GET /api/riders/web - NUOVA FUNZIONE PER LA WEB APP
+export const getRidersForWeb = async (req: Request, res: Response) => {
+  try {
+    const {
+      category,
+      search,
+      sortBy = 'value',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const whereClauses: Prisma.Sql[] = [Prisma.sql`"isActive" = true`];
+    if (category) {
+      whereClauses.push(Prisma.sql`"category" = ${category}`);
+    }
+    if (search) {
+      const searchString = `%${String(search)}%`;
+      whereClauses.push(Prisma.sql`("name" ILIKE ${searchString} OR "team" ILIKE ${searchString})`);
+    }
+
+    const where = Prisma.sql`WHERE ${Prisma.join(whereClauses, ' AND ')}`;
+
+    const riderTypeOrder = Prisma.sql`
+      CASE "riderType"
+        WHEN 'OFFICIAL' THEN 1
+        WHEN 'REPLACEMENT' THEN 2
+        WHEN 'WILDCARD' THEN 3
+        WHEN 'TEST_RIDER' THEN 4
+        ELSE 5
+      END
+    `;
+
+    const orderBy = Prisma.sql`ORDER BY ${riderTypeOrder} ASC, "value" DESC, "number" ASC`;
+
+    const ridersRaw: any[] = await prisma.$queryRaw`
+      SELECT * FROM "Rider"
+      ${where}
+      ${orderBy}
+      LIMIT ${Number(limit)}
+      OFFSET ${skip}
+    `;
+    
+    const riders = ridersRaw.map(rider => ({
+      ...rider,
+      number: Number(rider.number),
+      value: Number(rider.value),
+    }));
+
+    const total = await prisma.rider.count({
+        where: {
+            isActive: true,
+            ...(category && { category: category as any }),
+            ...(search && {
+                OR: [
+                    { name: { contains: String(search), mode: 'insensitive' } },
+                    { team: { contains: String(search), mode: 'insensitive' } },
+                ]
+            })
+        }
+    });
+
+    res.json({
+      riders, // Invia i dati corretti per il web
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Errore recupero piloti per web:', error);
+    res.status(500).json({ error: 'Errore nel recupero dei piloti' });
+  }
+};
+
 // GET /api/riders - Lista piloti con filtri e ordinamento personalizzato
 export const getRiders = async (req: Request, res: Response) => {
   try {

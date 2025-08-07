@@ -43,6 +43,10 @@ const updateValueValidation = [
 ];
 
 // Routes pubbliche
+// NUOVO ENDPOINT PER IL WEB
+router.get('/web', getRidersValidation, ridersController.getRidersForWeb);
+
+// ENDPOINT ESISTENTE PER IL MOBILE
 router.get('/', getRidersValidation, ridersController.getRiders);
 router.get('/values', ridersController.getRiderValues);
 router.get('/:id', riderIdValidation, ridersController.getRiderById);

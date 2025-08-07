@@ -164,7 +164,7 @@ export const getRiders = async (params?: {
   sortBy?: 'value' | 'points' | 'name';
   limit?: number;
 }) => {
-  const response = await api.get('/riders', { params });
+  const response = await api.get('/riders/web', { params });
   return response.data;
 };
 

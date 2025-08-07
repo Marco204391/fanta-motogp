@@ -308,12 +308,13 @@ export default function LeaguesPage() {
                   <Grid item xs={12} sm={6} md={4} key={league.id}>
                     <LeagueCard
                       league={league}
-                      onJoin={() => {
+                      onJoin={!league.hasTeam ? () => {
                         if (league.currentTeams < league.maxTeams) {
                           joinLeagueMutation.mutate(league.code);
                         }
-                      }}
+                      } : undefined}
                       onView={() => navigate(`/leagues/${league.id}`)}
+                      isMyLeague={false}
                     />
                   </Grid>
                 ))}
