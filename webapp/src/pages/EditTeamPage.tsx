@@ -1,3 +1,4 @@
+// webapp/src/pages/EditTeamPage.tsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -6,7 +7,7 @@ import {
   Box, Typography, CircularProgress, Alert, Card, CardContent,
   Button, Stack, Chip, LinearProgress, Avatar, List, ListItem,
   ListItemAvatar, ListItemText, ListItemSecondaryAction, IconButton,
-  Accordion, AccordionSummary, AccordionDetails, Divider, Paper, Checkbox
+  Accordion, AccordionSummary, AccordionDetails, Divider, Paper, Checkbox, Grid
 } from '@mui/material';
 import {
   ExpandMore, Save, Delete, Add, Euro, Warning, CheckCircle, Cancel
@@ -30,10 +31,11 @@ const categoryColors = {
   MOTO3: '#1976D2',
 };
 
+// REGOLE DI COMPOSIZIONE TEAM AGGIORNATE
 const categoryRequirements = {
-  MOTOGP: { min: 2, max: 2, label: 'MotoGP' },
-  MOTO2: { min: 1, max: 1, label: 'Moto2' },
-  MOTO3: { min: 1, max: 1, label: 'Moto3' },
+  MOTOGP: { min: 3, max: 3, label: 'MotoGP' },
+  MOTO2: { min: 3, max: 3, label: 'Moto2' },
+  MOTO3: { min: 3, max: 3, label: 'Moto3' },
 };
 
 export default function EditTeamPage() {
@@ -130,7 +132,7 @@ export default function EditTeamPage() {
 
   const isTeamValid = useMemo(() => {
     return (
-      selectedRiders.length === 4 &&
+      selectedRiders.length === 9 && // VALIDAZIONE AGGIORNATA
       totalCost <= (league?.budget || 0) &&
       Object.values(categoryStatus).every(s => s.isValid)
     );
@@ -165,8 +167,8 @@ export default function EditTeamPage() {
         return;
       }
 
-      if (selectedRiders.length >= 4) {
-        notify('Puoi selezionare massimo 4 piloti', 'warning');
+      if (selectedRiders.length >= 9) { // LIMITE AGGIORNATO
+        notify('Puoi selezionare massimo 9 piloti', 'warning');
         return;
       }
 
@@ -277,7 +279,7 @@ export default function EditTeamPage() {
                           }}
                         >
                           <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: isTaken ? 'grey.700' : categoryColors[rider.category] }}>
+                            <Avatar sx={{ bgcolor: isTaken ? 'grey.700' : categoryColors[rider.category as keyof typeof categoryColors] }}>
                               {rider.number}
                             </Avatar>
                           </ListItemAvatar>
@@ -380,7 +382,7 @@ export default function EditTeamPage() {
 
               {/* Piloti selezionati */}
               <Typography variant="subtitle2" gutterBottom>
-                Piloti Selezionati ({selectedRiders.length}/4)
+                Piloti Selezionati ({selectedRiders.length}/9)
               </Typography>
               <List dense>
                 {selectedRidersData.length === 0 ? (
@@ -403,7 +405,7 @@ export default function EditTeamPage() {
                       <ListItemAvatar>
                         <Avatar 
                           sx={{ 
-                            bgcolor: categoryColors[rider.category],
+                            bgcolor: categoryColors[rider.category as keyof typeof categoryColors],
                             width: 32,
                             height: 32,
                             fontSize: 14,

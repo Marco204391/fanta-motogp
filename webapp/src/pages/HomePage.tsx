@@ -10,7 +10,15 @@ import { useState } from 'react';
 
 function NextRaceCard({ race }: { race: any }) {
     const navigate = useNavigate();
-    if (!race) return <Card><CardContent><Typography>Nessuna gara in programma.</Typography></CardContent></Card>;
+    if (!race) {
+        return (
+            <Card>
+                <CardContent>
+                    <Typography>Nessuna gara in programma al momento.</Typography>
+                </CardContent>
+            </Card>
+        );
+    }
 
     const raceDate = new Date(race.gpDate);
 

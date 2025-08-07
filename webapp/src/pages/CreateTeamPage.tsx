@@ -51,15 +51,16 @@ interface Rider {
 }
 
 const categoryColors = {
-  MOTOGP: '#FF6B00',
-  MOTO2: '#1976D2',
-  MOTO3: '#388E3C',
+  MOTOGP: '#E60023',
+  MOTO2: '#FF6B00',
+  MOTO3: '#1976D2',
 };
 
+// REGOLE DI COMPOSIZIONE TEAM AGGIORNATE
 const categoryRequirements = {
-  MOTOGP: { min: 2, max: 2, label: 'MotoGP' },
-  MOTO2: { min: 1, max: 1, label: 'Moto2' },
-  MOTO3: { min: 1, max: 1, label: 'Moto3' },
+  MOTOGP: { min: 3, max: 3, label: 'MotoGP' },
+  MOTO2: { min: 3, max: 3, label: 'Moto2' },
+  MOTO3: { min: 3, max: 3, label: 'Moto3' },
 };
 
 export default function CreateTeamPage() {
@@ -145,10 +146,11 @@ export default function CreateTeamPage() {
   const isTeamValid = useMemo(() => {
     return (
       teamName.trim().length >= 3 &&
+      selectedRiders.length === 9 && // VALIDAZIONE AGGIORNATA
       totalCost <= (league?.budget || 0) &&
       Object.values(categoryStatus).every(s => s.isValid)
     );
-  }, [teamName, totalCost, league?.budget, categoryStatus]);
+  }, [teamName, selectedRiders, totalCost, league?.budget, categoryStatus]);
 
   const handleToggleRider = (rider: Rider) => {
     if (takenRiderIds.has(rider.id)) {
@@ -161,6 +163,11 @@ export default function CreateTeamPage() {
     } else {
       const categoryCount = selectedRidersData.filter(r => r.category === rider.category).length;
       const maxForCategory = categoryRequirements[rider.category as keyof typeof categoryRequirements].max;
+      
+      if(selectedRiders.length >= 9) {
+        notify('Puoi selezionare al massimo 9 piloti.', 'warning');
+        return;
+      }
       
       if (categoryCount >= maxForCategory) {
         notify(`Puoi selezionare al massimo ${maxForCategory} piloti per la categoria ${rider.category}.`, 'warning');
@@ -363,7 +370,7 @@ export default function CreateTeamPage() {
 
               {/* Piloti selezionati */}
               <Typography variant="subtitle2" gutterBottom>
-                Piloti Selezionati
+                Piloti Selezionati ({selectedRiders.length}/9)
               </Typography>
               <List dense>
                 {selectedRidersData.length === 0 ? (

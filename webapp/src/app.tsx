@@ -166,7 +166,7 @@ function App() {
           <Route path="/calendar" element={<RaceCalendarPage />} />
           <Route path="/races/:raceId" element={<RaceDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          {user.isAdmin && <Route path="/admin" element={<AdminDashboard />} />}
+          {user && user.isAdmin && <Route path="/admin" element={<AdminDashboard />} />}
           <Route path="*" element={<Navigate to="/" />} />
         </Route>
       ) : (
