@@ -1,5 +1,5 @@
 // webapp/src/pages/LeagueDetailPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -187,6 +187,26 @@ export default function LeagueDetailPage() {
     }
   }, [racesData, selectedRaceId]);
 
+  const league = leagueData?.league;
+  const standings = league?.standings || [];
+  const myTeam = myTeamData?.team;
+  const isAdmin = league?.isAdmin;
+  const userHasTeam = !!myTeam;
+  const nextRace = racesData?.races?.[0];
+
+  // ##### INIZIO CORREZIONE #####
+  const hasLineupForNextRace = useMemo(() => {
+    if (!lineupsData?.lineups || !myTeam) {
+      return false;
+    }
+    const currentUserLineup = lineupsData.lineups.find((l: any) => l.teamId === myTeam.id);
+    return !!currentUserLineup && currentUserLineup.lineup && currentUserLineup.lineup.length > 0;
+  }, [lineupsData, myTeam]);
+  // ##### FINE CORREZIONE #####
+
+  // Calcola posizione utente
+  const myPosition = standings.findIndex((s: any) => s.userId === user?.id) + 1;
+
   if (loadingLeague) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
@@ -195,19 +215,9 @@ export default function LeagueDetailPage() {
     );
   }
 
-  if (!leagueData?.league) {
+  if (!league) {
     return <Alert severity="error">Lega non trovata</Alert>;
   }
-
-  const league = leagueData.league;
-  const standings = leagueData.standings || [];
-  const myTeam = myTeamData?.team;
-  const isAdmin = league.isAdmin;
-  const userHasTeam = !!myTeam;
-  const nextRace = racesData?.races?.[0];
-
-  // Calcola posizione utente
-  const myPosition = standings.findIndex((s: any) => s.userId === user?.id) + 1;
 
   const handleCreateTeam = () => {
     navigate(`/leagues/${leagueId}/create-team`);
@@ -265,7 +275,7 @@ export default function LeagueDetailPage() {
               />
               <Chip
                 icon={<Groups sx={{ color: 'white !important' }} />}
-                label={`${league.currentTeams || 0}/${league.maxTeams} Team`}
+                label={`${league.teams?.length || 0}/${league.maxTeams} Team`}
                 sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
               <Chip
@@ -283,19 +293,17 @@ export default function LeagueDetailPage() {
             </Stack>
           </Grid>
           <Grid item xs={12} md={4} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-            {/* ##### INIZIO CORREZIONE ##### */}
             <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
               <Tooltip title="Aggiorna Dati">
                 <IconButton
                   color="inherit"
-                  onClick={forceRefresh}
+                  onClick={() => forceRefresh()}
                   sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
                 >
                   <Refresh />
                 </IconButton>
               </Tooltip>
             </Stack>
-            {/* ##### FINE CORREZIONE ##### */}
             {userHasTeam && myPosition > 0 && (
               <Box mt={2}>
                 <Typography variant="h6">
@@ -326,7 +334,8 @@ export default function LeagueDetailPage() {
       )}
 
       {/* Alert per lineup mancante */}
-      {userHasTeam && nextRace && !myTeam.hasLineup && (
+      {/* ##### INIZIO CORREZIONE ##### */}
+      {userHasTeam && nextRace && selectedRaceId === nextRace.id && !hasLineupForNextRace && !loadingLineups && (
         <Alert
           severity="info"
           action={
@@ -339,6 +348,7 @@ export default function LeagueDetailPage() {
           Non hai ancora impostato il lineup per la prossima gara ({nextRace.name})
         </Alert>
       )}
+      {/* ##### FINE CORREZIONE ##### */}
 
       {/* Tabs */}
       <Paper sx={{ mb: 3 }}>
