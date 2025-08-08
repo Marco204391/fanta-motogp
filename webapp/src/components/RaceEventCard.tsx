@@ -44,8 +44,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
   return (
     <Card 
       sx={{ 
-        height: 380, // Altezza FISSA - non 100%, ma un valore assoluto
-        width: '100%',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -91,10 +90,9 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         flex: '1 1 auto',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
         p: 2,
         pb: 1,
-        overflow: 'hidden' // Previene overflow del contenuto
+        minWidth: 0, 
       }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5} sx={{ height: 24 }}>
           <Chip 
@@ -114,12 +112,9 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         {/* Nome gara con ellipsis per nomi lunghi */}
         <Typography 
           variant="h6" 
+          noWrap
           gutterBottom
           sx={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap', // Forza una sola riga
-            width: '100%',
             fontSize: '1.1rem',
             fontWeight: 600,
             mb: 1.5
@@ -136,12 +131,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
             <Typography 
               variant="body2" 
               color="text.secondary"
-              sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                flex: 1
-              }}
+              noWrap
             >
               {race.circuit}
             </Typography>
@@ -153,12 +143,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
             <Typography 
               variant="body2" 
               color="text.secondary"
-              sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                flex: 1
-              }}
+              noWrap
             >
               {race.country}
             </Typography>
@@ -182,6 +167,8 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
             </Typography>
           </Box>
         </Box>
+        
+        <Box sx={{ flexGrow: 1 }} /> 
 
         {/* Countdown progress bar - solo per gare future */}
         {isUpcoming && daysUntil > 0 ? (

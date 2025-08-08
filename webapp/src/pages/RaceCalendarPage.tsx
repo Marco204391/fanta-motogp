@@ -45,12 +45,6 @@ export default function RaceCalendarPage() {
       <Grid 
         container 
         spacing={3}
-        sx={{
-          // Rimuove il flex dalle Grid items per evitare stretching
-          '& .MuiGrid-item': {
-            display: 'block'
-          }
-        }}
       >
         {races.map(race => (
           <Grid 

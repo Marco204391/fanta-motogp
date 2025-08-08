@@ -1,5 +1,5 @@
 // webapp/src/pages/LeagueDetailPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -105,19 +105,20 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function LeagueDetailPage() {
+  export default function LeagueDetailPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { notify } = useNotification();
-
+  
   const [selectedTab, setSelectedTab] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
   const [selectedLineup, setSelectedLineup] = useState<any>(null);
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
-
+  
   // State per impostazioni lega
   const [teamsLocked, setTeamsLocked] = useState(false);
   const [lineupVisibility, setLineupVisibility] = useState('AFTER_DEADLINE');
@@ -183,9 +184,31 @@ export default function LeagueDetailPage() {
       const nextRace = racesData.races.find((r: any) => !isPast(new Date(r.gpDate)));
       if (nextRace) {
         setSelectedRaceId(nextRace.id);
+      } else if (racesData.races.length > 0) {
+        // Se non ci sono gare future, seleziona l'ultima
+        setSelectedRaceId(racesData.races[racesData.races.length - 1].id);
       }
     }
   }, [racesData, selectedRaceId]);
+
+  // Calcola se il mio team ha un lineup per la gara selezionata
+  const myTeamHasLineupForSelectedRace = useMemo(() => {
+    if (!myTeamData?.team || !lineupsData?.lineups) return false;
+    const myLineup = lineupsData.lineups.find((l: any) => l.teamId === myTeamData.team.id);
+    return myLineup && myLineup.lineup && myLineup.lineup.length > 0;
+  }, [myTeamData, lineupsData]);
+
+  // Calcola se il mio team ha un lineup per la prossima gara
+  const nextRace = racesData?.races?.find((r: any) => !isPast(new Date(r.gpDate)));
+  const myTeamHasLineupForNextRace = useMemo(() => {
+    if (!myTeamData?.team || !nextRace || !lineupsData?.lineups) return false;
+    // Se la gara selezionata è la prossima gara, usa il valore calcolato sopra
+    if (selectedRaceId === nextRace.id) {
+      return myTeamHasLineupForSelectedRace;
+    }
+    // Altrimenti, assumiamo che non abbiamo ancora caricato i dati per quella gara
+    return false;
+  }, [myTeamData, nextRace, selectedRaceId, myTeamHasLineupForSelectedRace, lineupsData]);
 
   if (loadingLeague) {
     return (
@@ -202,9 +225,8 @@ export default function LeagueDetailPage() {
   const league = leagueData.league;
   const standings = leagueData.standings || [];
   const myTeam = myTeamData?.team;
-  const isAdmin = league.isAdmin;
+  const isOwner = league.ownerId === user?.id;
   const userHasTeam = !!myTeam;
-  const nextRace = racesData?.races?.[0];
 
   // Calcola posizione utente
   const myPosition = standings.findIndex((s: any) => s.userId === user?.id) + 1;
@@ -238,7 +260,6 @@ export default function LeagueDetailPage() {
 
   return (
     <Box>
-      {/* Header Lega */}
       <Paper
         sx={{
           p: 3,
@@ -283,7 +304,6 @@ export default function LeagueDetailPage() {
             </Stack>
           </Grid>
           <Grid item xs={12} md={4} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-            {/* ##### INIZIO CORREZIONE ##### */}
             <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
               <Tooltip title="Aggiorna Dati">
                 <IconButton
@@ -295,7 +315,6 @@ export default function LeagueDetailPage() {
                 </IconButton>
               </Tooltip>
             </Stack>
-            {/* ##### FINE CORREZIONE ##### */}
             {userHasTeam && myPosition > 0 && (
               <Box mt={2}>
                 <Typography variant="h6">
@@ -310,24 +329,28 @@ export default function LeagueDetailPage() {
         </Grid>
       </Paper>
 
-      {/* Alert per utente senza team */}
+      {/* Alert per team mancante */}
       {!userHasTeam && (
-        <Alert
+        <Alert 
           severity="warning"
           action={
-            <Button color="inherit" size="small" onClick={handleCreateTeam}>
-              Crea Team
-            </Button>
+            league.teamsLocked ? null : (
+              <Button color="inherit" size="small" onClick={handleCreateTeam}>
+                Crea Team
+              </Button>
+            )
           }
           sx={{ mb: 3 }}
         >
-          Non hai ancora un team in questa lega!
+          {league.teamsLocked 
+            ? 'Le iscrizioni a questa lega sono chiuse' 
+            : 'Non hai ancora un team in questa lega'}
         </Alert>
       )}
 
       {/* Alert per lineup mancante */}
-      {userHasTeam && nextRace && !myTeam.hasLineup && (
-        <Alert
+      {userHasTeam && nextRace && selectedRaceId === nextRace.id && !myTeamHasLineupForNextRace && (
+        <Alert 
           severity="info"
           action={
             <Button color="inherit" size="small" onClick={handleManageLineup}>
@@ -351,7 +374,7 @@ export default function LeagueDetailPage() {
           <Tab label="Classifica" icon={<EmojiEvents />} iconPosition="start" />
           <Tab label="Lineup Gara" icon={<SportsMotorsports />} iconPosition="start" />
           <Tab label="Statistiche" icon={<BarChart />} iconPosition="start" />
-          {isAdmin && <Tab label="Gestione" icon={<Settings />} iconPosition="start" />}
+          {isOwner && <Tab label="Gestione" icon={<Settings />} iconPosition="start" />}
         </Tabs>
       </Paper>
 
@@ -449,6 +472,9 @@ export default function LeagueDetailPage() {
               {racesData?.races?.map((race: any) => (
                 <MenuItem key={race.id} value={race.id}>
                   {race.name} - {format(new Date(race.gpDate), 'dd MMM yyyy', { locale: it })}
+                  {!isPast(new Date(race.gpDate)) && (
+                    <Chip label="Futura" size="small" sx={{ ml: 1 }} />
+                  )}
                 </MenuItem>
               ))}
             </Select>
@@ -456,70 +482,52 @@ export default function LeagueDetailPage() {
         </Box>
 
         {loadingLineups ? (
-          <Box display="flex" justifyContent="center" p={4}>
+          <Box display="flex" justifyContent="center" p={3}>
             <CircularProgress />
           </Box>
-        ) : (
-          <Grid container spacing={3}>
-            {lineupsData?.lineups?.map((teamLineup: any) => (
-              <Grid item xs={12} md={6} key={teamLineup.teamId}>
-                <Card>
+        ) : lineupsData?.lineups && lineupsData.lineups.length > 0 ? (
+          <Grid container spacing={2}>
+            {lineupsData.lineups.map((teamLineup: any) => (
+              <Grid item xs={12} md={6} lg={4} key={teamLineup.teamId}>
+                <Card sx={{ 
+                  height: '100%',
+                  border: teamLineup.teamId === myTeam?.id ? '2px solid' : 'none',
+                  borderColor: 'primary.main'
+                }}>
                   <CardContent>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                      <Box>
-                        <Typography variant="h6">{teamLineup.teamName}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          di {teamLineup.userName}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        label={`${teamLineup.totalPoints || 0} pt`}
-                        color="primary"
-                      />
-                    </Box>
-
-                    {teamLineup.lineup && teamLineup.lineup.length > 0 ? (
-                      <>
-                        <List dense>
-                          {teamLineup.lineup.slice(0, 6).map((lr: any, idx: number) => (
-                            <ListItem key={lr.id}>
-                              <ListItemAvatar>
-                                <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
-                                  {lr.rider.number}
-                                </Avatar>
-                              </ListItemAvatar>
-                              <ListItemText
-                                primary={lr.rider.name}
-                                secondary={
-                                  <Box component="span">
-                                    Prev: {lr.predictedPosition || '-'}° •
-                                    Reale: {lr.actualPosition || lr.actualStatus || '-'}
-                                  </Box>
-                                }
-                              />
-                              <Chip
-                                label={`${lr.points || 0} pt`}
-                                size="small"
-                                variant="outlined"
-                              />
-                            </ListItem>
-                          ))}
-                        </List>
-
-                        {teamLineup.riderScores && (
-                          <Button
-                            size="small"
-                            fullWidth
-                            variant="outlined"
-                            onClick={() => handleShowScoreBreakdown(teamLineup)}
-                            startIcon={<BarChart />}
-                          >
-                            Analisi Dettagliata Punti
-                          </Button>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                      <Typography variant="h6">
+                        {teamLineup.teamName}
+                        {teamLineup.teamId === myTeam?.id && (
+                          <Chip label="Il tuo team" size="small" color="primary" sx={{ ml: 1 }} />
                         )}
-                      </>
+                      </Typography>
+                      <IconButton 
+                        size="small"
+                        onClick={() => handleShowScoreBreakdown(teamLineup)}
+                      >
+                        <Info fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                    
+                    {teamLineup.lineup && teamLineup.lineup.length > 0 ? (
+                      <List dense>
+                        {teamLineup.lineup.map((rider: any, index: number) => (
+                          <ListItem key={rider.riderId}>
+                            <ListItemAvatar>
+                              <Avatar sx={{ width: 30, height: 30, fontSize: 14 }}>
+                                {rider.riderNumber}
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText 
+                              primary={rider.riderName}
+                              secondary={`${rider.category} - ${rider.points || 0} pt`}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
                     ) : (
-                      <Alert severity="info" variant="outlined">
+                      <Alert severity="warning" variant="outlined">
                         Lineup non ancora impostato
                       </Alert>
                     )}
@@ -528,11 +536,11 @@ export default function LeagueDetailPage() {
               </Grid>
             ))}
           </Grid>
-        )}
-
-        {(!lineupsData?.lineups || lineupsData.lineups.length === 0) && !loadingLineups && (
+        ) : (
           <Alert severity="info">
-            Nessun lineup disponibile per questa gara
+            {selectedRaceId 
+              ? 'Nessun lineup ancora impostato per questa gara'
+              : 'Seleziona una gara per visualizzare i lineup'}
           </Alert>
         )}
       </TabPanel>
@@ -654,7 +662,7 @@ export default function LeagueDetailPage() {
       </TabPanel>
 
       {/* Tab: Gestione (solo per admin) */}
-      {isAdmin && (
+      {isOwner && (
         <TabPanel value={selectedTab} index={3}>
           <Grid container spacing={3}>
             {/* Impostazioni Lega */}
@@ -880,12 +888,17 @@ export default function LeagueDetailPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Score Breakdown Dialog */}
-      <ScoreBreakdownDialog
-        open={showScoreBreakdown}
-        onClose={() => setShowScoreBreakdown(false)}
-        lineupData={selectedLineup}
-      />
+      {/* Dialogs */}
+      {showScoreBreakdown && selectedLineup && (
+        <ScoreBreakdownDialog
+          open={showScoreBreakdown}
+          onClose={() => {
+            setShowScoreBreakdown(false);
+            setSelectedLineup(null);
+          }}
+          lineup={selectedLineup}
+        />
+      )}
     </Box>
   );
 }

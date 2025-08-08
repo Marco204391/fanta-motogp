@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// webapp/src/pages/RaceDetailPage.tsx
+import React, { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getRaceById, getRaceResults, getQualifyingResults } from '../services/api';
@@ -65,16 +66,34 @@ export default function RaceDetailPage() {
     enabled: !!raceId,
   });
 
-  const { data: resultsData, isLoading: loadingResults } = useQuery({
-    queryKey: ['raceResults', raceId, selectedSession],
-    queryFn: () => {
-      if (selectedSession === 'qualifying') {
-        return getQualifyingResults(raceId!);
-      }
-      return getRaceResults(raceId!, selectedSession);
-    },
+  // Query per risultati gara e sprint
+  const { data: raceResultsData, isLoading: loadingRaceResults } = useQuery({
+    queryKey: ['raceResults', raceId],
+    queryFn: () => getRaceResults(raceId!),
     enabled: !!raceId && !!raceData,
   });
+
+  // Query per risultati qualifiche
+  const { data: qualifyingData, isLoading: loadingQualifying } = useQuery({
+    queryKey: ['qualifyingResults', raceId],
+    queryFn: () => getQualifyingResults(raceId!),
+    enabled: !!raceId && !!raceData && selectedSession === 'qualifying',
+  });
+
+  // Calcola i risultati da mostrare basandosi sulla sessione e categoria selezionate
+  const categoryResults = useMemo(() => {
+    if (selectedSession === 'qualifying') {
+      // Per le qualifiche, accedi direttamente alla categoria
+      return qualifyingData?.results?.[selectedCategory] || [];
+    } else {
+      // Per race e sprint, accedi prima alla sessione (in maiuscolo) poi alla categoria
+      const sessionKey = selectedSession.toUpperCase() as 'RACE' | 'SPRINT';
+      const sessionResults = raceResultsData?.results?.[sessionKey];
+      return sessionResults?.[selectedCategory] || [];
+    }
+  }, [selectedSession, selectedCategory, raceResultsData, qualifyingData]);
+
+  const loadingResults = selectedSession === 'qualifying' ? loadingQualifying : loadingRaceResults;
 
   if (loadingRace) {
     return (
@@ -89,9 +108,8 @@ export default function RaceDetailPage() {
   }
 
   const race = raceData.race;
-  const results = resultsData?.results || {};
-  const categoryResults = results[selectedCategory] || [];
-  const hasResults = Object.keys(results).length > 0;
+  const hasResults = raceResultsData?.results && Object.keys(raceResultsData.results).length > 0;
+  const hasSprint = raceResultsData?.results?.SPRINT && Object.keys(raceResultsData.results.SPRINT).length > 0;
 
   return (
     <Box className="fade-in">
@@ -159,7 +177,7 @@ export default function RaceDetailPage() {
                   <ToggleButton value="race">
                     <Timer sx={{ mr: 1 }} /> Gara
                   </ToggleButton>
-                  {race.sprintDate && (
+                  {hasSprint && (
                     <ToggleButton value="sprint">
                       <Speed sx={{ mr: 1 }} /> Sprint
                     </ToggleButton>
@@ -181,73 +199,72 @@ export default function RaceDetailPage() {
               </Stack>
 
               {/* Tabella Risultati */}
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Pos</TableCell>
-                      <TableCell>Pilota</TableCell>
-                      <TableCell>Team</TableCell>
-                      <TableCell>Tempo/Gap</TableCell>
-                      <TableCell align="center">Punti</TableCell>
-                      <TableCell align="center">Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {categoryResults.map((result: RaceResult, index: number) => (
-                      <TableRow 
-                        key={`${result.rider.id}-${index}`}
-                        sx={{ 
-                          backgroundColor: index < 3 ? `${categoryColors[selectedCategory]}22` : 'transparent',
-                        }}
-                      >
-                        <TableCell>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            {result.position <= 3 && (
-                              <EmojiEvents sx={{ 
-                                color: getPodiumColor(result.position),
-                                fontSize: 20,
-                              }} />
-                            )}
-                            <Typography fontWeight="bold">
-                              {result.position || '-'}
-                            </Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <Avatar 
-                              sx={{ 
-                                width: 32, 
-                                height: 32,
-                                bgcolor: categoryColors[selectedCategory],
-                                fontSize: 14,
-                              }}
-                            >
-                              {result.rider.number}
-                            </Avatar>
-                            <Typography>{result.rider.name}</Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell>{result.rider.team}</TableCell>
-                        <TableCell>{result.gap || result.time || '-'}</TableCell>
-                        <TableCell align="center">
-                          {result.points !== undefined ? (
-                            <Chip 
-                              label={result.points} 
-                              size="small"
-                              color={result.points > 0 ? 'primary' : 'default'}
-                            />
-                          ) : '-'}
-                        </TableCell>
-                        <TableCell align="center">
-                          {statusIcons[result.status as keyof typeof statusIcons] || result.status}
-                        </TableCell>
+              {loadingResults ? (
+                <Box display="flex" justifyContent="center" p={3}>
+                  <CircularProgress />
+                </Box>
+              ) : categoryResults.length > 0 ? (
+                <TableContainer component={Paper}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Pos</TableCell>
+                        <TableCell>Pilota</TableCell>
+                        <TableCell>Team</TableCell>
+                        <TableCell>Tempo/Gap</TableCell>
+                        <TableCell align="center">Punti</TableCell>
+                        <TableCell align="center">Status</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {categoryResults.map((result: RaceResult, index: number) => (
+                        <TableRow 
+                          key={`${result.rider.id}-${index}`}
+                          sx={{ 
+                            backgroundColor: index < 3 ? `${categoryColors[selectedCategory]}15` : 'transparent',
+                            '&:hover': { backgroundColor: 'action.hover' }
+                          }}
+                        >
+                          <TableCell>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              {index < 3 && <EmojiEvents sx={{ color: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32' }} />}
+                              <Typography fontWeight={index < 3 ? 'bold' : 'normal'}>
+                                {result.position || '-'}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>
+                                {result.rider.number}
+                              </Avatar>
+                              <Typography>{result.rider.name}</Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>{result.rider.team}</TableCell>
+                          <TableCell>{result.time || result.gap || '-'}</TableCell>
+                          <TableCell align="center">
+                            {result.points !== undefined ? (
+                              <Chip 
+                                label={result.points} 
+                                size="small"
+                                color={result.points > 0 ? 'primary' : 'default'}
+                              />
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell align="center">
+                            {statusIcons[result.status as keyof typeof statusIcons] || result.status}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Alert severity="info">
+                  Nessun risultato disponibile per {selectedCategory} - {selectedSession === 'qualifying' ? 'Qualifiche' : selectedSession === 'sprint' ? 'Sprint' : 'Gara'}
+                </Alert>
+              )}
             </>
           ) : (
             <Alert severity="info">
@@ -301,16 +318,16 @@ export default function RaceDetailPage() {
                 {race.sprintDate && (
                   <ListItem>
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'warning.main' }}>SP</Avatar>
+                      <Avatar sx={{ bgcolor: 'warning.main' }}>SPR</Avatar>
                     </ListItemAvatar>
                     <ListItemText primary="Sprint Race" secondary="Sabato" />
                   </ListItem>
                 )}
                 <ListItem>
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'success.main' }}>GP</Avatar>
+                    <Avatar sx={{ bgcolor: 'error.main' }}>GP</Avatar>
                   </ListItemAvatar>
-                  <ListItemText primary="Gran Premio" secondary="Domenica" />
+                  <ListItemText primary="Gara" secondary="Domenica" />
                 </ListItem>
               </List>
             </Grid>
@@ -319,20 +336,11 @@ export default function RaceDetailPage() {
 
         <TabPanel value={tabValue} index={2}>
           <Typography variant="h6" gutterBottom>Statistiche Gara</Typography>
-          <Alert severity="info" sx={{ mt: 2 }}>
+          <Alert severity="info">
             Le statistiche dettagliate saranno disponibili dopo la gara
           </Alert>
         </TabPanel>
       </Card>
     </Box>
   );
-}
-
-function getPodiumColor(position: number): string {
-  switch (position) {
-    case 1: return '#FFD700';
-    case 2: return '#C0C0C0';
-    case 3: return '#CD7F32';
-    default: return 'text.secondary';
-  }
 }
