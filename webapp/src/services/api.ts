@@ -194,8 +194,8 @@ export const setLineup = async (raceId: string, lineupData: any) => {
 };
 
 export const getLeagueRaceLineups = async (leagueId: string, raceId: string) => {
-  const response = await api.get(`/leagues/${leagueId}/race/${raceId}/lineups`);
-  return response.data;
+    const response = await api.get(`/leagues/web/${leagueId}/race/${raceId}/lineups`);
+    return response.data;
 };
 
 // Admin / Sync

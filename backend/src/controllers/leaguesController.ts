@@ -387,7 +387,7 @@ export const getLeagueStandings = async (req: Request, res: Response) => {
   }
 };
 
-// GET /api/leagues/:id/race/:raceId/lineups - NUOVA FUNZIONE
+// GET /api/leagues/:id/race/:raceId/lineups
 export const getLeagueRaceLineups = async (req: AuthRequest, res: Response) => {
   try {
     const { id: leagueId, raceId } = req.params;
@@ -463,6 +463,86 @@ export const getLeagueRaceLineups = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Errore nel recupero degli schieramenti' });
   }
 };
+
+// GET /api/leagues/mobile/:id/race/:raceId/lineups - Per la webapp
+export const getLeagueRaceLineupsForWeb = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id: leagueId, raceId } = req.params;
+        const userId = req.userId!;
+
+        const league = await prisma.league.findUnique({
+            where: { id: leagueId },
+            select: { lineupVisibility: true },
+        });
+
+        if (!league) {
+            return res.status(404).json({ error: 'Lega non trovata' });
+        }
+
+        const race = await prisma.race.findUnique({ where: { id: raceId } });
+        if (!race) {
+            return res.status(404).json({ error: 'Gara non trovata' });
+        }
+
+        const deadline = race.sprintDate || race.gpDate;
+        const isDeadlinePassed = new Date() > new Date(deadline);
+        const canViewAllLineups = league.lineupVisibility === 'ALWAYS_VISIBLE' || isDeadlinePassed;
+
+        const teams = await prisma.team.findMany({
+            where: { leagueId },
+            include: {
+                user: { select: { username: true, id: true } },
+                scores: { where: { raceId } },
+                lineups: {
+                    where: { raceId },
+                    include: {
+                        lineupRiders: {
+                            include: { rider: true },
+                            orderBy: { rider: { category: 'asc' } },
+                        },
+                    },
+                },
+            },
+        });
+
+        const raceResults = await prisma.raceResult.findMany({
+            where: { raceId },
+        });
+        const resultsMap = new Map(raceResults.map(r => [r.riderId, { position: r.position, status: r.status }]));
+
+        const formattedLineups = teams.map(team => {
+            const isOwnTeam = team.user.id === userId;
+            const lineup = team.lineups[0];
+            const teamScore = team.scores[0];
+
+            const shouldShowLineup = canViewAllLineups || isOwnTeam;
+
+            const lineupRiders = shouldShowLineup && lineup?.lineupRiders ? lineup.lineupRiders.map(lr => ({
+                ...lr,
+                actualPosition: resultsMap.get(lr.riderId)?.position,
+                actualStatus: resultsMap.get(lr.riderId)?.status,
+            })) : [];
+
+            return {
+                teamId: team.id,
+                teamName: team.name,
+                userName: team.user.username,
+                totalPoints: teamScore?.totalPoints ?? null,
+                lineup: lineupRiders,
+                riderScores: teamScore?.riderScores ?? [],
+            };
+        });
+
+        const message = !canViewAllLineups ? 'Gli schieramenti degli avversari saranno visibili dopo la deadline della gara.' : undefined;
+
+        res.json({ lineups: formattedLineups, message });
+
+    } catch (error) {
+        console.error('Errore recupero schieramenti di lega:', error);
+        res.status(500).json({ error: 'Errore nel recupero degli schieramenti' });
+    }
+};
+
 
 export const updateLeagueSettings = async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
