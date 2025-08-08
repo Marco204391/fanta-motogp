@@ -53,7 +53,6 @@ export default function LineupPage() {
 
   // Inizializza lineup esistente
   React.useEffect(() => {
-    // ##### INIZIO CORREZIONE #####
     if (existingLineup?.lineup?.lineupRiders) {
       const lineupMap: LineupData = {};
       existingLineup.lineup.lineupRiders.forEach((item: any) => {
@@ -64,7 +63,6 @@ export default function LineupPage() {
       });
       setLineupState(lineupMap);
     }
-    // ##### FINE CORREZIONE #####
   }, [existingLineup]);
 
   // Mutation per salvare lineup
@@ -74,7 +72,8 @@ export default function LineupPage() {
       notify('Lineup salvato con successo!', 'success');
       queryClient.invalidateQueries({ queryKey: ['lineup', teamId, raceId] });
       queryClient.invalidateQueries({ queryKey: ['myTeams'] });
-      navigate(`/teams`);
+      queryClient.invalidateQueries({ queryKey: ['leagueRaceLineups', teamData?.team.leagueId, raceId] });
+      navigate(-1);
     },
     onError: (error: any) => {
       notify(error.response?.data?.error || 'Errore nel salvataggio', 'error');

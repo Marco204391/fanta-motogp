@@ -145,7 +145,7 @@ export default function EditTeamPage() {
       queryClient.invalidateQueries({ queryKey: ['myTeams'] });
       queryClient.invalidateQueries({ queryKey: ['team', teamId] });
       notify('Team aggiornato con successo!', 'success');
-      navigate('/teams');
+      navigate(-1);
     },
     onError: (error: any) => {
         notify(error.response?.data?.error || 'Errore durante l\'aggiornamento del team', 'error');

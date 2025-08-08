@@ -92,7 +92,7 @@ export default function CreateTeamPage() {
       }));
       queryClient.invalidateQueries({ queryKey: ['leagueDetails', leagueId] });
       notify('Team creato con successo!', 'success');
-      navigate(`/leagues/${leagueId}`);
+      navigate(-1);
     },
     onError: (error: any) => {
       notify(error.response?.data?.error || 'Impossibile creare il team', 'error');

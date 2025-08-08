@@ -194,7 +194,6 @@ export default function LeagueDetailPage() {
   const userHasTeam = !!myTeam;
   const nextRace = racesData?.races?.[0];
 
-  // ##### INIZIO CORREZIONE #####
   const hasLineupForNextRace = useMemo(() => {
     if (!lineupsData?.lineups || !myTeam) {
       return false;
@@ -202,7 +201,6 @@ export default function LeagueDetailPage() {
     const currentUserLineup = lineupsData.lineups.find((l: any) => l.teamId === myTeam.id);
     return !!currentUserLineup && currentUserLineup.lineup && currentUserLineup.lineup.length > 0;
   }, [lineupsData, myTeam]);
-  // ##### FINE CORREZIONE #####
 
   // Calcola posizione utente
   const myPosition = standings.findIndex((s: any) => s.userId === user?.id) + 1;
@@ -334,7 +332,6 @@ export default function LeagueDetailPage() {
       )}
 
       {/* Alert per lineup mancante */}
-      {/* ##### INIZIO CORREZIONE ##### */}
       {userHasTeam && nextRace && selectedRaceId === nextRace.id && !hasLineupForNextRace && !loadingLineups && (
         <Alert
           severity="info"
@@ -348,7 +345,6 @@ export default function LeagueDetailPage() {
           Non hai ancora impostato il lineup per la prossima gara ({nextRace.name})
         </Alert>
       )}
-      {/* ##### FINE CORREZIONE ##### */}
 
       {/* Tabs */}
       <Paper sx={{ mb: 3 }}>
@@ -858,7 +854,7 @@ export default function LeagueDetailPage() {
             onClick={handleSaveSettings}
             disabled={updateSettingsMutation.isPending}
           >
-            Salva Modifiche
+            {updateSettingsMutation.isPending ? 'Salvataggio...' : 'Salva Modifiche'}
           </Button>
         </DialogActions>
       </Dialog>
