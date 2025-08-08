@@ -1,4 +1,5 @@
-// src/pages/RiderDetailPage.tsx
+// webapp/src/pages/RiderDetailPage.tsx
+
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -11,7 +12,6 @@ import {
   Card,
   CardContent,
   Grid,
-  Avatar,
   Paper,
   List,
   ListItem,
@@ -51,7 +51,15 @@ export default function RiderDetailPage() {
   return (
     <Box>
       <Paper sx={{ p: 3, mb: 3, display: 'flex', alignItems: 'center' }}>
-        <Avatar src={rider.photoUrl} sx={{ width: 120, height: 120, mr: 3 }} />
+        <Box sx={{
+          width: 120,
+          height: 120,
+          mr: 3,
+          borderRadius: '50%',
+          backgroundImage: `url(${rider.photoUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center top',
+        }} />
         <Box>
           <Typography variant="h3">#{rider.number} {rider.name}</Typography>
           <Typography variant="h5" color="text.secondary">{rider.team}</Typography>
@@ -100,7 +108,7 @@ export default function RiderDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12}}>
+        <Grid size={{ xs: 12 }}>
             <Card>
                 <CardContent>
                     <Typography variant="h6" gutterBottom>Risultati Recenti</Typography>
