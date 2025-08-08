@@ -13,10 +13,11 @@ interface Race {
   startDate: string;
   endDate: string;
   round: number;
+  sprintDate?: string;
 }
 
 export default function RaceCalendarPage() {
- const { data: racesData, isLoading, error } = useQuery<{ races: Race[] }>({
+  const { data: racesData, isLoading, error } = useQuery<{ races: Race[] }>({
     queryKey: ['allRaces', new Date().getFullYear()],
     queryFn: () => getAllRaces(new Date().getFullYear()),
   });
@@ -37,16 +38,51 @@ export default function RaceCalendarPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
         Calendario Gare {new Date().getFullYear()}
       </Typography>
-      <Grid container spacing={3}>
+      
+      <Grid 
+        container 
+        spacing={3}
+        sx={{
+          // Rimuove il flex dalle Grid items per evitare stretching
+          '& .MuiGrid-item': {
+            display: 'block'
+          }
+        }}
+      >
         {races.map(race => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={race.id} sx={{ display: 'flex' }}>
+          <Grid 
+            item 
+            xs={12} 
+            sm={6} 
+            md={4} 
+            lg={3} 
+            key={race.id}
+          >
             <RaceEventCard race={race} />
           </Grid>
         ))}
       </Grid>
+      
+      {races.length === 0 && (
+        <Box 
+          display="flex" 
+          flexDirection="column" 
+          alignItems="center" 
+          justifyContent="center" 
+          minHeight={300}
+          sx={{ mt: 4 }}
+        >
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            Nessuna gara disponibile
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Il calendario per l'anno {new Date().getFullYear()} non è ancora disponibile.
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }
