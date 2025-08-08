@@ -45,6 +45,7 @@ export default function RaceCalendarPage() {
       <Grid 
         container 
         spacing={3}
+        alignItems="stretch" // <-- MODIFICA CHIAVE
       >
         {races.map(race => (
           <Grid 

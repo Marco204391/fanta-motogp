@@ -1,5 +1,5 @@
 // webapp/src/components/RaceEventCard.tsx
-import { Card, CardContent, CardActions, Typography, Box, Button, Chip, LinearProgress } from '@mui/material';
+import { Card, CardContent, CardActions, Typography, Box, Button, Chip, LinearProgress, Tooltip } from '@mui/material';
 import { CalendarToday, LocationOn, Flag, Timer, SportsScore } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInDays, isBefore, isAfter } from 'date-fns';
@@ -42,9 +42,9 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
   };
 
   return (
-    <Card 
-      sx={{ 
-        height: '100%',
+    <Card
+      sx={{
+        height: '100%', // <-- MODIFICA CHIAVE
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -58,10 +58,10 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
     >
       {/* Header con Status Badge */}
       {daysUntil === 0 && isUpcoming && (
-        <Box sx={{ 
-          bgcolor: 'error.main', 
-          color: 'white', 
-          py: 0.5, 
+        <Box sx={{
+          bgcolor: 'error.main',
+          color: 'white',
+          py: 0.5,
           px: 2,
           display: 'flex',
           alignItems: 'center',
@@ -72,9 +72,9 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
           <Typography variant="caption" fontWeight="bold">
             GARA OGGI
           </Typography>
-          <SportsScore 
+          <SportsScore
             fontSize="small"
-            sx={{ 
+            sx={{
               animation: 'pulse 2s infinite',
               '@keyframes pulse': {
                 '0%': { opacity: 1 },
@@ -86,22 +86,21 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         </Box>
       )}
 
-      <CardContent sx={{ 
-        flex: '1 1 auto',
+      <CardContent sx={{
+        flexGrow: 1, // <-- MODIFICA CHIAVE
         display: 'flex',
         flexDirection: 'column',
         p: 2,
         pb: 1,
-        minWidth: 0, 
       }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5} sx={{ height: 24 }}>
-          <Chip 
+          <Chip
             label={`Round ${race.round}`}
             size="small"
             variant="outlined"
             sx={{ height: 24, fontSize: '0.75rem' }}
           />
-          <Chip 
+          <Chip
             label={getStatusLabel()}
             color={getStatusColor()}
             size="small"
@@ -109,47 +108,40 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
           />
         </Box>
 
-        {/* Nome gara con ellipsis per nomi lunghi */}
-        <Typography 
-          variant="h6" 
-          noWrap
-          gutterBottom
-          sx={{
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            mb: 1.5
-          }}
-        >
-          {race.name}
-        </Typography>
-        
-        {/* Box per le informazioni con spazio fisso */}
-        <Box sx={{ flex: '0 0 auto', mb: 1 }}>
-          {/* Circuito con ellipsis */}
+        <Tooltip title={race.name}>
+            <Typography
+                variant="h6"
+                sx={{
+                    fontSize: '1.1rem',
+                    fontWeight: 600,
+                    mb: 1.5,
+                    minHeight: '2.6em', // Altezza MINIMA per 2 linee
+                    lineHeight: '1.3em',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    '-webkit-box-orient': 'vertical',
+                    '-webkit-line-clamp': '2',
+                }}
+                >
+                {race.name}
+            </Typography>
+        </Tooltip>
+
+        {/* Informazioni */}
+        <Box sx={{ mb: 1 }}>
           <Box display="flex" alignItems="center" gap={1} mb={0.5}>
             <LocationOn fontSize="small" color="action" sx={{ flexShrink: 0 }} />
-            <Typography 
-              variant="body2" 
-              color="text.secondary"
-              noWrap
-            >
+            <Typography variant="body2" color="text.secondary" noWrap>
               {race.circuit}
             </Typography>
           </Box>
-
-          {/* Paese */}
           <Box display="flex" alignItems="center" gap={1} mb={0.5}>
             <Flag fontSize="small" color="action" sx={{ flexShrink: 0 }} />
-            <Typography 
-              variant="body2" 
-              color="text.secondary"
-              noWrap
-            >
+            <Typography variant="body2" color="text.secondary" noWrap>
               {race.country}
             </Typography>
           </Box>
-
-          {/* Sprint date se presente */}
           {race.sprintDate && (
             <Box display="flex" alignItems="center" gap={1} mb={0.5}>
               <Timer fontSize="small" color="action" sx={{ flexShrink: 0 }} />
@@ -158,8 +150,6 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
               </Typography>
             </Box>
           )}
-
-          {/* Data gara */}
           <Box display="flex" alignItems="center" gap={1}>
             <CalendarToday fontSize="small" color="action" sx={{ flexShrink: 0 }} />
             <Typography variant="body2" color="text.secondary">
@@ -167,39 +157,37 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
             </Typography>
           </Box>
         </Box>
-        
-        <Box sx={{ flexGrow: 1 }} /> 
 
-        {/* Countdown progress bar - solo per gare future */}
+        {/* Spacer che si espande */}
+        <Box sx={{ flexGrow: 1 }} />
+
+        {/* Countdown */}
         {isUpcoming && daysUntil > 0 ? (
-          <Box sx={{ mt: 'auto', pt: 1 }}>
+          <Box sx={{ pt: 1 }}>
             <Box display="flex" justifyContent="space-between" mb={1}>
               <Typography variant="caption">Countdown</Typography>
               <Typography variant="caption" fontWeight="bold">
                 {daysUntil} giorni
               </Typography>
             </Box>
-            <LinearProgress 
-              variant="determinate" 
+            <LinearProgress
+              variant="determinate"
               value={Math.max(0, Math.min(100, ((30 - daysUntil) / 30) * 100))}
               sx={{ height: 6, borderRadius: 3 }}
             />
           </Box>
         ) : (
-          // Placeholder invisibile per mantenere lo spazio
-          <Box sx={{ mt: 'auto', pt: 1, height: '40px' }} />
+          <Box sx={{ height: '40px' }} /> // Placeholder per mantenere l'altezza
         )}
       </CardContent>
 
-      <CardActions sx={{ 
-        p: 2, 
+      <CardActions sx={{
+        p: 2,
         pt: 1,
-        mt: 0,
-        height: 52, // Altezza fissa per i bottoni
-        flexShrink: 0
+        flexShrink: 0 // Impedisce a questa sezione di restringersi
       }}>
-        <Button 
-          size="small" 
+        <Button
+          size="small"
           fullWidth
           onClick={() => navigate(`/races/${race.id}`)}
           variant="text"
