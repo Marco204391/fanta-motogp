@@ -150,7 +150,7 @@ export default function TeamsPage() {
       ) : (
         <Grid container spacing={3}>
           {filteredTeams.map((team) => (
-            <Grid item xs={12} md={6} key={team.id}>
+            <Grid key={team.id} size={{ xs: 12, md: 6}}>
               <Card>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -198,7 +198,7 @@ export default function TeamsPage() {
 
                   {/* Statistiche */}
                   <Grid container spacing={2} sx={{ mb: 2 }}>
-                    <Grid item xs={4}>
+                    <Grid size={{ xs: 4}}>
                       <Box textAlign="center">
                         <Typography variant="h5" color="primary">
                           {team.totalPoints || 0}
@@ -206,7 +206,7 @@ export default function TeamsPage() {
                         <Typography variant="caption">Punti Totali</Typography>
                       </Box>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={{ xs: 4}}>
                       <Box textAlign="center">
                         <Typography variant="h5" color="secondary">
                           {team.riders.length}
@@ -214,7 +214,7 @@ export default function TeamsPage() {
                         <Typography variant="caption">Piloti</Typography>
                       </Box>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={{ xs: 4}}>
                       <Box textAlign="center">
                         <Typography variant="h5" color="success.main">
                           {team.remainingBudget}

@@ -71,7 +71,7 @@ export default function RidersPage() {
       <PageTitle title="Piloti Ufficiali" />
       <Paper sx={{ p: 2, mb: 4 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               placeholder="Cerca per nome o team..."
@@ -86,7 +86,7 @@ export default function RidersPage() {
               }}
             />
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <ToggleButtonGroup
               value={selectedCategory}
               exclusive
@@ -102,16 +102,15 @@ export default function RidersPage() {
         </Grid>
       </Paper>
 
-      {/* --- CORREZIONE: Spaziatura ridotta per un layout più compatto --- */}
       <Grid container spacing={3}>
         {filteredRiders.length > 0 ? (
           filteredRiders.map(rider => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={rider.id}>
+            <Grid key={rider.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
               <RiderCard rider={rider} />
             </Grid>
           ))
         ) : (
-          <Grid item xs={12}>
+          <Grid size={{ xs:12 }}>
             <Alert severity="info">Nessun pilota trovato con i filtri attuali.</Alert>
           </Grid>
         )}

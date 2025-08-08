@@ -64,7 +64,7 @@ export default function AdminDashboard() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Grid item xs={12} sm={6} md={3} key={stat.label}>
+            <Grid key={stat.label} size={{xs: 12, sm: 6, md: 3}}>
               <Card>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center">

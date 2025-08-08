@@ -42,34 +42,16 @@ export default function RaceCalendarPage() {
         Calendario Gare {new Date().getFullYear()}
       </Typography>
       
-      <Grid 
-        container 
-        spacing={3}
-        alignItems="stretch" // <-- MODIFICA CHIAVE
-      >
+      <Grid container spacing={3} alignItems="stretch" >
         {races.map(race => (
-          <Grid 
-            item 
-            xs={12} 
-            sm={6} 
-            md={4} 
-            lg={3} 
-            key={race.id}
-          >
+          <Grid key={race.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
             <RaceEventCard race={race} />
           </Grid>
         ))}
       </Grid>
       
       {races.length === 0 && (
-        <Box 
-          display="flex" 
-          flexDirection="column" 
-          alignItems="center" 
-          justifyContent="center" 
-          minHeight={300}
-          sx={{ mt: 4 }}
-        >
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight={300} sx={{ mt: 4 }} >
           <Typography variant="h6" color="text.secondary" gutterBottom>
             Nessuna gara disponibile
           </Typography>

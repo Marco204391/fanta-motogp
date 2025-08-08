@@ -256,7 +256,7 @@ export default function LeagueDetailPage() {
         }}
       >
         <Grid container alignItems="center" spacing={2}>
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8}}>
             <Typography variant="h4" gutterBottom>
               {league.name}
             </Typography>
@@ -290,7 +290,7 @@ export default function LeagueDetailPage() {
               )}
             </Stack>
           </Grid>
-          <Grid item xs={12} md={4} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+          <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
             <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
               <Tooltip title="Aggiorna Dati">
                 <IconButton
@@ -468,7 +468,7 @@ export default function LeagueDetailPage() {
         ) : (
           <Grid container spacing={3}>
             {lineupsData?.lineups?.map((teamLineup: any) => (
-              <Grid item xs={12} md={6} key={teamLineup.teamId}>
+              <Grid key={teamLineup.teamId} size={{ xs: 12, md: 6}}>
                 <Card>
                   <CardContent>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -547,7 +547,7 @@ export default function LeagueDetailPage() {
       <TabPanel value={selectedTab} index={2}>
         <Grid container spacing={3}>
           {/* Top Scorer per Gara */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6}}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -577,7 +577,7 @@ export default function LeagueDetailPage() {
           </Grid>
 
           {/* Piloti più Scelti */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6}}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -617,7 +617,7 @@ export default function LeagueDetailPage() {
           </Grid>
 
           {/* Media Punti per Categoria */}
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12}}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -627,7 +627,7 @@ export default function LeagueDetailPage() {
                   {['MOTOGP', 'MOTO2', 'MOTO3'].map(category => {
                     const stats = leagueData.categoryStats?.[category] || { avg: 0, max: 0, min: 0 };
                     return (
-                      <Grid item xs={12} md={4} key={category}>
+                      <Grid key={category} size={{ xs: 12, md: 4}}>
                         <Paper sx={{ p: 2, textAlign: 'center' }}>
                           <Typography variant="subtitle2" color="text.secondary">
                             {category}
@@ -664,7 +664,7 @@ export default function LeagueDetailPage() {
         <TabPanel value={selectedTab} index={3}>
           <Grid container spacing={3}>
             {/* Impostazioni Lega */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6}}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -712,7 +712,7 @@ export default function LeagueDetailPage() {
             </Grid>
 
             {/* Azioni Rapide */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6}}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -777,7 +777,7 @@ export default function LeagueDetailPage() {
             </Grid>
 
             {/* Info Lega */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12}}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -785,13 +785,13 @@ export default function LeagueDetailPage() {
                   </Typography>
 
                   <Grid container spacing={2}>
-                    <Grid item xs={6} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3}}>
                       <Typography variant="caption" color="text.secondary">
                         Codice Lega
                       </Typography>
                       <Typography variant="h6">{league.code}</Typography>
                     </Grid>
-                    <Grid item xs={6} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3}}>
                       <Typography variant="caption" color="text.secondary">
                         Membri
                       </Typography>
@@ -799,13 +799,13 @@ export default function LeagueDetailPage() {
                         {league.currentTeams}/{league.maxTeams}
                       </Typography>
                     </Grid>
-                    <Grid item xs={6} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3}}>
                       <Typography variant="caption" color="text.secondary">
                         Budget
                       </Typography>
                       <Typography variant="h6">{league.budget}€</Typography>
                     </Grid>
-                    <Grid item xs={6} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3}}>
                       <Typography variant="caption" color="text.secondary">
                         Premio Totale
                       </Typography>

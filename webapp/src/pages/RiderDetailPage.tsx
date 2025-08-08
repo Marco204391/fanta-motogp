@@ -60,7 +60,7 @@ export default function RiderDetailPage() {
       </Paper>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6}}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>Info</Typography>
@@ -80,7 +80,7 @@ export default function RiderDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6}}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>Statistiche Stagionali</Typography>
@@ -100,7 +100,7 @@ export default function RiderDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12}}>
             <Card>
                 <CardContent>
                     <Typography variant="h6" gutterBottom>Risultati Recenti</Typography>

@@ -168,7 +168,7 @@ export default function HomePage() {
 
       <Grid container spacing={4}>
         {/* Prossima Gara - Full Width */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12}}>
           <Zoom in timeout={600}>
             <Paper 
               className="pulse"
@@ -254,7 +254,7 @@ export default function HomePage() {
         </Grid>
 
         {/* Quick Actions */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12}}>
           <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
             Azioni Rapide
           </Typography>
@@ -287,7 +287,7 @@ export default function HomePage() {
                 path: '/calendar',
               },
             ].map((action, index) => (
-              <Grid item xs={6} sm={3} key={index}>
+              <Grid key={index} size={{ xs: 12, sm: 3}}>
                 <Fade in timeout={800 + index * 200}>
                   <Card 
                     sx={{ 
@@ -332,7 +332,7 @@ export default function HomePage() {
         </Grid>
 
         {/* Le mie Leghe */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6}}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
@@ -417,7 +417,7 @@ export default function HomePage() {
         </Grid>
 
         {/* I miei Team */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6}}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>

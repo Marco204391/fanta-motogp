@@ -232,7 +232,7 @@ export default function ProfilePage() {
 
       <Grid container spacing={3}>
         {/* Colonna Sinistra - Info Profilo */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4}}>
           {/* Card Profilo */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
@@ -367,7 +367,7 @@ export default function ProfilePage() {
               </Typography>
               <Grid container spacing={2}>
                 {stats.totalWins > 0 && (
-                  <Grid item xs={4}>
+                  <Grid size={{ xs: 4}}>
                     <Box textAlign="center">
                       <WorkspacePremium sx={{ color: '#FFD700', fontSize: 40 }} />
                       <Typography variant="caption" display="block">
@@ -380,7 +380,7 @@ export default function ProfilePage() {
                   </Grid>
                 )}
                 {stats.totalPodiums > 0 && (
-                  <Grid item xs={4}>
+                  <Grid size={{ xs: 4}}>
                     <Box textAlign="center">
                       <EmojiEvents sx={{ color: '#C0C0C0', fontSize: 40 }} />
                       <Typography variant="caption" display="block">
@@ -393,7 +393,7 @@ export default function ProfilePage() {
                   </Grid>
                 )}
                 {stats.gamesPlayed >= 10 && (
-                  <Grid item xs={4}>
+                  <Grid size={{ xs: 4}}>
                     <Box textAlign="center">
                       <Star sx={{ color: '#CD7F32', fontSize: 40 }} />
                       <Typography variant="caption" display="block">
@@ -411,7 +411,7 @@ export default function ProfilePage() {
         </Grid>
 
         {/* Colonna Destra - Statistiche e Impostazioni */}
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8}}>
           {/* Card Statistiche */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
@@ -420,7 +420,7 @@ export default function ProfilePage() {
               </Typography>
               
               <Grid container spacing={3}>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4}}>
                   <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.lighter' }}>
                     <EmojiEvents sx={{ fontSize: 30, color: 'primary.main', mb: 1 }} />
                     <Typography variant="h5" fontWeight="bold">
@@ -432,7 +432,7 @@ export default function ProfilePage() {
                   </Paper>
                 </Grid>
                 
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 12, sm: 4}}>
                   <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.lighter' }}>
                     <EmojiEvents sx={{ fontSize: 30, color: 'success.main', mb: 1 }} />
                     <Typography variant="h5" fontWeight="bold">
@@ -444,7 +444,7 @@ export default function ProfilePage() {
                   </Paper>
                 </Grid>
                 
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 12, sm: 4}}>
                   <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.lighter' }}>
                     <Groups sx={{ fontSize: 30, color: 'warning.main', mb: 1 }} />
                     <Typography variant="h5" fontWeight="bold">
@@ -456,7 +456,7 @@ export default function ProfilePage() {
                   </Paper>
                 </Grid>
                 
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 12, sm: 4}}>
                   <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.lighter' }}>
                     <SportsMotorsports sx={{ fontSize: 30, color: 'info.main', mb: 1 }} />
                     <Typography variant="h5" fontWeight="bold">
@@ -468,7 +468,7 @@ export default function ProfilePage() {
                   </Paper>
                 </Grid>
                 
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 12, sm: 4}}>
                   <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'error.lighter' }}>
                     <Timeline sx={{ fontSize: 30, color: 'error.main', mb: 1 }} />
                     <Typography variant="h5" fontWeight="bold">
@@ -480,7 +480,7 @@ export default function ProfilePage() {
                   </Paper>
                 </Grid>
                 
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 12, sm: 4}}>
                   <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'secondary.lighter' }}>
                     <TrendingUp sx={{ fontSize: 30, color: 'secondary.main', mb: 1 }} />
                     <Typography variant="h5" fontWeight="bold">

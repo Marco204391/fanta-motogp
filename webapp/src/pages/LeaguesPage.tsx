@@ -115,7 +115,7 @@ function LeagueCard({ league, onJoin, onView, isMyLeague }: {
         </Stack>
 
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6}}>
             <Box>
               <Typography variant="h6" color="primary">
                 {league.budget}
@@ -124,7 +124,7 @@ function LeagueCard({ league, onJoin, onView, isMyLeague }: {
             </Box>
           </Grid>
           {isMyLeague && league.userPosition && (
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6}}>
               <Box>
                 <Typography variant="h6" color="secondary">
                   {league.userPosition}°
@@ -285,7 +285,7 @@ export default function LeaguesPage() {
             ) : (
               <Grid container spacing={3}>
                 {myLeagues.map((league) => (
-                  <Grid item xs={12} sm={6} md={4} key={league.id}>
+                  <Grid key={league.id} size={{ xs: 12, sm: 6, md: 4}}>
                     <LeagueCard
                       league={league}
                       onView={() => navigate(`/leagues/${league.id}`)}
@@ -305,7 +305,7 @@ export default function LeaguesPage() {
             ) : (
               <Grid container spacing={3}>
                 {publicLeagues.map((league) => (
-                  <Grid item xs={12} sm={6} md={4} key={league.id}>
+                  <Grid key={league.id} size={{ xs: 12, sm: 6, md: 4}}>
                     <LeagueCard
                       league={league}
                       onJoin={!league.hasTeam ? () => {

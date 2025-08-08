@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createLeague } from '../services/api';
-import { Box, Typography,Card, CardContent, TextField, Button, Stack,
+import { Box, Typography, Card, CardContent, TextField, Button, Stack,
   FormControlLabel, Switch, Slider, Grid, Paper, CircularProgress
 } from '@mui/material';
 import { useNotification } from '../contexts/NotificationContext';
@@ -55,7 +55,7 @@ export default function CreateLeaguePage() {
 
       <Paper component="form" onSubmit={handleSubmit} sx={{ p: 4 }}>
         <Grid container spacing={4}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12}}>
             <TextField
               fullWidth
               required
@@ -66,7 +66,7 @@ export default function CreateLeaguePage() {
               helperText="Scegli un nome che rappresenti la tua competizione."
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12}}>
             <FormControlLabel
               control={
                 <Switch
@@ -81,7 +81,7 @@ export default function CreateLeaguePage() {
               Se privata, la lega sarà accessibile solo tramite codice d'invito.
             </Typography>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6}}>
             <Typography gutterBottom>Numero Massimo di Team ({maxTeams})</Typography>
             <Slider
               value={maxTeams}
@@ -94,7 +94,7 @@ export default function CreateLeaguePage() {
               max={20}
             />
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6}}>
             <Typography gutterBottom>Budget Iniziale ({budget} crediti)</Typography>
             <Slider
               value={budget}

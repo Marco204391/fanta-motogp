@@ -216,7 +216,7 @@ export default function CreateTeamPage() {
 
       <Grid container spacing={3}>
         {/* Colonna sinistra: Form */}
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8}}>
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <TextField
@@ -326,7 +326,7 @@ export default function CreateTeamPage() {
         </Grid>
 
         {/* Colonna destra: Riepilogo */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4}}>
           <Card sx={{ position: 'sticky', top: 16 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>

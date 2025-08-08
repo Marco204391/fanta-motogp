@@ -220,8 +220,7 @@ export default function EditTeamPage() {
       </Stack>
 
       <Grid container spacing={3}>
-        {/* Selezione Piloti */}
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8}}>
           {Object.entries(ridersByCategory).map(([category, riders]) => {
             const req = categoryRequirements[category as keyof typeof categoryRequirements];
             const status = categoryStatus[category];
@@ -315,7 +314,7 @@ export default function EditTeamPage() {
         </Grid>
 
         {/* Riepilogo */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4}}>
           <Card sx={{ position: 'sticky', top: 80 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>

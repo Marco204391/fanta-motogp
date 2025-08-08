@@ -250,7 +250,7 @@ export default function LineupPage() {
           {/* Contatori per categoria */}
           <Grid container spacing={2} sx={{ mt: 2 }}>
             {Object.entries(lineupStats.categoryCounts).map(([category, count]) => (
-              <Grid item xs={4} key={category}>
+              <Grid key={category} size={{ xs: 4}}>
                 <Box textAlign="center">
                   <Typography variant="caption" color="text.secondary">
                     {category}

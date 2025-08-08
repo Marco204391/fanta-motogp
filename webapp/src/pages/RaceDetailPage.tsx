@@ -275,7 +275,7 @@ export default function RaceDetailPage() {
 
         <TabPanel value={tabValue} index={1}>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6}}>
               <Typography variant="h6" gutterBottom>Dettagli Circuito</Typography>
               <List>
                 <ListItem>
@@ -294,7 +294,7 @@ export default function RaceDetailPage() {
                 )}
               </List>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6}}>
               <Typography variant="h6" gutterBottom>Programma Weekend</Typography>
               <List>
                 <ListItem>
