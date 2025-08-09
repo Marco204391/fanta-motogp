@@ -116,7 +116,6 @@ export const getRaceResults = async (req: Request, res: Response) => {
         },
       },
       orderBy: [
-        { status: 'asc' },
         { position: 'asc' },
       ],
     });

@@ -11,8 +11,7 @@ import {
   Divider
 } from '@mui/material';
 import { 
-  EmojiEvents, Timer, Speed, Flag, 
-  CheckCircle, Cancel, RemoveCircle 
+  EmojiEvents, Timer, Speed, Flag
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -30,19 +29,14 @@ interface RaceResult {
   points?: number;
   time?: string;
   gap?: string;
+  totalLaps?: number;
+  bestLap?: { time: string };
 }
 
 const categoryColors = {
   MOTOGP: '#E60023',
   MOTO2: '#FF6B00', 
   MOTO3: '#1976D2',
-};
-
-const statusIcons = {
-  FINISHED: <CheckCircle color="success" />,
-  DNF: <Cancel color="error" />,
-  DNS: <RemoveCircle color="warning" />,
-  DSQ: <Flag color="error" />,
 };
 
 function TabPanel(props: any) {
@@ -58,7 +52,7 @@ export default function RaceDetailPage() {
   const { raceId } = useParams<{ raceId: string }>();
   const [tabValue, setTabValue] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<'MOTOGP' | 'MOTO2' | 'MOTO3'>('MOTOGP');
-  const [selectedSession, setSelectedSession] = useState<'race' | 'sprint' | 'qualifying'>('race');
+  const [selectedSession, setSelectedSession] = useState<'race' | 'sprint' | 'qualifying' | 'fp1' | 'fp2'>('race');
 
   const { data: raceData, isLoading: loadingRace } = useQuery({
     queryKey: ['raceDetails', raceId],
@@ -83,14 +77,12 @@ export default function RaceDetailPage() {
   // Calcola i risultati da mostrare basandosi sulla sessione e categoria selezionate
   const categoryResults = useMemo(() => {
     if (selectedSession === 'qualifying') {
-      // Per le qualifiche, accedi direttamente alla categoria
       return qualifyingData?.results?.[selectedCategory] || [];
-    } else {
-      // Per race e sprint, accedi prima alla sessione (in maiuscolo) poi alla categoria
-      const sessionKey = selectedSession.toUpperCase() as 'RACE' | 'SPRINT';
-      const sessionResults = raceResultsData?.results?.[sessionKey];
-      return sessionResults?.[selectedCategory] || [];
     }
+    // Aggiungi qui la logica per FP1 e FP2 se avrai un endpoint dedicato
+    const sessionKey = selectedSession.toUpperCase() as 'RACE' | 'SPRINT';
+    const sessionResults = raceResultsData?.results?.[sessionKey];
+    return sessionResults?.[selectedCategory] || [];
   }, [selectedSession, selectedCategory, raceResultsData, qualifyingData]);
 
   const loadingResults = selectedSession === 'qualifying' ? loadingQualifying : loadingRaceResults;
@@ -212,8 +204,8 @@ export default function RaceDetailPage() {
                         <TableCell>Pilota</TableCell>
                         <TableCell>Team</TableCell>
                         <TableCell>Tempo/Gap</TableCell>
+                        <TableCell align="center">Giri</TableCell>
                         <TableCell align="center">Punti</TableCell>
-                        <TableCell align="center">Status</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -243,6 +235,7 @@ export default function RaceDetailPage() {
                           </TableCell>
                           <TableCell>{result.rider.team}</TableCell>
                           <TableCell>{result.time || result.gap || '-'}</TableCell>
+                          <TableCell align="center">{result.totalLaps || '-'}</TableCell>
                           <TableCell align="center">
                             {result.points !== undefined ? (
                               <Chip 
@@ -251,9 +244,6 @@ export default function RaceDetailPage() {
                                 color={result.points > 0 ? 'primary' : 'default'}
                               />
                             ) : '-'}
-                          </TableCell>
-                          <TableCell align="center">
-                            {statusIcons[result.status as keyof typeof statusIcons] || result.status}
                           </TableCell>
                         </TableRow>
                       ))}
