@@ -143,6 +143,7 @@ model Race {
   gpDate        DateTime
   round         Int
   season        Int
+  trackLayoutUrl String?
 
   apiEventId      String?   @unique
   apiBroadcastId  String?   @unique

@@ -14,6 +14,7 @@ interface RaceEventCardProps {
     gpDate: string;
     sprintDate?: string;
     round: number;
+    trackLayoutUrl?: string;
   };
 }
 
@@ -44,7 +45,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
   return (
     <Card
       sx={{
-        height: '100%', // <-- MODIFICA CHIAVE
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -56,6 +57,26 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         }
       }}
     >
+      {/* Aggiunta del layout del tracciato come sfondo */}
+      {race.trackLayoutUrl && (
+          <Box
+              sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '80%',
+                  height: '80%',
+                  backgroundImage: `url(${race.trackLayoutUrl})`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center',
+                  backgroundSize: 'contain',
+                  opacity: 0.05,
+                  zIndex: 0,
+              }}
+          />
+      )}
+    
       {/* Header con Status Badge */}
       {daysUntil === 0 && isUpcoming && (
         <Box sx={{

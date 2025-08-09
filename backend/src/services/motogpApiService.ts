@@ -147,10 +147,25 @@ export class MotoGPApiService {
 
         let raceDate: Date | null = null;
         let sprintDate: Date | null = null;
+        let trackLayoutUrl: string | null = null;
 
         try {
           const eventDetailsResponse = await this.axiosInstance.get(`/events/${event.toad_api_uuid}`);
-          const broadcasts = eventDetailsResponse.data?.broadcasts || [];
+          const eventData = eventDetailsResponse.data;
+          const broadcasts = eventData?.broadcasts || [];
+          
+          if (eventData?.circuit?.track?.assets) {
+            console.log(`[LOG] Trovati assets per il circuito: ${event.circuit.name}`);
+            
+            if (eventData.circuit.track.assets.info?.path) {
+              trackLayoutUrl = eventData.circuit.track.assets.info.path;
+              console.log(`[LOG] Estratto trackLayoutUrl: ${trackLayoutUrl}`);
+            } else {
+              console.log(`[LOG] Nessun 'info.path' trovato per questo tracciato.`);
+            }
+          } else {
+            console.log(`[LOG] Nessun oggetto 'assets' trovato per il circuito: ${event.circuit.name}`);
+          }
           
           const raceSession = broadcasts.find((s: any) => s.shortname === 'RAC' && s.category.acronym === 'MGP');
           if (raceSession && raceSession.date_start) {
@@ -177,6 +192,7 @@ export class MotoGPApiService {
             sprintDate: sprintDate,
             round: event.number || 0, // Inizialmente usa il round dell'API
             season,
+            trackLayoutUrl
           },
           create: {
             name: event.name,
@@ -189,6 +205,7 @@ export class MotoGPApiService {
             round: event.number || 0, // Inizialmente usa il round dell'API
             season,
             apiEventId: event.id,
+            trackLayoutUrl
           }
         });
         console.log(`✅ Sincronizzato evento: ${event.name}`);
