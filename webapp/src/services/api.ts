@@ -141,7 +141,7 @@ export const getPastRaces = async () => {
   return response.data;
 };
 
-export const getRaceResults = async (raceId: string, session?: 'race' | 'sprint') => {
+export const getRaceResults = async (raceId: string, session?: 'race' | 'sprint' | 'fp1' | 'fp2') => {
   const response = await api.get(`/races/${raceId}/results`, { params: { session } });
   return response.data;
 };

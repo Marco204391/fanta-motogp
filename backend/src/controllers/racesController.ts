@@ -95,12 +95,25 @@ export const getRaceById = async (req: Request, res: Response) => {
 // GET /api/races/:raceId/results
 export const getRaceResults = async (req: Request, res: Response) => {
   const { raceId } = req.params;
+  const { session } = req.query;
 
   try {
+    // Se viene specificata una sessione specifica, filtra per quella
+    let sessionFilter: any = { in: ['RACE', 'SPRINT', 'FP1', 'FP2'] };
+    
+    if (session) {
+      const sessionString = String(session);
+      const validSessions = ['race', 'sprint', 'fp1', 'fp2'];
+      if (!validSessions.includes(sessionString.toLowerCase())) {
+        return res.status(400).json({ error: 'Sessione non valida' });
+      }
+      sessionFilter = sessionString.toUpperCase();
+    }
+
     const results = await prisma.raceResult.findMany({
       where: {
         raceId,
-        session: { in: ['RACE', 'SPRINT'] }
+        session: sessionFilter
       },
       include: {
         rider: {
@@ -120,16 +133,26 @@ export const getRaceResults = async (req: Request, res: Response) => {
       ],
     });
 
+    // Organizza i risultati per sessione e categoria
     const resultsBySession = results.reduce((acc: any, result) => {
-      const session = result.session;
+      const sess = result.session;
       const cat = result.rider.category;
-      if (!acc[session]) {
-        acc[session] = {};
+      if (!acc[sess]) {
+        acc[sess] = {};
       }
-      if (!acc[session][cat]) {
-        acc[session][cat] = [];
+      if (!acc[sess][cat]) {
+        acc[sess][cat] = [];
       }
-      acc[session][cat].push(result);
+      
+      // Formatta il risultato con il campo bestLap nel formato corretto
+      const formattedResult = {
+        ...result,
+        bestLap: result.bestLap ? 
+          (typeof result.bestLap === 'object' ? result.bestLap : { time: result.bestLap, number: null }) : 
+          null
+      };
+      
+      acc[sess][cat].push(formattedResult);
       return acc;
     }, {});
 

@@ -30,7 +30,10 @@ interface RaceResult {
   time?: string;
   gap?: string;
   totalLaps?: number;
-  bestLap?: { time: string };
+  bestLap?: { 
+    time: string;
+    number?: number;
+  };
 }
 
 const categoryColors = {
@@ -74,18 +77,32 @@ export default function RaceDetailPage() {
     enabled: !!raceId && !!raceData && selectedSession === 'qualifying',
   });
 
+  // Query per risultati prove libere
+  const { data: practiceData, isLoading: loadingPractice } = useQuery({
+    queryKey: ['practiceResults', raceId, selectedSession],
+    queryFn: () => getRaceResults(raceId!, selectedSession as 'fp1' | 'fp2'),
+    enabled: !!raceId && !!raceData && (selectedSession === 'fp1' || selectedSession === 'fp2'),
+  });
+
   // Calcola i risultati da mostrare basandosi sulla sessione e categoria selezionate
   const categoryResults = useMemo(() => {
     if (selectedSession === 'qualifying') {
       return qualifyingData?.results?.[selectedCategory] || [];
     }
-    // Aggiungi qui la logica per FP1 e FP2 se avrai un endpoint dedicato
+    
+    if (selectedSession === 'fp1' || selectedSession === 'fp2') {
+      const sessionKey = selectedSession.toUpperCase() as 'FP1' | 'FP2';
+      return practiceData?.results?.[sessionKey]?.[selectedCategory] || [];
+    }
+    
     const sessionKey = selectedSession.toUpperCase() as 'RACE' | 'SPRINT';
     const sessionResults = raceResultsData?.results?.[sessionKey];
     return sessionResults?.[selectedCategory] || [];
-  }, [selectedSession, selectedCategory, raceResultsData, qualifyingData]);
+  }, [selectedSession, selectedCategory, raceResultsData, qualifyingData, practiceData]);
 
-  const loadingResults = selectedSession === 'qualifying' ? loadingQualifying : loadingRaceResults;
+  const loadingResults = selectedSession === 'qualifying' ? loadingQualifying : 
+                         (selectedSession === 'fp1' || selectedSession === 'fp2') ? loadingPractice :
+                         loadingRaceResults;
 
   if (loadingRace) {
     return (
@@ -102,6 +119,26 @@ export default function RaceDetailPage() {
   const race = raceData.race;
   const hasResults = raceResultsData?.results && Object.keys(raceResultsData.results).length > 0;
   const hasSprint = raceResultsData?.results?.SPRINT && Object.keys(raceResultsData.results.SPRINT).length > 0;
+
+  // Funzione per formattare il tempo migliore
+  const formatBestLap = (bestLap: any) => {
+    if (!bestLap) return '-';
+    if (typeof bestLap === 'string') return bestLap; // Per compatibilità con vecchio formato
+    if (bestLap.time) {
+      return bestLap.number ? `${bestLap.time} (Giro ${bestLap.number})` : bestLap.time;
+    }
+    return '-';
+  };
+
+  // Funzione per mostrare il tempo nelle sessioni di prove/qualifiche
+  const getTimeDisplay = (result: RaceResult) => {
+    // Per FP1, FP2 e Qualifiche mostriamo il bestLap
+    if (selectedSession === 'fp1' || selectedSession === 'fp2' || selectedSession === 'qualifying') {
+      return formatBestLap(result.bestLap);
+    }
+    // Per gara e sprint mostriamo time o gap
+    return result.time || result.gap || '-';
+  };
 
   return (
     <Box className="fade-in">
@@ -159,40 +196,56 @@ export default function RaceDetailPage() {
         <TabPanel value={tabValue} index={0}>
           {hasResults ? (
             <>
-              {/* Selettori */}
-              <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+              {/* Selettori Sessione e Categoria */}
+              <Stack spacing={3} sx={{ mb: 3 }}>
+                {/* Selettore Sessione */}
                 <ToggleButtonGroup
                   value={selectedSession}
                   exclusive
                   onChange={(_, value) => value && setSelectedSession(value)}
+                  sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}
                 >
-                  <ToggleButton value="race">
-                    <Timer sx={{ mr: 1 }} /> Gara
+                  <ToggleButton value="fp1" sx={{ flex: 1, minWidth: '100px' }}>
+                    FP1
+                  </ToggleButton>
+                  <ToggleButton value="fp2" sx={{ flex: 1, minWidth: '100px' }}>
+                    FP2
+                  </ToggleButton>
+                  <ToggleButton value="qualifying" sx={{ flex: 1, minWidth: '100px' }}>
+                    Qualifiche
                   </ToggleButton>
                   {hasSprint && (
-                    <ToggleButton value="sprint">
-                      <Speed sx={{ mr: 1 }} /> Sprint
+                    <ToggleButton value="sprint" sx={{ flex: 1, minWidth: '100px' }}>
+                      Sprint
                     </ToggleButton>
                   )}
-                  <ToggleButton value="qualifying">
-                    <Flag sx={{ mr: 1 }} /> Qualifiche
+                  <ToggleButton value="race" sx={{ flex: 1, minWidth: '100px' }}>
+                    Gara
                   </ToggleButton>
                 </ToggleButtonGroup>
 
+                {/* Selettore Categoria */}
                 <ToggleButtonGroup
                   value={selectedCategory}
                   exclusive
                   onChange={(_, value) => value && setSelectedCategory(value)}
+                  fullWidth
                 >
-                  <ToggleButton value="MOTOGP">MotoGP</ToggleButton>
-                  <ToggleButton value="MOTO2">Moto2</ToggleButton>
-                  <ToggleButton value="MOTO3">Moto3</ToggleButton>
+                  <ToggleButton value="MOTOGP" sx={{ color: categoryColors.MOTOGP }}>
+                    MotoGP
+                  </ToggleButton>
+                  <ToggleButton value="MOTO2" sx={{ color: categoryColors.MOTO2 }}>
+                    Moto2
+                  </ToggleButton>
+                  <ToggleButton value="MOTO3" sx={{ color: categoryColors.MOTO3 }}>
+                    Moto3
+                  </ToggleButton>
                 </ToggleButtonGroup>
               </Stack>
 
               {/* Tabella Risultati */}
               {loadingResults ? (
-                <Box display="flex" justifyContent="center" p={3}>
+                <Box display="flex" justifyContent="center" p={4}>
                   <CircularProgress />
                 </Box>
               ) : categoryResults.length > 0 ? (
@@ -203,48 +256,70 @@ export default function RaceDetailPage() {
                         <TableCell>Pos</TableCell>
                         <TableCell>Pilota</TableCell>
                         <TableCell>Team</TableCell>
-                        <TableCell>Tempo/Gap</TableCell>
-                        <TableCell align="center">Giri</TableCell>
-                        <TableCell align="center">Punti</TableCell>
+                        <TableCell>Tempo</TableCell>
+                        {(selectedSession === 'race' || selectedSession === 'sprint') && (
+                          <>
+                            <TableCell>Giri</TableCell>
+                            <TableCell>Punti</TableCell>
+                          </>
+                        )}
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {categoryResults.map((result: RaceResult, index: number) => (
-                        <TableRow 
-                          key={`${result.rider.id}-${index}`}
-                          sx={{ 
-                            backgroundColor: index < 3 ? `${categoryColors[selectedCategory]}15` : 'transparent',
-                            '&:hover': { backgroundColor: 'action.hover' }
-                          }}
-                        >
+                      {categoryResults.map((result: RaceResult) => (
+                        <TableRow key={result.rider.id}>
                           <TableCell>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              {index < 3 && <EmojiEvents sx={{ color: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32' }} />}
-                              <Typography fontWeight={index < 3 ? 'bold' : 'normal'}>
-                                {result.position || '-'}
-                              </Typography>
-                            </Stack>
+                            {result.position <= 3 && (selectedSession === 'race' || selectedSession === 'sprint') ? (
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <EmojiEvents 
+                                  sx={{ 
+                                    color: result.position === 1 ? '#FFD700' : 
+                                           result.position === 2 ? '#C0C0C0' : 
+                                           '#CD7F32',
+                                    fontSize: 20 
+                                  }} 
+                                />
+                                <Typography>{result.position}</Typography>
+                              </Stack>
+                            ) : result.status !== 'FINISHED' ? (
+                              <Chip 
+                                label={result.status} 
+                                size="small" 
+                                color="error" 
+                                variant="outlined" 
+                              />
+                            ) : (
+                              result.position
+                            )}
                           </TableCell>
                           <TableCell>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Avatar sx={{ width: 24, height: 24, bgcolor: categoryColors[selectedCategory] }}>
                                 {result.rider.number}
                               </Avatar>
                               <Typography>{result.rider.name}</Typography>
                             </Stack>
                           </TableCell>
                           <TableCell>{result.rider.team}</TableCell>
-                          <TableCell>{result.time || result.gap || '-'}</TableCell>
-                          <TableCell align="center">{result.totalLaps || '-'}</TableCell>
-                          <TableCell align="center">
-                            {result.points !== undefined ? (
-                              <Chip 
-                                label={result.points} 
-                                size="small"
-                                color={result.points > 0 ? 'primary' : 'default'}
-                              />
-                            ) : '-'}
+                          <TableCell>
+                            <Typography variant="body2">
+                              {getTimeDisplay(result)}
+                            </Typography>
                           </TableCell>
+                          {(selectedSession === 'race' || selectedSession === 'sprint') && (
+                            <>
+                              <TableCell>{result.totalLaps || '-'}</TableCell>
+                              <TableCell>
+                                {result.points ? (
+                                  <Chip 
+                                    label={`+${result.points}`} 
+                                    size="small" 
+                                    color={result.position === 1 ? 'primary' : 'default'}
+                                  />
+                                ) : '-'}
+                              </TableCell>
+                            </>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -252,7 +327,12 @@ export default function RaceDetailPage() {
                 </TableContainer>
               ) : (
                 <Alert severity="info">
-                  Nessun risultato disponibile per {selectedCategory} - {selectedSession === 'qualifying' ? 'Qualifiche' : selectedSession === 'sprint' ? 'Sprint' : 'Gara'}
+                  Nessun risultato disponibile per {selectedCategory} - {
+                    selectedSession === 'qualifying' ? 'Qualifiche' : 
+                    selectedSession === 'sprint' ? 'Sprint' : 
+                    selectedSession === 'fp1' ? 'Prove Libere 1' :
+                    selectedSession === 'fp2' ? 'Prove Libere 2' : 'Gara'
+                  }
                 </Alert>
               )}
             </>
