@@ -45,17 +45,20 @@ export default function LineupPage() {
     queryFn: () => getRaceById(raceId!)
   });
 
-  const { data: existingLineup } = useQuery({
+  const { data: lineupPayload } = useQuery({
     queryKey: ['lineup', teamId, raceId],
     queryFn: () => getLineup(teamId!, raceId!),
     enabled: !!teamId && !!raceId
   });
+  
+  const existingLineup = lineupPayload?.lineup;
+  const practiceResults = lineupPayload?.practiceResults || {};
 
   // Inizializza lineup esistente
   React.useEffect(() => {
-    if (existingLineup?.lineup?.lineupRiders) {
+    if (existingLineup?.lineupRiders) {
       const lineupMap: LineupData = {};
-      existingLineup.lineup.lineupRiders.forEach((item: any) => {
+      existingLineup.lineupRiders.forEach((item: any) => {
         lineupMap[item.riderId] = {
           selected: true,
           predictedPosition: item.predictedPosition?.toString() || ''
@@ -250,7 +253,7 @@ export default function LineupPage() {
           {/* Contatori per categoria */}
           <Grid container spacing={2} sx={{ mt: 2 }}>
             {Object.entries(lineupStats.categoryCounts).map(([category, count]) => (
-              <Grid key={category} size={{ xs: 4}}>
+              <Grid key={category} size={{ xs: 4 }}>
                 <Box textAlign="center">
                   <Typography variant="caption" color="text.secondary">
                     {category}
@@ -296,6 +299,7 @@ export default function LineupPage() {
               <List>
                 {categoryRiders.map((tr: any) => {
                   const isSelected = lineup[tr.rider.id]?.selected;
+                  const riderPracticeResults = practiceResults[tr.rider.id];
                   
                   return (
                     <ListItem 
@@ -327,7 +331,12 @@ export default function LineupPage() {
                       
                       <ListItemText
                         primary={tr.rider.name}
-                        secondary={`${tr.rider.team} • ${tr.rider.value}€`}
+                        secondary={
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                            <Chip label={`FP1: ${riderPracticeResults?.FP1 ? `P${riderPracticeResults.FP1}` : 'N/A'}`} size="small" variant="outlined" />
+                            <Chip label={`FP2: ${riderPracticeResults?.FP2 ? `P${riderPracticeResults.FP2}` : 'N/A'}`} size="small" variant="outlined" />
+                          </Stack>
+                        }
                       />
                       
                       {isSelected && (
@@ -343,13 +352,6 @@ export default function LineupPage() {
                             sx={{ width: 120 }}
                             helperText="1-30"
                           />
-                          <Tooltip title="Media punti">
-                            <Chip 
-                              icon={<TrendingUp />}
-                              label={`${tr.rider.averagePoints?.toFixed(1) || 'N/D'} pt`}
-                              size="small"
-                            />
-                          </Tooltip>
                         </Box>
                       )}
                     </ListItem>

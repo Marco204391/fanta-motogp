@@ -33,11 +33,38 @@ export const getLineup = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    const teamWithRiders = await prisma.team.findFirst({
+        where: { id: String(teamId) },
+        include: { riders: { include: { rider: true } } }
+    });
+
+    const riderIds = teamWithRiders?.riders.map(r => r.riderId) ?? [];
+
+    const practiceResults = await prisma.raceResult.findMany({
+        where: {
+            raceId,
+            riderId: { in: riderIds },
+            session: { in: ['FP1', 'FP2'] }
+        }
+    });
+
+    const resultsByRider = practiceResults.reduce((acc, result) => {
+        if (!acc[result.riderId]) {
+            acc[result.riderId] = {};
+        }
+        acc[result.riderId][result.session] = result.position;
+        return acc;
+    }, {} as Record<string, Record<string, number | null>>);
+
+
     if (!lineup) {
-      return res.status(404).json({ message: 'Nessuno schieramento trovato per questa gara.' });
+      return res.status(404).json({
+          message: 'Nessuno schieramento trovato per questa gara.',
+          practiceResults: resultsByRider
+      });
     }
 
-    res.json({ lineup });
+    res.json({ lineup, practiceResults: resultsByRider });
   } catch (error) {
     console.error("Errore nel recupero dello schieramento:", error);
     res.status(500).json({ error: "Errore nel recupero dello schieramento" });
