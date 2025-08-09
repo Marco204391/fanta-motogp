@@ -30,24 +30,44 @@ export class SyncScheduler {
         console.error('Errore sync calendario:', error);
       }
     }));
+    
+    // 3. Controlla risultati ogni 2 ore il venerdì
+    this.jobs.set('results-friday', cron.schedule('0 */2 * * 5', async () => {
+        console.log('⏰ Controllo risultati gare (venerdì)...');
+        try {
+            await this.checkAndSyncRaceResults();
+        } catch (error) {
+            console.error('Errore sync risultati venerdì:', error);
+        }
+    }));
 
-    // 3. Controlla risultati gare ogni 2 ore la domenica (giorno gara)
-    this.jobs.set('results', cron.schedule('0 */2 * * 0', async () => {
-      console.log('⏰ Controllo risultati gare...');
+    // 4. Controlla risultati ogni 2 ore il sabato
+    this.jobs.set('results-saturday', cron.schedule('0 */2 * * 6', async () => {
+        console.log('⏰ Controllo risultati gare (sabato)...');
+        try {
+            await this.checkAndSyncRaceResults();
+        } catch (error) {
+            console.error('Errore sync risultati sabato:', error);
+        }
+    }));
+
+    // 5. Controlla risultati gare ogni 2 ore la domenica (giorno gara)
+    this.jobs.set('results-sunday', cron.schedule('0 */2 * * 0', async () => {
+      console.log('⏰ Controllo risultati gare (domenica)...');
       try {
         await this.checkAndSyncRaceResults();
       } catch (error) {
-        console.error('Errore sync risultati:', error);
+        console.error('Errore sync risultati domenica:', error);
       }
     }));
 
-    // 4. Controlla risultati anche il lunedì per gare posticipate
+    // 6. Controlla risultati anche il lunedì per gare posticipate
     this.jobs.set('results-monday', cron.schedule('0 */4 * * 1', async () => {
       console.log('⏰ Controllo risultati gare (lunedì)...');
       try {
         await this.checkAndSyncRaceResults();
       } catch (error) {
-        console.error('Errore sync risultati:', error);
+        console.error('Errore sync risultati lunedì:', error);
       }
     }));
 
@@ -61,25 +81,29 @@ export class SyncScheduler {
   }
 
   private async checkAndSyncRaceResults() {
-    // Trova gare completate senza risultati
-    const racesWithoutResults = await prisma.race.findMany({
+    // Trova le gare che si sono svolte negli ultimi 3 giorni.
+    // Questo approccio cattura l'intero weekend di gara (ven-dom)
+    // e permette di aggiornare i risultati delle varie sessioni (FP, Q, Sprint, Race).
+    const racesToSync = await prisma.race.findMany({
       where: {
         gpDate: {
-          lt: new Date(),
-          gt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Ultima settimana
-        },
-        results: { none: {} }
+          gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // Da 3 giorni fa
+          lte: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)  // Fino a 2 giorni nel futuro
+        }
       },
       orderBy: { gpDate: 'desc' }
     });
 
-    for (const race of racesWithoutResults) {
+    for (const race of racesToSync) {
       try {
         console.log(`📊 Tentativo sync risultati per: ${race.name}`);
         await motogpApi.syncRaceResults(race.id);
         
-        // Notifica gli utenti che i risultati sono disponibili
-        await this.notifyUsersAboutResults(race);
+        // Notifica solo se la gara principale è finita e ci sono risultati
+        const raceResultsCount = await prisma.raceResult.count({ where: { raceId: race.id, session: 'RACE' }});
+        if (new Date() > new Date(race.gpDate) && raceResultsCount > 0) {
+            await this.notifyUsersAboutResults(race);
+        }
         
       } catch (error) {
         console.error(`Errore sync risultati ${race.name}:`, error);
@@ -88,14 +112,26 @@ export class SyncScheduler {
   }
 
   private async notifyUsersAboutResults(race: any) {
+    // Controlla se le notifiche per questa gara sono già state inviate
+    const existingNotification = await prisma.notification.findFirst({
+        where: {
+            message: { contains: `I risultati di ${race.name} sono ora disponibili.` },
+            type: 'RACE_RESULTS'
+        }
+    });
+
+    if (existingNotification) {
+        console.log(`📬 Notifiche per ${race.name} già inviate. Salto.`);
+        return;
+    }
+
     // Trova tutti gli utenti con team in leghe attive
     const users = await prisma.user.findMany({
       where: {
         teams: {
           some: {
             league: {
-              startDate: { lte: new Date() },
-              endDate: { gte: new Date() }
+              // Assumiamo che se non ci sono date, la lega sia sempre attiva
             }
           }
         }
