@@ -12,6 +12,8 @@ enum SessionType {
   SPRINT
   RACE
   QUALIFYING
+  FP1
+  FP2
 }
 
 // ENUM per il tipo di pilota
@@ -197,6 +199,10 @@ model RaceResult {
   fastestLap    Boolean   @default(false)
   polePosition  Boolean   @default(false)
   dnf           Boolean   @default(false)
+
+  time          String?   // Tempo totale
+  totalLaps     Int?      // Giri completati
+  bestLap       Json?     // Oggetto con i dettagli del giro veloce
 
   fantasyPoints Int       @default(0)
   status        RaceStatus @default(FINISHED)

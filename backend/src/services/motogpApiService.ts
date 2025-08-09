@@ -154,17 +154,8 @@ export class MotoGPApiService {
           const eventData = eventDetailsResponse.data;
           const broadcasts = eventData?.broadcasts || [];
           
-          if (eventData?.circuit?.track?.assets) {
-            console.log(`[LOG] Trovati assets per il circuito: ${event.circuit.name}`);
-            
-            if (eventData.circuit.track.assets.info?.path) {
-              trackLayoutUrl = eventData.circuit.track.assets.info.path;
-              console.log(`[LOG] Estratto trackLayoutUrl: ${trackLayoutUrl}`);
-            } else {
-              console.log(`[LOG] Nessun 'info.path' trovato per questo tracciato.`);
-            }
-          } else {
-            console.log(`[LOG] Nessun oggetto 'assets' trovato per il circuito: ${event.circuit.name}`);
+          if (eventData?.circuit?.track?.assets?.info?.path) {
+            trackLayoutUrl = eventData.circuit.track.assets.info.path;
           }
           
           const raceSession = broadcasts.find((s: any) => s.shortname === 'RAC' && s.category.acronym === 'MGP');
@@ -179,6 +170,7 @@ export class MotoGPApiService {
         } catch (sessionError) {
           console.warn(`⚠️ Impossibile recuperare i dettagli delle sessioni per ${event.name}, uso le date generali.`);
         }
+        const roundNumber = event.sequence || event.number || 0; 
         
         await prisma.race.upsert({
           where: { apiEventId: event.id },
@@ -190,7 +182,7 @@ export class MotoGPApiService {
             endDate: new Date(event.date_end),
             gpDate: raceDate || new Date(event.date_end),
             sprintDate: sprintDate,
-            round: event.number || 0, // Inizialmente usa il round dell'API
+            round: roundNumber,
             season,
             trackLayoutUrl
           },
@@ -202,7 +194,7 @@ export class MotoGPApiService {
             endDate: new Date(event.date_end),
             gpDate: raceDate || new Date(event.date_end),
             sprintDate: sprintDate,
-            round: event.number || 0, // Inizialmente usa il round dell'API
+            round: roundNumber,
             season,
             apiEventId: event.id,
             trackLayoutUrl
@@ -244,7 +236,8 @@ export class MotoGPApiService {
           const sprintSession = sessionsResponse.data.find((s: any) => s.type === 'SPR');
           const q1Session = sessionsResponse.data.find((s: any) => (s.type === 'Q' && s.number === 1) || s.type === 'Q1');
           const q2Session = sessionsResponse.data.find((s: any) => (s.type === 'Q' && s.number === 2) || s.type === 'Q2');
-
+          const fp1Session = sessionsResponse.data.find((s: any) => (s.type === 'FP' && s.number === 1) || s.type === 'FP1');
+          const fp2Session = sessionsResponse.data.find((s: any) => (s.type === 'FP' && s.number === 2) || s.type === 'FP2');
 
           if (raceSession) {
             const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${raceSession.id}&test=false`);
@@ -258,6 +251,20 @@ export class MotoGPApiService {
               await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.SPRINT);
             }
           }
+
+          if (fp1Session) {
+            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${fp1Session.id}&test=false`);
+            if (resultsResponse.data?.classification) {
+                await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.FP1);
+            }
+          }
+          if (fp2Session) {
+            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${fp2Session.id}&test=false`);
+            if (resultsResponse.data?.classification) {
+                await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.FP2);
+            }
+          }
+
           if (q2Session) {
             const q2ResultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${q2Session.id}&test=false`);
             if (q2ResultsResponse.data?.classification) {
@@ -309,59 +316,48 @@ export class MotoGPApiService {
 
   private async saveRaceResults(raceId: string, category: Category, classification: any[], session: SessionType) {
     const finishedRiders = classification.filter(r => r.position !== null);
-    const dnfRiders = classification.filter(r => r.position === null);
-
-    dnfRiders.sort((a, b) => (b.total_laps || 0) - (a.total_laps || 0));
-
+    const dnfRiders = classification.filter(r => r.position === null).sort((a, b) => (b.total_laps || 0) - (a.total_laps || 0));
     const lastPosition = finishedRiders.length;
-
-    const finalClassification = [
-      ...finishedRiders,
-      ...dnfRiders.map((rider, index) => ({
-        ...rider,
-        position: lastPosition + index + 1,
-      }))
-    ];
+    const finalClassification = [...finishedRiders, ...dnfRiders.map((rider, index) => ({ ...rider, position: lastPosition + index + 1 }))];
 
     for (const result of finalClassification) {
-      let rider = await prisma.rider.findUnique({
-        where: { apiRiderId: result.rider.riders_api_uuid }
-      });
-
+      let rider = await prisma.rider.findUnique({ where: { apiRiderId: result.rider.riders_api_uuid } });
       if (!rider) {
-        rider = await prisma.rider.findFirst({
-          where: { name: { contains: result.rider.full_name }, category }
-        });
+        rider = await prisma.rider.findFirst({ where: { name: { contains: result.rider.full_name }, category } });
       }
 
       if (!rider) {
-        console.warn(`⚠️ Pilota non trovato: ${result.rider.full_name}`);
+        console.warn(`⚠️ Pilota non trovato nel DB, impossibile salvare il risultato per: ${result.rider.full_name}`);
         continue;
       }
       
       let status: 'FINISHED' | 'DNF' | 'DNS' | 'DSQ' = 'FINISHED';
-      if (result.status === 'OUTSTND' || result.status === 'DNF') {
-        status = 'DNF';
-      } else if (result.status === 'DNS') {
-        status = 'DNS';
-      } else if (result.status === 'DSQ') {
-        status = 'DSQ';
-      } else if (!result.position) {
-        status = 'DNF';
-      }
+      if (result.status === 'OUTSTND' || result.status === 'DNF') status = 'DNF';
+      else if (result.status === 'DNS') status = 'DNS';
+      else if (result.status === 'DSQ') status = 'DSQ';
+      else if (!result.position) status = 'DNF';
+
+      const dataToSave = {
+        position: result.position || null,
+        points: result.points || 0,
+        status,
+        time: result.time || null,
+        totalLaps: result.total_laps || null,
+        bestLap: result.best_lap || null,
+      };
 
       await prisma.raceResult.upsert({
         where: { raceId_riderId_session: { raceId, riderId: rider.id, session } },
-        update: {
-          position: result.position || null,
-          status,
-        },
+        update: dataToSave,
         create: {
-          raceId,
-          riderId: rider.id,
           session,
-          position: result.position || null,
-          status,
+          ...dataToSave,
+          race: {
+            connect: { id: raceId }
+          },
+          rider: {
+            connect: { id: rider.id }
+          }
         },
       });
     }
