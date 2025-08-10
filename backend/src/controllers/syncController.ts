@@ -1,29 +1,10 @@
 // backend/src/controllers/syncController.ts
-import { Response, NextFunction } from 'express';
+import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { motogpApi } from '../services/motogpApiService';
 import { PrismaClient, SessionType } from '@prisma/client';
 
 const prisma = new PrismaClient();
-
-// Middleware per verificare che l'utente sia admin
-export const requireAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.userId }
-    });
-
-    // Per ora, consideriamo admin solo l'utente con email specifica
-    // In futuro potresti aggiungere un campo isAdmin al modello User
-    if (!user || user.email !== 'admin@fantamotogp.com') {
-      return res.status(403).json({ error: 'Accesso negato. Solo gli amministratori possono accedere.' });
-    }
-
-    next();
-  } catch (error) {
-    res.status(500).json({ error: 'Errore verifica permessi' });
-  }
-};
 
 // POST /api/sync/riders - Sincronizza piloti
 export const syncRiders = async (req: AuthRequest, res: Response) => {

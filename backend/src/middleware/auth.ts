@@ -1,6 +1,9 @@
 // backend/src/middleware/auth.ts
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -73,4 +76,20 @@ export const optionalAuth = async (
     // semplicemente non imposta req.userId
   }
   next();
+};
+
+export const requireAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId }
+    });
+
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ error: 'Accesso negato. Solo gli amministratori possono accedere.' });
+    }
+
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Errore verifica permessi' });
+  }
 };
