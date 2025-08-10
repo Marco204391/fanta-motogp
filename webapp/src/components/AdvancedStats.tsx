@@ -1,15 +1,14 @@
 // webapp/src/components/AdvancedStats.tsx
-import React from 'react';
 import {
-  Box, Paper, Typography, Grid, LinearProgress, Stack, Chip,
-  Avatar, useTheme
+  Box, Paper, Typography, Grid, Stack, Avatar,
+  useTheme, Cell
 } from '@mui/material';
 import {
-  TrendingUp, TrendingDown, Remove, EmojiEvents, Speed, Timer
+  TrendingUp, TrendingDown, Remove
 } from '@mui/icons-material';
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, PieChart, Pie,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 
@@ -34,7 +33,8 @@ export default function AdvancedStats({ data }: { data: StatsData }) {
   return (
     <Grid container spacing={3}>
       {/* Grafico Performance Team */}
-      <Grid item xs={12} md={8}>
+
+      <Grid size={{ xs: 12, md: 8}}>
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Performance Team nel Tempo
@@ -65,7 +65,7 @@ export default function AdvancedStats({ data }: { data: StatsData }) {
       </Grid>
 
       {/* Distribuzione Punti per Categoria */}
-      <Grid item xs={12} md={4}>
+      <Grid size={{ xs: 12, md: 4}}>
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Distribuzione Punti
@@ -77,7 +77,7 @@ export default function AdvancedStats({ data }: { data: StatsData }) {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
@@ -93,7 +93,7 @@ export default function AdvancedStats({ data }: { data: StatsData }) {
       </Grid>
 
       {/* Radar Chart Performance Piloti */}
-      <Grid item xs={12} md={6}>
+      <Grid size={{ xs: 12, md: 6}}>
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Analisi Performance Piloti
@@ -117,7 +117,7 @@ export default function AdvancedStats({ data }: { data: StatsData }) {
       </Grid>
 
       {/* Top Performers */}
-      <Grid item xs={12} md={6}>
+      <Grid size={{ xs: 12, md: 6}}>
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Top Performers Ultima Gara

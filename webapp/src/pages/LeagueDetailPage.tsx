@@ -26,7 +26,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Switch,
   FormControlLabel,
   Select,
@@ -41,8 +40,7 @@ import {
   ListItemAvatar,
   IconButton,
   Tooltip,
-  LinearProgress,
-  Badge
+  LinearProgress
 } from '@mui/material';
 import {
   TrendingUp,
@@ -52,23 +50,13 @@ import {
   Settings,
   Share,
   Lock,
-  LockOpen,
   ContentCopy,
-  Notifications,
   NotificationsActive,
   EmojiEvents,
-  Star,
   WorkspacePremium,
   BarChart,
-  Info,
-  CheckCircle,
-  Warning,
-  Add,
   Refresh,
   Visibility,
-  VisibilityOff,
-  Timer,
-  Flag,
   SportsMotorsports
 } from '@mui/icons-material';
 import { format, isPast } from 'date-fns';
