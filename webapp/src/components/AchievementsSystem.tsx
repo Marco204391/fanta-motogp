@@ -10,7 +10,6 @@ import {
   Chip,
   Avatar,
   Stack,
-  Tooltip,
   Badge,
   Alert
 } from '@mui/material';
@@ -20,7 +19,6 @@ import {
   LocalFireDepartment,
   Speed,
   Psychology,
-  Rocket,
 } from '@mui/icons-material';
 
 interface Achievement {
@@ -111,7 +109,7 @@ export default function AchievementsSystem() {
           const progress = (achievement.progress / achievement.maxProgress) * 100;
           
           return (
-            <Grid item xs={12} sm={6} md={4} key={achievement.id}>
+            <Grid key={achievement.id} size={{ xs: 12, sm: 6, md: 4}}>
               <Badge
                 invisible={!achievement.unlocked}
                 badgeContent="✓"

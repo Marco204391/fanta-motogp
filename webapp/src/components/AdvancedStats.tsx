@@ -1,14 +1,14 @@
 // webapp/src/components/AdvancedStats.tsx
 import {
   Box, Paper, Typography, Grid, Stack, Avatar,
-  useTheme, Cell
+  useTheme,
 } from '@mui/material';
 import {
   TrendingUp, TrendingDown, Remove
 } from '@mui/icons-material';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, PieChart, Pie,
+  Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 

@@ -114,7 +114,7 @@ export function LeagueCard({
 
         {/* Stats Grid */}
         <Grid container spacing={2}>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <Box>
               <Typography variant="h5" color="primary" sx={{ fontWeight: 600 }}>
                 {league.budget}
@@ -125,7 +125,7 @@ export function LeagueCard({
             </Box>
           </Grid>
           {isMyLeague && league.userPosition && (
-            <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
               <Box>
                 <Stack direction="row" alignItems="center" spacing={0.5}>
                   <Typography variant="h5" color="secondary" sx={{ fontWeight: 600 }}>
