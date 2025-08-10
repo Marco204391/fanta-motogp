@@ -13,7 +13,6 @@ import {
   TextField,
   Grid,
   Button,
-  Paper,
   Stack,
   Chip,
   LinearProgress,
@@ -22,7 +21,7 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  ListItemSecondaryAction,
+  ListItemButton,
   IconButton,
   Accordion,
   AccordionSummary,
@@ -31,8 +30,6 @@ import {
 } from '@mui/material';
 import {
   ExpandMore,
-  SportsMotorsports,
-  Euro,
   Delete,
   CheckCircle,
   Warning,
@@ -279,42 +276,45 @@ export default function CreateTeamPage() {
                       return (
                         <ListItem
                           key={rider.id}
-                          button
-                          onClick={() => !isTaken && handleToggleRider(rider)}
-                          disabled={isDisabled && !isSelected}
-                          selected={isSelected}
-                        >
-                          <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: 'grey.300' }}>{rider.number}</Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={rider.name}
-                            secondary={
-                              <Stack direction="row" spacing={1}>
-                                <Typography variant="caption">{rider.team}</Typography>
-                                <Typography variant="caption">•</Typography>
-                                <Typography variant="caption" color="primary">
-                                  {rider.value} crediti
-                                </Typography>
-                                {isTaken && (
-                                  <>
-                                    <Typography variant="caption">•</Typography>
-                                    <Typography variant="caption" color="error">
-                                      Già preso
-                                    </Typography>
-                                  </>
-                                )}
-                              </Stack>
-                            }
-                          />
-                          <ListItemSecondaryAction>
+                          disablePadding 
+                          secondaryAction={
                             <Checkbox
                               edge="end"
                               checked={isSelected}
                               disabled={isDisabled && !isSelected}
                               onChange={() => !isTaken && handleToggleRider(rider)}
                             />
-                          </ListItemSecondaryAction>
+                          }
+                        >
+                          <ListItemButton
+                            onClick={() => !isTaken && handleToggleRider(rider)}
+                            disabled={isDisabled && !isSelected}
+                            selected={isSelected}
+                          >
+                            <ListItemAvatar>
+                              <Avatar sx={{ bgcolor: 'grey.300' }}>{rider.number}</Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={rider.name}
+                              secondary={
+                                <Stack direction="row" spacing={1}>
+                                  <Typography variant="caption">{rider.team}</Typography>
+                                  <Typography variant="caption">•</Typography>
+                                  <Typography variant="caption" color="primary">
+                                    {rider.value} crediti
+                                  </Typography>
+                                  {isTaken && (
+                                    <>
+                                      <Typography variant="caption">•</Typography>
+                                      <Typography variant="caption" color="error">
+                                        Già preso
+                                      </Typography>
+                                    </>
+                                  )}
+                                </Stack>
+                              }
+                            />
+                          </ListItemButton>
                         </ListItem>
                       );
                     })}

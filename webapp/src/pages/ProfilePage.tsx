@@ -10,7 +10,6 @@ import {
   Button,
   TextField,
   Switch,
-  FormControlLabel,
   Avatar,
   Divider,
   List,
@@ -29,18 +28,14 @@ import {
   LinearProgress,
   IconButton,
   InputAdornment,
-  FormControl,
-  FormGroup
 } from '@mui/material';
 import {
-  Person,
   Email,
   Lock,
   Edit,
   Save,
   Cancel,
   Notifications,
-  NotificationsOff,
   DarkMode,
   LightMode,
   EmojiEvents,
@@ -55,10 +50,7 @@ import {
   VisibilityOff,
   Delete,
   Logout,
-  Settings,
   Security,
-  AccountCircle,
-  Badge,
   WorkspacePremium,
   Star
 } from '@mui/icons-material';
@@ -118,7 +110,10 @@ export default function ProfilePage() {
   // Query profilo completo
   const { data: profileData, isLoading: loadingProfile } = useQuery({
     queryKey: ['profile'],
-    queryFn: getProfile
+    queryFn: async () => {
+      const response = await getProfile();
+      return response.data || response;
+    }
   });
 
   // Query statistiche
