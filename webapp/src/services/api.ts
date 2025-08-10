@@ -1,9 +1,8 @@
 // webapp/src/services/api.ts
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.DEV 
-  ? 'http://localhost:3000/api' 
-  : '/api';
+
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -182,8 +181,8 @@ export const getRiderStats = async (riderId: string, season?: number) => {
 
 // Lineups
 export const getLineup = async (teamId: string, raceId: string) => {
-  const response = await api.get(`/lineups/${raceId}`, { 
-    params: { teamId } 
+  const response = await api.get(`/lineups/${raceId}`, {
+    params: { teamId }
   });
   return response.data;
 };
@@ -220,7 +219,7 @@ export const syncRaceResults = async (raceId: string) => {
 };
 
 export const getPastRacesWithStatus = async () => {
-  return getPastRaces(); 
+  return getPastRaces();
 };
 
 export const getResultsTemplate = async (raceId: string, category: string) => {
@@ -232,7 +231,6 @@ export const postRaceResults = async (data: { raceId: string; results: any[]; se
   const response = await api.post('/sync/results', data);
   return response.data;
 };
-
 export const alpha = (color: string, opacity: number): string => {
   return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
 };
