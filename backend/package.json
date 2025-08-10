@@ -34,7 +34,10 @@
     "express-validator": "^7.0.1",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
-    "redis": "^4.6.0"
+    "prisma": "^6.13.0",
+    "redis": "^4.6.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -46,10 +49,7 @@
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "eslint": "^8.55.0",
-    "jest": "^29.7.0",
-    "nodemon": "^3.0.2",
-    "prisma": "^6.13.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.2"
+    "jest": "^2.7.0",
+    "nodemon": "^3.0.2"
   }
 }
