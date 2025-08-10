@@ -5,12 +5,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTeamById, getRiders, updateTeam } from '../services/api';
 import {
   Box, Typography, CircularProgress, Alert, Card, CardContent,
-  Button, Stack, Chip, LinearProgress, Avatar, List, ListItem,
-  ListItemAvatar, ListItemText, ListItemSecondaryAction, IconButton,
-  Accordion, AccordionSummary, AccordionDetails, Divider, Paper, Checkbox, Grid
+  Button, Stack, Chip, LinearProgress, Avatar, List, ListItem, Grid,
+  ListItemAvatar, ListItemText, ListItemSecondaryAction, ListItemButton,
+  Accordion, AccordionSummary, AccordionDetails, Divider, Paper, Checkbox,
 } from '@mui/material';
 import {
-  ExpandMore, Save, Delete, Add, Euro, Warning, CheckCircle, Cancel
+  ExpandMore, Save, Euro, Warning, CheckCircle, Cancel
 } from '@mui/icons-material';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -44,20 +44,22 @@ export default function EditTeamPage() {
   const queryClient = useQueryClient();
   const { notify } = useNotification();
 
-
+  const [teamName, setTeamName] = useState('');
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
   const [expandedCategory, setExpandedCategory] = useState<string | false>('MOTOGP');
 
-  // Query team data
   const { data: teamData, isLoading: loadingTeam } = useQuery({
-    queryKey: ['team', teamId],
-    queryFn: () => getTeamById(teamId!),
-    onSuccess: (data) => {
-      setSelectedRiders(data.team.riders.map((r: any) => r.rider.id));
-    },
+    queryKey: ['teamDetails', teamId], // Uso una chiave più specifica per evitare conflitti
+    queryFn: () => getTeamById(teamId!)
   });
 
-  // Query all riders
+  useEffect(() => {
+    if (teamData?.team) {
+      setSelectedRiders(teamData.team.riders.map((r: any) => r.riderId));
+      setTeamName(teamData.team.name);
+    }
+  }, [teamData]); 
+
   const { data: ridersData, isLoading: loadingRiders } = useQuery({
     queryKey: ['riders'],
     queryFn: () => getRiders({ limit: 200 }),
@@ -262,47 +264,32 @@ export default function EditTeamPage() {
                       const isDisabled = isTaken || wouldExceedBudget || wouldExceedCategory;
 
                       return (
-                        <ListItem
-                          key={rider.id}
-                          button
-                          onClick={() => handleToggleRider(rider.id)}
-                          disabled={isDisabled && !isSelected}
-                          selected={isSelected}
-                          sx={{
-                            borderRadius: 1,
-                            mb: 1,
-                            backgroundColor: isSelected ? 'action.selected' : 'transparent',
-                            '&:hover': {
-                              backgroundColor: isSelected ? 'action.selected' : 'action.hover',
-                            },
-                          }}
-                        >
-                          <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: isTaken ? 'grey.700' : categoryColors[rider.category as keyof typeof categoryColors] }}>
-                              {rider.number}
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={rider.name}
-                            secondary={
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <Typography variant="body2">{rider.team}</Typography>
-                                <Chip
-                                  size="small"
-                                  icon={<Euro sx={{ fontSize: 14 }} />}
-                                  label={`${rider.value} crediti`}
-                                />
-                                {isTaken && <Chip label="Già preso" size="small" color="error" />}
-                              </Stack>
-                            }
-                          />
-                          <ListItemSecondaryAction>
-                             <Checkbox
-                              edge="end"
-                              checked={isSelected}
-                              disabled={isDisabled && !isSelected}
+                        <ListItem key={rider.id} disablePadding>
+                          <ListItemButton
+                            onClick={() => handleToggleRider(rider.id)}
+                            disabled={isDisabled && !isSelected}
+                            selected={isSelected}
+                            sx={{ borderRadius: 1, mb: 1 }}
+                          >
+                            <ListItemAvatar>
+                              <Avatar sx={{ bgcolor: isTaken ? 'grey.700' : categoryColors[rider.category] }}>
+                                {rider.number}
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={rider.name}
+                              secondary={
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <Typography variant="body2">{rider.team}</Typography>
+                                  <Chip size="small" icon={<Euro sx={{ fontSize: 14 }} />} label={`${rider.value} crediti`} />
+                                  {isTaken && <Chip label="Già preso" size="small" color="error" />}
+                                </Stack>
+                              }
                             />
-                          </ListItemSecondaryAction>
+                            <ListItemSecondaryAction>
+                              <Checkbox edge="end" checked={isSelected} disabled={isDisabled && !isSelected} readOnly />
+                            </ListItemSecondaryAction>
+                          </ListItemButton>
                         </ListItem>
                       );
                     })}
