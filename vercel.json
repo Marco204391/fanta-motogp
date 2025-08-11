@@ -2,24 +2,26 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/package.json",
+      "src": "backend/src/server.ts",
       "use": "@vercel/node",
-      "config": { "includeFiles": ["prisma/**"] }
+      "config": { "includeFiles": ["../../prisma/**"] }
     },
     {
       "src": "webapp/package.json",
       "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/backend"
+      "destination": "/backend/src/server.ts"
     },
     {
       "source": "/(.*)",
-      "destination": "/webapp"
+      "destination": "/webapp/index.html"
     }
   ]
 }
