@@ -21,7 +21,7 @@ jobs:
     if: github.event.schedule == '0 * * * 0,1,5,6'
     steps:
       - name: Check and Sync Race Results
-        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-results" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+        run: curl --fail -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-results" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
   # Job per sincronizzare la lista piloti una volta a settimana
   sync_riders:
@@ -31,7 +31,7 @@ jobs:
     if: github.event.schedule == '0 3 * * 1'
     steps:
       - name: Sync Riders
-        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-riders" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+        run: curl --fail -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-riders" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
   # Job per sincronizzare il calendario una volta a settimana
   sync_calendar:
@@ -41,7 +41,7 @@ jobs:
     if: github.event.schedule == '0 3 * * 2'
     steps:
       - name: Sync Calendar
-        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-calendar" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+        run: curl --fail -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-calendar" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
   # Job per l'esecuzione manuale di tutte le sincronizzazioni
   manual_sync_all:
@@ -51,8 +51,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Sync Riders
-        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-riders" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+        run: curl --fail -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-riders" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
       - name: Sync Calendar
-        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-calendar" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+        run: curl --fail -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-calendar" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
       - name: Check and Sync Race Results
-        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-results" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+        run: curl --fail -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-results" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
