@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build:all": "cd backend && npx prisma migrate deploy && npx prisma generate && cd .. && cd webapp && npm install && npm run build"
+    "build:all": "cd backend && npm install && cd .. && cd webapp && npm install && npm run build"
   }
 }
