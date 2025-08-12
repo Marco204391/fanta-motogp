@@ -102,7 +102,7 @@ export default function HomePage() {
         </Fade>
       )}
 
-      <Typography variant="h3" gutterBottom sx={{ mb: 4 }}>
+      <Typography variant="h3" gutterBottom sx={{ mb: 4, fontSize: { xs: '2.5rem', md: '3rem' } }}>
         Dashboard
       </Typography>
 
@@ -113,7 +113,7 @@ export default function HomePage() {
             <Paper
               className="pulse"
               sx={{
-                p: 4,
+                p: { xs: 2, md: 4 },
                 background: `linear-gradient(135deg, rgba(230,0,35,0.9), rgba(20,20,20,0.95)), url('/race-hero.jpg')`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
@@ -138,13 +138,17 @@ export default function HomePage() {
                   <Typography variant="overline" sx={{ opacity: 0.8 }}>
                     Prossima Gara - Round {nextRace.round}
                   </Typography>
-                  <Typography variant="h3" gutterBottom sx={{ fontWeight: 800 }}>
+                  <Typography variant="h3" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '2rem', md: '3rem' } }}>
                     {nextRace.name}
                   </Typography>
-                  <Typography variant="h5" sx={{ opacity: 0.9, mb: 2 }}>
+                  <Typography variant="h5" sx={{ opacity: 0.9, mb: 3, fontSize: { xs: '1.2rem', md: '1.5rem' } }}>
                     {nextRace.circuit}, {nextRace.country}
                   </Typography>
-                  <Stack direction="row" spacing={3} alignItems="center">
+                  <Stack 
+                    direction={{ xs: 'column', sm: 'row' }} 
+                    spacing={{ xs: 2, sm: 3 }} 
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                  >
                     <Chip
                       icon={<Timer />}
                       label={format(new Date(nextRace.gpDate), 'EEEE d MMMM yyyy', { locale: it })}
@@ -153,7 +157,7 @@ export default function HomePage() {
                     {nextRace.sprintDate && (
                       <Chip icon={<Speed />} label="Weekend Sprint" color="warning" />
                     )}
-                    <Box sx={{ flexGrow: 1 }} />
+                    <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }} />
                     <Button
                       variant="contained"
                       color="secondary"
@@ -162,7 +166,10 @@ export default function HomePage() {
                         e.stopPropagation();
                         navigate(`/races/${nextRace.id}`);
                       }}
-                      sx={{ boxShadow: '0 4px 20px rgba(255,107,0,0.4)' }}
+                      sx={{ 
+                        boxShadow: '0 4px 20px rgba(255,107,0,0.4)',
+                        width: { xs: '100%', sm: 'auto' } // Pulsante a larghezza piena su mobile
+                      }}
                     >
                       Dettagli Gara
                     </Button>
