@@ -19,6 +19,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import { AppBar, Toolbar, Typography, Button, Container, Box, CircularProgress, Menu, MenuItem, IconButton, Avatar } from '@mui/material';
 import React from 'react';
 import CreateLeaguePage from './pages/CreateLeaguePage';
+import MenuIcon from '@mui/icons-material/Menu';
+
 
 const Logo = () => (
     <svg width="40" height="40" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -28,11 +30,25 @@ const Logo = () => (
 
 function MainLayout() {
   const { user, logout } = useAuth();
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const location = useLocation();
+  
+  // State per il menu mobile
+  const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
+  const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElNav(event.currentTarget);
+  };
+  const handleCloseNavMenu = () => {
+    setAnchorElNav(null);
+  };
 
-  const handleMenu = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
-  const handleClose = () => setAnchorEl(null);
+  // State per il menu utente
+  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+  const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElUser(event.currentTarget);
+  };
+  const handleCloseUserMenu = () => {
+    setAnchorElUser(null);
+  };
 
   const navLinks = [
     { label: 'Dashboard', path: '/' },
@@ -51,6 +67,7 @@ function MainLayout() {
       <AppBar position="static">
         <Container maxWidth="xl">
           <Toolbar disableGutters>
+            {/* Logo e Titolo per Desktop */}
             <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', mr: 2 }}>
                 <Logo />
                 <Typography
@@ -71,10 +88,69 @@ function MainLayout() {
                 </Typography>
             </Box>
             
+            {/* Hamburger Menu per Mobile */}
+            <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
+              <IconButton
+                size="large"
+                aria-label="account of current user"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
+                onClick={handleOpenNavMenu}
+                color="inherit"
+              >
+                <MenuIcon />
+              </IconButton>
+              <Menu
+                id="menu-appbar"
+                anchorEl={anchorElNav}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                }}
+                keepMounted
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'left',
+                }}
+                open={Boolean(anchorElNav)}
+                onClose={handleCloseNavMenu}
+                sx={{
+                  display: { xs: 'block', md: 'none' },
+                }}
+              >
+                {navLinks.map((link) => (
+                  <MenuItem key={link.label} onClick={handleCloseNavMenu} component={RouterLink} to={link.path}>
+                    <Typography textAlign="center">{link.label}</Typography>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </Box>
+            
+            {/* Logo e Titolo per Mobile (centrato) */}
+             <Typography
+                variant="h6"
+                noWrap
+                component={RouterLink}
+                to="/"
+                sx={{
+                  display: { xs: 'flex', md: 'none' },
+                  flexGrow: 1,
+                  fontFamily: 'monospace',
+                  fontWeight: 700,
+                  letterSpacing: '.2rem',
+                  color: 'inherit',
+                  textDecoration: 'none',
+                }}
+              >
+                FANTA MOTOGP
+            </Typography>
+
+            {/* Menu Desktop */}
             <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
               {navLinks.map((link) => (
                 <Button
                   key={link.label}
+                  onClick={handleCloseNavMenu}
                   component={RouterLink}
                   to={link.path}
                   sx={{ my: 2, color: 'white', display: 'block', position: 'relative',
@@ -97,25 +173,26 @@ function MainLayout() {
               ))}
             </Box>
 
+            {/* Menu Utente (invariato) */}
             <Box sx={{ flexGrow: 0 }}>
-                <IconButton onClick={handleMenu} sx={{ p: 0 }}>
+                <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                     <Avatar sx={{ bgcolor: 'secondary.main' }}>
                         {user?.username ? user.username.charAt(0).toUpperCase() : '?'}
                     </Avatar>
                 </IconButton>
               <Menu
                 sx={{ mt: '45px' }}
-                anchorEl={anchorEl}
+                anchorEl={anchorElUser}
                 anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
                 keepMounted
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                open={Boolean(anchorEl)}
-                onClose={handleClose}
+                open={Boolean(anchorElUser)}
+                onClose={handleCloseUserMenu}
               >
-                <MenuItem component={RouterLink} to="/profile" onClick={handleClose}>
+                <MenuItem component={RouterLink} to="/profile" onClick={handleCloseUserMenu}>
                     <Typography textAlign="center">Profilo</Typography>
                 </MenuItem>
-                <MenuItem onClick={() => { handleClose(); logout(); }}>
+                <MenuItem onClick={() => { handleCloseUserMenu(); logout(); }}>
                   <Typography textAlign="center">Logout</Typography>
                 </MenuItem>
               </Menu>
