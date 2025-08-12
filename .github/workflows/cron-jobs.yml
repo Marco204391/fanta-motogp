@@ -7,6 +7,8 @@ on:
     # Esegue ogni giorno alle 3:00 AM UTC per le operazioni settimanali
     - cron: '0 3 * * *'
 
+  workflow_dispatch:
+
 jobs:
   sync_race_results:
     runs-on: ubuntu-latest
