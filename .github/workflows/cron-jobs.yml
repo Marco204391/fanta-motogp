@@ -1,0 +1,32 @@
+name: FantaMotoGP Cron Jobs
+
+on:
+  schedule:
+    # Esegue ogni ora durante i weekend di gara (Venerdì-Lunedì)
+    - cron: '0 * * * 0,1,5,6'
+    # Esegue ogni giorno alle 3:00 AM UTC per le operazioni settimanali
+    - cron: '0 3 * * *'
+
+jobs:
+  sync_race_results:
+    runs-on: ubuntu-latest
+    # Esegue solo durante i weekend di gara
+    if: github.event.schedule == '0 * * * 0,1,5,6'
+    steps:
+      - name: Check and Sync Race Results
+        run: curl -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-results" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+  sync_weekly_data:
+    runs-on: ubuntu-latest
+    # Esegue solo alle 3:00 AM UTC
+    if: github.event.schedule == '0 3 * * *'
+    steps:
+      - name: Sync Riders (Mondays)
+        # Esegue solo il lunedì (day-of-week is 1)
+        if: ${{ github.event.schedule == '0 3 * * *' && fromJson('["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]')[day_of_week] == 'Mon' }}
+        run: curl -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-riders" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Sync Calendar (Tuesdays)
+        # Esegue solo il martedì (day-of-week is 2)
+        if: ${{ github.event.schedule == '0 3 * * *' && fromJson('["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]')[day_of_week] == 'Tue' }}
+        run: curl -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-calendar" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

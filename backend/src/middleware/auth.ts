@@ -93,3 +93,13 @@ export const requireAdmin = async (req: AuthRequest, res: Response, next: NextFu
     res.status(500).json({ error: 'Errore verifica permessi' });
   }
 };
+
+export const authenticateCron = (req: Request, res: Response, next: NextFunction) => {
+  const providedSecret = req.headers['authorization']?.split(' ')[1];
+
+  if (!providedSecret || providedSecret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Accesso non autorizzato' });
+  }
+
+  next();
+};
