@@ -22,7 +22,6 @@ const prisma = new PrismaClient(); // Prisma gestisce il connection pooling auto
 app.use(cors());
 app.use(express.json());
 
-// Rotte API (SENZA il prefisso /api)
 // Vercel reindirizza già /api a questo file.
 app.use('/auth', authRoutes);
 app.use('/leagues', leagueRoutes);
