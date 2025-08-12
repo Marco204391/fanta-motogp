@@ -3,8 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 
-// Importa le tue rotte
-// Assicurati che i percorsi siano corretti dopo aver spostato il file!
+// Import delle rotte
 import authRoutes from '../backend/src/routes/auth';
 import leagueRoutes from '../backend/src/routes/leagues';
 import teamRoutes from '../backend/src/routes/teams';
@@ -16,20 +15,39 @@ import syncRoutes from '../backend/src/routes/sync';
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient(); // Prisma gestisce il connection pooling automaticamente
+const prisma = new PrismaClient();
 
-// Middleware essenziali
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Vercel reindirizza già /api a questo file.
-app.use('/auth', authRoutes);
-app.use('/leagues', leagueRoutes);
-app.use('/teams', teamRoutes);
-app.use('/riders', riderRoutes);
-app.use('/races', raceRoutes);
-app.use('/lineups', lineupRoutes);
-app.use('/sync', syncRoutes);
+// IMPORTANTE: Usa /api/* perché Vercel preserva il path completo
+app.use('/api/auth', authRoutes);
+app.use('/api/leagues', leagueRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/riders', riderRoutes);
+app.use('/api/races', raceRoutes);
+app.use('/api/lineups', lineupRoutes);
+app.use('/api/sync', syncRoutes);
 
-// Esporta l'app per Vercel
+// Rotta di test per verificare che funzioni
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    originalUrl: req.originalUrl
+  });
+});
+
+// Catch-all per debug
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    path: req.path,
+    originalUrl: req.originalUrl,
+    method: req.method
+  });
+});
+
 export default app;
