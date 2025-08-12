@@ -2,33 +2,57 @@ name: FantaMotoGP Cron Jobs
 
 on:
   schedule:
-    # Esegue ogni ora durante i weekend di gara (Venerdì-Lunedì)
+    # Esegue ogni ora durante i weekend di gara (Venerdì-Lunedì: 0,1,5,6)
     - cron: '0 * * * 0,1,5,6'
-    # Esegue ogni giorno alle 3:00 AM UTC per le operazioni settimanali
-    - cron: '0 3 * * *'
-
+    # Sincronizza i piloti ogni Lunedì alle 3:00 AM UTC
+    - cron: '0 3 * * 1'
+    # Sincronizza il calendario ogni Martedì alle 3:00 AM UTC
+    - cron: '0 3 * * 2'
+  
+  # Permette l'attivazione manuale dalla tab "Actions" di GitHub
   workflow_dispatch:
 
 jobs:
+  # Job per sincronizzare i risultati delle gare durante il weekend
   sync_race_results:
+    name: Sync Race Results (Hourly on Race Weekend)
     runs-on: ubuntu-latest
-    # Esegue solo durante i weekend di gara
+    # Esegue questo job SOLO se il workflow è stato attivato dalla schedulazione del weekend
     if: github.event.schedule == '0 * * * 0,1,5,6'
     steps:
       - name: Check and Sync Race Results
-        run: curl -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-results" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-results" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
-  sync_weekly_data:
+  # Job per sincronizzare la lista piloti una volta a settimana
+  sync_riders:
+    name: Sync Riders (Weekly)
     runs-on: ubuntu-latest
-    # Esegue solo alle 3:00 AM UTC
-    if: github.event.schedule == '0 3 * * *'
+    # Esegue questo job SOLO se il workflow è stato attivato dalla schedulazione del lunedì
+    if: github.event.schedule == '0 3 * * 1'
     steps:
-      - name: Sync Riders (Mondays)
-        # Esegue solo il lunedì (day-of-week is 1)
-        if: ${{ github.event.schedule == '0 3 * * *' && fromJson('["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]')[day_of_week] == 'Mon' }}
-        run: curl -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-riders" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: Sync Riders
+        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-riders" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
-      - name: Sync Calendar (Tuesdays)
-        # Esegue solo il martedì (day-of-week is 2)
-        if: ${{ github.event.schedule == '0 3 * * *' && fromJson('["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]')[day_of_week] == 'Tue' }}
-        run: curl -X GET "https://fanta-motogp-zc9u.vercel.app/api/sync/cron/sync-calendar" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+  # Job per sincronizzare il calendario una volta a settimana
+  sync_calendar:
+    name: Sync Calendar (Weekly)
+    runs-on: ubuntu-latest
+    # Esegue questo job SOLO se il workflow è stato attivato dalla schedulazione del martedì
+    if: github.event.schedule == '0 3 * * 2'
+    steps:
+      - name: Sync Calendar
+        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-calendar" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+  # Job per l'esecuzione manuale di tutte le sincronizzazioni
+  manual_sync_all:
+    name: Manual Sync All
+    runs-on: ubuntu-latest
+    # Esegue questo job SOLO se il workflow è stato attivato manualmente
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Sync Riders
+        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-riders" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: Sync Calendar
+        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-calendar" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: Check and Sync Race Results
+        run: curl --fail -X GET "https://<IL-TUO-DOMINIO-VERCEL>/api/sync/cron/sync-results" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
