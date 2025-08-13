@@ -543,10 +543,9 @@ export const getLeagueRaceLineupsForWeb = async (req: AuthRequest, res: Response
     }
 };
 
-
 export const updateLeagueSettings = async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { teamsLocked } = req.body;
+  const { teamsLocked, lineupVisibility } = req.body;
   const userId = req.userId!;
 
   try {
@@ -562,6 +561,7 @@ export const updateLeagueSettings = async (req: AuthRequest, res: Response) => {
       where: { id },
       data: {
         teamsLocked,
+        lineupVisibility,
       },
     });
 
