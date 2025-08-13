@@ -91,7 +91,7 @@ export default function CreateLeaguePage() {
               step={1}
               marks
               min={2}
-              max={20}
+              max={7}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 6}}>
@@ -103,7 +103,7 @@ export default function CreateLeaguePage() {
               valueLabelDisplay="auto"
               step={50}
               min={500}
-              max={2000}
+              max={1000}
             />
           </Grid>
         </Grid>
