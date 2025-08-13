@@ -15,7 +15,7 @@ export default function CreateLeaguePage() {
 
   const [name, setName] = useState('');
   const [isPrivate, setIsPrivate] = useState(true);
-  const [maxTeams, setMaxTeams] = useState<number>(10);
+  const [maxTeams, setMaxTeams] = useState<number>(7);
   const [budget, setBudget] = useState<number>(1000);
 
   const createLeagueMutation = useMutation({
