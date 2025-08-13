@@ -278,7 +278,7 @@ export default function LeagueDetailPage() {
               )}
             </Stack>
           </Grid>
-          <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+          <Grid size={{ xs: 12, md: 4}} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
             <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
               <Tooltip title="Aggiorna Dati">
                 <IconButton
@@ -467,7 +467,7 @@ export default function LeagueDetailPage() {
                         </Typography>
                       </Box>
                       <Chip
-                        label={`${teamLineup.totalPoints || 0} pt`}
+                        label={`${teamLineup.totalPoints ?? 'N/D'} pt`}
                         color="primary"
                       />
                     </Box>

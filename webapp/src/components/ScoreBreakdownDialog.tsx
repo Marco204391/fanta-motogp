@@ -16,7 +16,20 @@ interface ScoreBreakdownProps {
 export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdownProps) {
   if (!lineupData) return null;
 
-  const { teamName, totalPoints, riderScores = [] } = lineupData;
+  const { teamName, totalPoints, riderScores = [], lineup = [] } = lineupData;
+  const hasScores = riderScores && riderScores.length > 0;
+
+  const displayData = hasScores ? riderScores : lineup.map((l: any) => ({
+    rider: l.rider.name,
+    number: l.rider.number,
+    predicted: l.predictedPosition,
+    actual: 'N/A',
+    base: '-',
+    predictionBonus: '-',
+    qualifyingBonus: '-',
+    points: '-',
+  }));
+
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -25,8 +38,8 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
           <Typography variant="h6">Dettaglio Punti - {teamName}</Typography>
           <Chip 
             icon={<EmojiEvents />}
-            label={`${totalPoints} pt totali`}
-            color="primary"
+            label={totalPoints ? `${totalPoints} pt totali` : 'Punteggio in attesa'}
+            color={totalPoints ? "primary" : "default"}
           />
         </Box>
       </DialogTitle>
@@ -46,24 +59,24 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
               </TableRow>
             </TableHead>
             <TableBody>
-              {riderScores.map((score: any, index: number) => (
+              {displayData.map((score: any, index: number) => (
                 <TableRow key={index}>
                   <TableCell>
                     <Box display="flex" alignItems="center" gap={1}>
-                      <Chip label={score.number} size="small" />
+                      <Chip label={score.number || lineup.find((l:any) => l.rider.name === score.rider)?.rider.number} size="small" />
                       {score.rider}
                     </Box>
                   </TableCell>
                   <TableCell align="center">{score.predicted}°</TableCell>
                   <TableCell align="center">
-                    {score.actual ? `${score.actual}°` : 'DNF'}
+                    {score.actual ? `${score.actual}°` : 'In attesa'}
                   </TableCell>
                   <TableCell align="right">{score.base}</TableCell>
                   <TableCell align="right">
                     <Chip 
-                      label={`+${score.predictionBonus}`}
+                      label={hasScores ? `+${score.predictionBonus}` : '-'}
                       size="small"
-                      color={score.predictionBonus > 0 ? "success" : "default"}
+                      color={hasScores && score.predictionBonus > 0 ? "success" : "default"}
                     />
                   </TableCell>
                   <TableCell align="right">{score.qualifyingBonus || 0}</TableCell>
@@ -75,18 +88,20 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
                 </TableRow>
               ))}
               
-              <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                <TableCell colSpan={6} align="right">
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    TOTALE
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="h6" color="primary">
-                    {totalPoints}
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              {hasScores && (
+                <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                  <TableCell colSpan={6} align="right">
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      TOTALE
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="h6" color="primary">
+                      {totalPoints}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
