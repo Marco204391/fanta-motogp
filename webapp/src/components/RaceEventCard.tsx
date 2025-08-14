@@ -70,7 +70,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: 'center',
                   backgroundSize: 'contain',
-                  opacity: 0.05,
+                  opacity: 0.1,
                   zIndex: 0,
               }}
           />
@@ -151,27 +151,27 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         {/* Informazioni */}
         <Box sx={{ mb: 1 }}>
           <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-            <CalendarToday fontSize="small" color="action" sx={{ flexShrink: 0 }} />
+            <CalendarToday fontSize="small" sx={{ color: 'text.secondary', flexShrink: 0 }} />
             <Typography variant="body2" color="text.secondary" noWrap>
               {race.circuit}
             </Typography>
           </Box>
           <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-            <LocationOn fontSize="small" color="action" sx={{ flexShrink: 0 }} />
+            <LocationOn fontSize="small" sx={{ color: 'text.secondary', flexShrink: 0 }} />
             <Typography variant="body2" color="text.secondary" noWrap>
               {race.country}
             </Typography>
           </Box>
           {race.sprintDate && (
             <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-              <Speed fontSize="small" color="action" sx={{ flexShrink: 0 }} />
+              <Speed fontSize="small" sx={{ color: 'text.secondary', flexShrink: 0 }} />
               <Typography variant="body2" color="text.secondary">
                 Sprint: {format(new Date(race.sprintDate), 'dd/MM', { locale: it })}
               </Typography>
             </Box>
           )}
           <Box display="flex" alignItems="center" gap={1}>
-            <SportsScore fontSize="small" color="action" sx={{ flexShrink: 0 }} />
+            <SportsScore fontSize="small" sx={{ color: 'text.secondary', flexShrink: 0 }} />
             <Typography variant="body2" color="text.secondary">
               Gara: {format(raceDate, 'dd/MM', { locale: it })}
             </Typography>
