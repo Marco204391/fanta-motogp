@@ -57,7 +57,8 @@ import {
   BarChart,
   Refresh,
   Visibility,
-  SportsMotorsports
+  SportsMotorsports,
+  Timer
 } from '@mui/icons-material';
 import { format, isPast } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -269,6 +270,13 @@ export default function LeagueDetailPage() {
                 label={`Premio: ${league.prizePool || 0}€`}
                 sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
+              {nextRace && (
+                <Chip
+                  icon={<Timer sx={{ color: 'white !important' }} />}
+                  label={`Deadline: ${format(new Date(nextRace.gpDate), 'dd/MM/yyyy HH:mm', { locale: it })}`}
+                  sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                />
+              )}
               {league.teamsLocked && (
                 <Chip
                   icon={<Lock sx={{ color: 'white !important' }} />}
