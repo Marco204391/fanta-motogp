@@ -1,6 +1,6 @@
 // webapp/src/components/RaceEventCard.tsx
 import { Card, CardContent, CardActions, Typography, Box, Button, Chip, LinearProgress, Tooltip } from '@mui/material';
-import { CalendarToday, LocationOn, Flag, Timer, SportsScore } from '@mui/icons-material';
+import { CalendarToday, LocationOn, SportsScore, Speed } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInDays, isBefore, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -57,7 +57,6 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         }
       }}
     >
-      {/* Aggiunta del layout del tracciato come sfondo */}
       {race.trackLayoutUrl && (
           <Box
               sx={{
@@ -108,7 +107,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
       )}
 
       <CardContent sx={{
-        flexGrow: 1, // <-- MODIFICA CHIAVE
+        flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
         p: 2,
@@ -136,7 +135,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
                     fontSize: '1.1rem',
                     fontWeight: 600,
                     mb: 1.5,
-                    minHeight: '2.6em', // Altezza MINIMA per 2 linee
+                    minHeight: '2.6em',
                     lineHeight: '1.3em',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -152,27 +151,27 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         {/* Informazioni */}
         <Box sx={{ mb: 1 }}>
           <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-            <LocationOn fontSize="small" color="action" sx={{ flexShrink: 0 }} />
+            <CalendarToday fontSize="small" color="action" sx={{ flexShrink: 0 }} />
             <Typography variant="body2" color="text.secondary" noWrap>
               {race.circuit}
             </Typography>
           </Box>
           <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-            <Flag fontSize="small" color="action" sx={{ flexShrink: 0 }} />
+            <LocationOn fontSize="small" color="action" sx={{ flexShrink: 0 }} />
             <Typography variant="body2" color="text.secondary" noWrap>
               {race.country}
             </Typography>
           </Box>
           {race.sprintDate && (
             <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-              <Timer fontSize="small" color="action" sx={{ flexShrink: 0 }} />
+              <Speed fontSize="small" color="action" sx={{ flexShrink: 0 }} />
               <Typography variant="body2" color="text.secondary">
                 Sprint: {format(new Date(race.sprintDate), 'dd/MM', { locale: it })}
               </Typography>
             </Box>
           )}
           <Box display="flex" alignItems="center" gap={1}>
-            <CalendarToday fontSize="small" color="action" sx={{ flexShrink: 0 }} />
+            <SportsScore fontSize="small" color="action" sx={{ flexShrink: 0 }} />
             <Typography variant="body2" color="text.secondary">
               Gara: {format(raceDate, 'dd/MM', { locale: it })}
             </Typography>

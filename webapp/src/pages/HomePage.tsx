@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import {
   SportsMotorsports, Groups, CalendarToday, ArrowForward, Close,
-  Notifications, Speed, Timer, EmojiEvents
+  Notifications, Speed, EmojiEvents, SportsScore
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -150,7 +150,7 @@ export default function HomePage() {
                     alignItems={{ xs: 'flex-start', sm: 'center' }}
                   >
                     <Chip
-                      icon={<Timer />}
+                      icon={<SportsScore />}
                       label={format(new Date(nextRace.gpDate), 'EEEE d MMMM yyyy', { locale: it })}
                       sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600 }}
                     />
