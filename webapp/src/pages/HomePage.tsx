@@ -150,7 +150,7 @@ export default function HomePage() {
                     alignItems={{ xs: 'flex-start', sm: 'center' }}
                   >
                     <Chip
-                      icon={<SportsScore />}
+                      icon={<SportsScore sx={{ color: 'white' }} />}
                       label={format(new Date(nextRace.gpDate), 'EEEE d MMMM yyyy', { locale: it })}
                       sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600 }}
                     />
@@ -168,7 +168,7 @@ export default function HomePage() {
                       }}
                       sx={{ 
                         boxShadow: '0 4px 20px rgba(255,107,0,0.4)',
-                        width: { xs: '100%', sm: 'auto' } // Pulsante a larghezza piena su mobile
+                        width: { xs: '100%', sm: 'auto' }
                       }}
                     >
                       Dettagli Gara
