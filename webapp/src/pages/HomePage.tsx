@@ -150,7 +150,7 @@ export default function HomePage() {
                     alignItems={{ xs: 'flex-start', sm: 'center' }}
                   >
                     <Chip
-                      icon={<SportsScore sx={{ color: 'white' }} />}
+                      icon={<SportsScore />}
                       label={format(new Date(nextRace.gpDate), 'EEEE d MMMM yyyy', { locale: it })}
                       sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600 }}
                     />
