@@ -5,15 +5,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Card, CardContent, Grid, Button, TextField,
   LinearProgress, Alert, Chip, Avatar, Switch, FormControlLabel,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
-  Accordion, AccordionSummary, AccordionDetails, Tooltip, Stack,
+  Accordion, AccordionSummary, AccordionDetails, Stack,
   Paper, List, ListItem, ListItemAvatar, ListItemText, CircularProgress,
   useTheme, useMediaQuery
 } from '@mui/material';
-import {
- Timer, Flag, ExpandMore, Info, Save,
-  HelpOutline, TrendingUp, BarChart
-} from '@mui/icons-material';
+import { Timer, Flag, ExpandMore, Save } from '@mui/icons-material';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { getTeamById, getLineup, setLineup, getRaceById } from '../services/api';
@@ -35,7 +31,6 @@ export default function LineupPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [lineup, setLineupState] = useState<LineupData>({});
-  const [showPredictionHelper, setShowPredictionHelper] = useState(false);
 
   // Query dati
   const { data: teamData, isLoading: loadingTeam } = useQuery({
@@ -407,32 +402,56 @@ export default function LineupPage() {
                             </Typography>
                           }
                           secondary={
-                            <Stack 
-                              direction={isMobile ? "column" : "row"} 
-                              spacing={isMobile ? 0.5 : 1} 
-                              alignItems={isMobile ? "flex-start" : "center"}
-                              sx={{ mt: 0.5 }}
-                            >
-                              {riderPracticeResults && (
-                                <>
-                                  <Chip 
-                                    label={`FP1: ${riderPracticeResults.FP1 || '-'}`} 
-                                    size="small"
-                                    sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-                                  />
-                                  <Chip 
-                                    label={`FP2: ${riderPracticeResults.FP2 || '-'}`} 
-                                    size="small"
-                                    sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-                                  />
-                                  <Chip 
-                                    label={`Q: ${riderPracticeResults.Q || '-'}`} 
-                                    size="small"
-                                    sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-                                  />
-                                </>
-                              )}
-                            </Stack>
+                            <Box sx={{ mt: 0.5 }}>
+                              <Stack 
+                                direction="row" 
+                                spacing={0.5} 
+                                alignItems="center"
+                                flexWrap="wrap"
+                                sx={{ mb: 0.5 }}
+                              >
+                                {riderPracticeResults ? (
+                                  <>
+                                    <Chip 
+                                      label={`FP1: ${riderPracticeResults.FP1 || 'N/D'}`} 
+                                      size="small"
+                                      variant="outlined"
+                                      sx={{ 
+                                        fontSize: isMobile ? '0.7rem' : '0.75rem',
+                                        height: isMobile ? 20 : 24
+                                      }}
+                                    />
+                                    <Chip 
+                                      label={`FP2: ${riderPracticeResults.FP2 || 'N/D'}`} 
+                                      size="small"
+                                      variant="outlined"
+                                      sx={{ 
+                                        fontSize: isMobile ? '0.7rem' : '0.75rem',
+                                        height: isMobile ? 20 : 24
+                                      }}
+                                    />
+                                    <Chip 
+                                      label={`Q: ${riderPracticeResults.Q || 'N/D'}`} 
+                                      size="small"
+                                      variant="outlined"
+                                      color="primary"
+                                      sx={{ 
+                                        fontSize: isMobile ? '0.7rem' : '0.75rem',
+                                        height: isMobile ? 20 : 24
+                                      }}
+                                    />
+                                  </>
+                                ) : (
+                                  <Typography 
+                                    variant="caption" 
+                                    color="text.secondary"
+                                    sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+                                  >
+                                    Risultati prove non disponibili
+                                  </Typography>
+                                )}
+                              </Stack>
+                            </Box>
                           }
                         />
                       </Box>
@@ -462,14 +481,6 @@ export default function LineupPage() {
                               }
                             }}
                           />
-                          <Tooltip title="Suggerimenti">
-                            <IconButton 
-                              size={isMobile ? "small" : "medium"}
-                              onClick={() => setShowPredictionHelper(true)}
-                            >
-                              <HelpOutline fontSize={isMobile ? "small" : "medium"} />
-                            </IconButton>
-                          </Tooltip>
                         </Box>
                       )}
                     </ListItem>
@@ -575,53 +586,6 @@ export default function LineupPage() {
         </CardContent>
       </Card>
 
-      {/* Dialog Helper Previsioni */}
-      <Dialog 
-        open={showPredictionHelper} 
-        onClose={() => setShowPredictionHelper(false)}
-        fullScreen={isMobile}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          <Typography variant={isMobile ? "h6" : "h5"}>
-            Come fare previsioni accurate
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2}>
-            <Box>
-              <Typography variant="subtitle2" color="primary" gutterBottom>
-                <TrendingUp /> Analizza i risultati recenti
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Controlla FP1, FP2 e Qualifiche per capire il ritmo dei piloti
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" color="primary" gutterBottom>
-                <BarChart /> Considera la storia
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Alcuni piloti performano meglio su certi circuiti
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" color="primary" gutterBottom>
-                <Info /> Fattori esterni
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Condizioni meteo, infortuni e penalità possono influenzare il risultato
-              </Typography>
-            </Box>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowPredictionHelper(false)}>
-            Chiudi
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }
