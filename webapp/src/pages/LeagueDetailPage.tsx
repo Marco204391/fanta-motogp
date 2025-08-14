@@ -60,7 +60,7 @@ import {
   SportsMotorsports,
   Timer
 } from '@mui/icons-material';
-import { format, isPast } from 'date-fns';
+import { format, isPast, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import {
   getLeagueDetails,
@@ -182,6 +182,9 @@ export default function LeagueDetailPage() {
   const isAdmin = league?.isAdmin;
   const userHasTeam = !!myTeam;
   const nextRace = racesData?.races?.[0];
+  const deadline = nextRace ? new Date(nextRace.sprintDate || nextRace.gpDate) : null;
+  const daysUntilDeadline = deadline ? differenceInDays(deadline, new Date()) : null;
+
 
   const hasLineupForNextRace = useMemo(() => {
     if (!lineupsData?.lineups || !myTeam) {
@@ -270,13 +273,6 @@ export default function LeagueDetailPage() {
                 label={`Premio: ${league.prizePool || 0}€`}
                 sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
-              {nextRace && (
-                <Chip
-                  icon={<Timer sx={{ color: 'white !important' }} />}
-                  label={`Deadline: ${format(new Date(nextRace.gpDate), 'dd/MM/yyyy HH:mm', { locale: it })}`}
-                  sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
-                />
-              )}
               {league.teamsLocked && (
                 <Chip
                   icon={<Lock sx={{ color: 'white !important' }} />}
@@ -311,6 +307,49 @@ export default function LeagueDetailPage() {
           </Grid>
         </Grid>
       </Paper>
+      
+      {/* Box Scadenza Gara */}
+      {nextRace && deadline && (
+        <Paper sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
+          <Stack direction={{xs: 'column', sm: 'row'}} alignItems="center" spacing={{xs: 1, sm: 3}} justifyContent="space-between">
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                Prossimo Evento
+              </Typography>
+              <Typography variant="h6">
+                {nextRace.name}
+              </Typography>
+            </Box>
+            <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                Deadline Schieramento
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Timer color="primary" />
+                <Typography variant="h6" color="primary.main">
+                  {format(deadline, 'eeee dd MMMM HH:mm', { locale: it })}
+                </Typography>
+              </Stack>
+            </Box>
+            <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
+            {daysUntilDeadline !== null && daysUntilDeadline >= 0 && (
+              <Chip 
+                label={daysUntilDeadline === 0 ? 'Oggi!' : `In ${daysUntilDeadline} giorni`} 
+                color={daysUntilDeadline <= 3 ? 'warning' : 'success'}
+                sx={{ fontWeight: 'bold' }}
+              />
+            )}
+            <Button
+              variant="contained"
+              onClick={handleManageLineup}
+              disabled={!userHasTeam}
+            >
+              {hasLineupForNextRace ? 'Modifica Schieramento' : 'Schiera Formazione'}
+            </Button>
+          </Stack>
+        </Paper>
+      )}
 
       {/* Alert per utente senza team */}
       {!userHasTeam && (
