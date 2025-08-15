@@ -4,13 +4,12 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getRaceById, getRaceResults, getQualifyingResults } from '../services/api';
 import {
-  Box, Typography, CircularProgress, Alert, Card, ListItemText,
+  Box, Typography, CircularProgress, Alert, Card, useMediaQuery,
   Paper, Tabs, Tab, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Avatar, Chip, Stack, ToggleButtonGroup,
-  ToggleButton, Grid, List, ListItem, ListItemAvatar, Divider,
-  useTheme, useMediaQuery, Collapse, IconButton
+  TableHead, TableRow, Avatar, Chip, Stack, ToggleButtonGroup, useTheme,
+  ToggleButton, Grid, List, ListItem, ListItemAvatar, ListItemText,
 } from '@mui/material';
-import { EmojiEvents, ExpandMore, ExpandLess } from '@mui/icons-material';
+import { EmojiEvents } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -49,29 +48,20 @@ function TabPanel(props: any) {
   );
 }
 
+// Componente Mobile per visualizzare un risultato
 function MobileResultCard({ result, index, selectedSession }: { 
   result: RaceResult; 
   index: number;
   selectedSession: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const isPodium = result.position <= 3;
   const isDNF = result.status !== 'FINISHED';
   
-  const formatBestLap = (bestLap: any) => {
-    if (!bestLap) return '-';
-    if (typeof bestLap === 'string') return bestLap;
-    if (bestLap.time) {
-      return bestLap.number ? `${bestLap.time} (Giro ${bestLap.number})` : bestLap.time;
-    }
-    return '-';
-  };
-
   const getTimeDisplay = () => {
     if (selectedSession === 'fp1' || selectedSession === 'fp2' || selectedSession === 'pr' || selectedSession === 'qualifying') {
-      return formatBestLap(result.bestLap);
+      return result.bestLap?.time || '-';
     }
-    return result.time || result.gap || '-';
+    return result.time || '-';
   };
 
   return (
@@ -85,63 +75,68 @@ function MobileResultCard({ result, index, selectedSession }: {
         backgroundColor: isDNF ? 'rgba(255, 0, 0, 0.05)' : 'inherit'
       }}
     >
-      <Box 
-        sx={{ 
-          p: 1.5,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5
-        }}
-        onClick={() => setExpanded(!expanded)}
-      >
-        {/* Posizione */}
+      <Box sx={{ p: 1.5 }}>
+        {/* Prima riga: Posizione, Numero, Nome, Punti/Tempo principale */}
         <Box 
           sx={{ 
-            minWidth: 40,
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center'
+            alignItems: 'center',
+            gap: 1,
+            mb: 1
           }}
         >
-          {isPodium && (
-            <EmojiEvents 
-              sx={{ 
-                fontSize: 20,
-                color: result.position === 1 ? '#FFD700' : 
-                       result.position === 2 ? '#C0C0C0' : '#CD7F32'
-              }}
-            />
-          )}
-          <Typography 
-            variant={isPodium ? "h6" : "body1"}
-            fontWeight={isPodium ? "bold" : "medium"}
-            color={isDNF ? "error" : "text.primary"}
+          {/* Posizione */}
+          <Box 
+            sx={{ 
+              minWidth: 35,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
           >
-            {isDNF ? 'DNF' : result.position}
-          </Typography>
-        </Box>
+            {isPodium && (
+              <EmojiEvents 
+                sx={{ 
+                  fontSize: 18,
+                  color: result.position === 1 ? '#FFD700' : 
+                         result.position === 2 ? '#C0C0C0' : '#CD7F32',
+                  mr: 0.5
+                }}
+              />
+            )}
+            <Typography 
+              variant={isPodium ? "subtitle1" : "body2"}
+              fontWeight={isPodium ? "bold" : "medium"}
+              color={isDNF ? "error" : "text.primary"}
+            >
+              {isDNF ? 'DNF' : result.position}
+            </Typography>
+          </Box>
 
-        {/* Numero e Nome */}
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="body1" fontWeight="medium">
-            #{result.rider.number} {result.rider.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {result.rider.team}
-          </Typography>
-        </Box>
+          {/* Numero */}
+          <Avatar 
+            sx={{ 
+              width: 28, 
+              height: 28, 
+              fontSize: '0.75rem',
+              bgcolor: 'primary.main' 
+            }}
+          >
+            {result.rider.number}
+          </Avatar>
 
-        {/* Punti/Tempo */}
-        <Box sx={{ textAlign: 'right', mr: 1 }}>
+          {/* Nome Pilota */}
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="body2" fontWeight="medium" noWrap>
+              {result.rider.name}
+            </Typography>
+          </Box>
+
+          {/* Punti o Tempo principale */}
           {(selectedSession === 'race' || selectedSession === 'sprint') ? (
-            <>
-              <Typography variant="h6" fontWeight="bold" color="primary">
-                {result.points || 0}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                punti
-              </Typography>
-            </>
+            <Typography variant="subtitle1" fontWeight="bold" color="primary">
+              {result.points || 0} pt
+            </Typography>
           ) : (
             <Typography variant="body2" fontWeight="medium">
               {getTimeDisplay()}
@@ -149,56 +144,50 @@ function MobileResultCard({ result, index, selectedSession }: {
           )}
         </Box>
 
-        {/* Expand Icon */}
-        <IconButton size="small">
-          {expanded ? <ExpandLess /> : <ExpandMore />}
-        </IconButton>
-      </Box>
-
-      {/* Dettagli Espansi */}
-      <Collapse in={expanded}>
-        <Divider />
-        <Box sx={{ p: 1.5, backgroundColor: 'action.hover' }}>
-          <Grid container spacing={1}>
-            <Grid size={6}>
-              <Typography variant="caption" color="text.secondary">
-                Tempo/Gap
-              </Typography>
-              <Typography variant="body2">
-                {getTimeDisplay()}
-              </Typography>
-            </Grid>
-            {result.bestLap && (
-              <Grid size={6}>
-                <Typography variant="caption" color="text.secondary">
-                  Giro Veloce
-                </Typography>
-                <Typography variant="body2">
-                  {formatBestLap(result.bestLap)}
-                </Typography>
-              </Grid>
-            )}
-            {result.totalLaps && (
-              <Grid size={6}>
-                <Typography variant="caption" color="text.secondary">
-                  Giri Completati
-                </Typography>
-                <Typography variant="body2">
-                  {result.totalLaps}
-                </Typography>
-              </Grid>
-            )}
-            <Grid size={6}>
-              <Typography variant="caption" color="text.secondary">
-                Status
-              </Typography>
-              <Typography variant="body2" color={isDNF ? "error" : "success.main"}>
-                {result.status}
-              </Typography>
-            </Grid>
-          </Grid>
+        {/* Seconda riga: Team */}
+        <Box sx={{ mb: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {result.rider.team}
+          </Typography>
         </Box>
-      </Collapse>
+
+        {/* Terza riga: Dati aggiuntivi */}
+        <Box 
+          sx={{ 
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 1
+          }}
+        >
+          {/* Gap (solo per gara/sprint) */}
+          {(selectedSession === 'race' || selectedSession === 'sprint') && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Gap: {result.gap || result.time || '-'}
+              </Typography>
+            </Box>
+          )}
+
+          {/* Giro Veloce */}
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Giro veloce: {result.bestLap?.time || '-'}
+            </Typography>
+          </Box>
+
+          {/* Status se non è FINISHED */}
+          {isDNF && (
+            <Chip 
+              label={result.status}
+              size="small"
+              color="error"
+              sx={{ height: 20, fontSize: '0.65rem' }}
+            />
+          )}
+        </Box>
+      </Box>
     </Card>
   );
 }
