@@ -281,7 +281,7 @@ export default function LineupPage() {
           {/* Contatori per categoria - Responsive Grid */}
           <Grid container spacing={1} sx={{ mt: 2 }}>
             {Object.entries(lineupStats.categoryCounts).map(([category, count]) => (
-              <Grid key={category} size={{ xs: 4 }}>
+              <Grid key={category} size={{ xs: 4}}>
                 <Box textAlign="center">
                   <Typography 
                     variant="caption" 
@@ -414,6 +414,15 @@ export default function LineupPage() {
                                   <>
                                     <Chip 
                                       label={`FP1: ${riderPracticeResults.FP1 || 'N/D'}`} 
+                                      size="small"
+                                      variant="outlined"
+                                      sx={{ 
+                                        fontSize: isMobile ? '0.7rem' : '0.75rem',
+                                        height: isMobile ? 20 : 24
+                                      }}
+                                    />
+                                    <Chip 
+                                      label={`PR: ${riderPracticeResults.PR || 'N/D'}`} 
                                       size="small"
                                       variant="outlined"
                                       sx={{ 

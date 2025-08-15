@@ -140,7 +140,7 @@ export const getPastRaces = async () => {
   return response.data;
 };
 
-export const getRaceResults = async (raceId: string, session?: 'race' | 'sprint' | 'fp1' | 'fp2') => {
+export const getRaceResults = async (raceId: string, session?: 'race' | 'sprint' | 'fp1' | 'fp2' | 'pr') => {
   const response = await api.get(`/races/${raceId}/results`, { params: { session } });
   return response.data;
 };

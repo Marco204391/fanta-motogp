@@ -238,6 +238,7 @@ export class MotoGPApiService {
           const q2Session = sessionsResponse.data.find((s: any) => (s.type === 'Q' && s.number === 2) || s.type === 'Q2');
           const fp1Session = sessionsResponse.data.find((s: any) => (s.type === 'FP' && s.number === 1) || s.type === 'FP1');
           const fp2Session = sessionsResponse.data.find((s: any) => (s.type === 'FP' && s.number === 2) || s.type === 'FP2');
+          const prSession = sessionsResponse.data.find((s: any) => s.type === 'PR');
 
           if (raceSession) {
             const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${raceSession.id}&test=false`);
@@ -262,6 +263,13 @@ export class MotoGPApiService {
             const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${fp2Session.id}&test=false`);
             if (resultsResponse.data?.classification) {
                 await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.FP2);
+            }
+          }
+          
+          if (prSession) {
+            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${prSession.id}&test=false`);
+            if (resultsResponse.data?.classification) {
+                await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.PR);
             }
           }
 

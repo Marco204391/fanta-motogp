@@ -55,7 +55,7 @@ export default function RaceDetailPage() {
   const { raceId } = useParams<{ raceId: string }>();
   const [tabValue, setTabValue] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<'MOTOGP' | 'MOTO2' | 'MOTO3'>('MOTOGP');
-  const [selectedSession, setSelectedSession] = useState<'race' | 'sprint' | 'qualifying' | 'fp1' | 'fp2'>('race');
+  const [selectedSession, setSelectedSession] = useState<'race' | 'sprint' | 'qualifying' | 'fp1' | 'fp2' | 'pr'>('race');
 
   const { data: raceData, isLoading: loadingRace } = useQuery({
     queryKey: ['raceDetails', raceId],
@@ -80,8 +80,8 @@ export default function RaceDetailPage() {
   // Query per risultati prove libere
   const { data: practiceData, isLoading: loadingPractice } = useQuery({
     queryKey: ['practiceResults', raceId, selectedSession],
-    queryFn: () => getRaceResults(raceId!, selectedSession as 'fp1' | 'fp2'),
-    enabled: !!raceId && !!raceData && (selectedSession === 'fp1' || selectedSession === 'fp2'),
+    queryFn: () => getRaceResults(raceId!, selectedSession as 'fp1' | 'fp2' | 'pr'),
+    enabled: !!raceId && !!raceData && (selectedSession === 'fp1' || selectedSession === 'fp2' || selectedSession === 'pr'),
   });
 
   // Calcola i risultati da mostrare basandosi sulla sessione e categoria selezionate
@@ -90,8 +90,8 @@ export default function RaceDetailPage() {
       return qualifyingData?.results?.[selectedCategory] || [];
     }
     
-    if (selectedSession === 'fp1' || selectedSession === 'fp2') {
-      const sessionKey = selectedSession.toUpperCase() as 'FP1' | 'FP2';
+    if (selectedSession === 'fp1' || selectedSession === 'fp2' || selectedSession === 'pr') {
+      const sessionKey = selectedSession.toUpperCase() as 'FP1' | 'FP2' | 'PR';
       return practiceData?.results?.[sessionKey]?.[selectedCategory] || [];
     }
     
@@ -101,7 +101,7 @@ export default function RaceDetailPage() {
   }, [selectedSession, selectedCategory, raceResultsData, qualifyingData, practiceData]);
 
   const loadingResults = selectedSession === 'qualifying' ? loadingQualifying : 
-                         (selectedSession === 'fp1' || selectedSession === 'fp2') ? loadingPractice :
+                         (selectedSession === 'fp1' || selectedSession === 'fp2' || selectedSession === 'pr') ? loadingPractice :
                          loadingRaceResults;
 
   if (loadingRace) {
@@ -132,8 +132,8 @@ export default function RaceDetailPage() {
 
   // Funzione per mostrare il tempo nelle sessioni di prove/qualifiche
   const getTimeDisplay = (result: RaceResult) => {
-    // Per FP1, FP2 e Qualifiche mostriamo il bestLap
-    if (selectedSession === 'fp1' || selectedSession === 'fp2' || selectedSession === 'qualifying') {
+    // Per FP1, FP2, PR e Qualifiche mostriamo il bestLap
+    if (selectedSession === 'fp1' || selectedSession === 'fp2' || selectedSession === 'pr' || selectedSession === 'qualifying') {
       return formatBestLap(result.bestLap);
     }
     // Per gara e sprint mostriamo time o gap
@@ -210,6 +210,9 @@ export default function RaceDetailPage() {
                   </ToggleButton>
                   <ToggleButton value="fp2" sx={{ flex: 1, minWidth: '100px' }}>
                     FP2
+                  </ToggleButton>
+                  <ToggleButton value="pr" sx={{ flex: 1, minWidth: '100px' }}>
+                    PR
                   </ToggleButton>
                   <ToggleButton value="qualifying" sx={{ flex: 1, minWidth: '100px' }}>
                     Qualifiche
@@ -331,7 +334,8 @@ export default function RaceDetailPage() {
                     selectedSession === 'qualifying' ? 'Qualifiche' : 
                     selectedSession === 'sprint' ? 'Sprint' : 
                     selectedSession === 'fp1' ? 'Prove Libere 1' :
-                    selectedSession === 'fp2' ? 'Prove Libere 2' : 'Gara'
+                    selectedSession === 'fp2' ? 'Prove Libere 2' :
+                    selectedSession === 'pr' ? 'Prequalifiche' : 'Gara'
                   }
                 </Alert>
               )}

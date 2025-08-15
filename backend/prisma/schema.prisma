@@ -15,6 +15,7 @@ enum SessionType {
   QUALIFYING
   FP1
   FP2
+  PR
 }
 
 // ENUM per il tipo di pilota
@@ -111,7 +112,7 @@ model League {
   budget        Int       @default(1000)
   teamsLocked   Boolean   @default(true)
 
-  scoringRules  Json
+  scoringRules   Json
   lineupVisibility LineupVisibility @default(AFTER_DEADLINE)
 
   teams         Team[]

@@ -99,11 +99,11 @@ export const getRaceResults = async (req: Request, res: Response) => {
 
   try {
     // Se viene specificata una sessione specifica, filtra per quella
-    let sessionFilter: any = { in: ['RACE', 'SPRINT', 'FP1', 'FP2'] };
+    let sessionFilter: any = { in: ['RACE', 'SPRINT', 'FP1', 'FP2', 'PR'] };
     
     if (session) {
       const sessionString = String(session);
-      const validSessions = ['race', 'sprint', 'fp1', 'fp2'];
+      const validSessions = ['race', 'sprint', 'fp1', 'fp2', 'pr'];
       if (!validSessions.includes(sessionString.toLowerCase())) {
         return res.status(400).json({ error: 'Sessione non valida' });
       }
