@@ -7,9 +7,9 @@ import {
   Box, Typography, CircularProgress, Alert, Card, useMediaQuery,
   Paper, Tabs, Tab, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Avatar, Chip, Stack, ToggleButtonGroup, useTheme,
-  ToggleButton, Grid, List, ListItem, ListItemAvatar, ListItemText,
+  ToggleButton, Grid, List, ListItem, ListItemAvatar, ListItemText
 } from '@mui/material';
-import { EmojiEvents } from '@mui/icons-material';
+import { EmojiEvents, Timer, Speed, SportsScore } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -362,7 +362,12 @@ export default function RaceDetailPage() {
                 <Typography 
                   variant="subtitle2" 
                   gutterBottom
-                  sx={{ fontSize: isMobile ? '0.875rem' : '1rem' }}
+                  sx={{ 
+                    fontSize: isMobile ? '0.875rem' : '1rem',
+                    fontWeight: 'medium',
+                    color: 'text.primary',
+                    mb: 1.5
+                  }}
                 >
                   Seleziona Sessione
                 </Typography>
@@ -379,23 +384,49 @@ export default function RaceDetailPage() {
                     exclusive
                     onChange={(_, value) => value && setSelectedSession(value)}
                     size={isMobile ? "small" : "medium"}
+                    sx={{
+                      '& .MuiToggleButton-root': {
+                        borderColor: 'divider',
+                        color: 'text.secondary',
+                        '&.Mui-selected': {
+                          backgroundColor: 'primary.main',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          '&:hover': {
+                            backgroundColor: 'primary.dark',
+                          }
+                        },
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                        }
+                      }
+                    }}
                   >
                     <ToggleButton value="race">
-                      <Typography variant={isMobile ? "caption" : "body2"}>
-                        Gara
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <SportsScore sx={{ fontSize: isMobile ? 16 : 18 }} />
+                        <Typography variant={isMobile ? "caption" : "body2"}>
+                          Gara
+                        </Typography>
+                      </Box>
                     </ToggleButton>
                     {hasSprint && (
                       <ToggleButton value="sprint">
-                        <Typography variant={isMobile ? "caption" : "body2"}>
-                          Sprint
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Speed sx={{ fontSize: isMobile ? 16 : 18 }} />
+                          <Typography variant={isMobile ? "caption" : "body2"}>
+                            Sprint
+                          </Typography>
+                        </Box>
                       </ToggleButton>
                     )}
                     <ToggleButton value="qualifying">
-                      <Typography variant={isMobile ? "caption" : "body2"}>
-                        Qualifiche
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Timer sx={{ fontSize: isMobile ? 16 : 18 }} />
+                        <Typography variant={isMobile ? "caption" : "body2"}>
+                          Qualifiche
+                        </Typography>
+                      </Box>
                     </ToggleButton>
                     <ToggleButton value="fp1">
                       <Typography variant={isMobile ? "caption" : "body2"}>
@@ -421,7 +452,12 @@ export default function RaceDetailPage() {
                 <Typography 
                   variant="subtitle2" 
                   gutterBottom
-                  sx={{ fontSize: isMobile ? '0.875rem' : '1rem' }}
+                  sx={{ 
+                    fontSize: isMobile ? '0.875rem' : '1rem',
+                    fontWeight: 'medium',
+                    color: 'text.primary',
+                    mb: 1.5
+                  }}
                 >
                   Categoria
                 </Typography>
@@ -431,16 +467,38 @@ export default function RaceDetailPage() {
                   onChange={(_, value) => value && setSelectedCategory(value)}
                   fullWidth={isMobile}
                   size={isMobile ? "small" : "medium"}
+                  sx={{
+                    '& .MuiToggleButton-root': {
+                      '&.Mui-selected': {
+                        backgroundColor: 'action.selected',
+                        borderColor: 'primary.main',
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                        }
+                      }
+                    }
+                  }}
                 >
                   {['MOTOGP', 'MOTO2', 'MOTO3'].map(cat => (
-                    <ToggleButton key={cat} value={cat}>
+                    <ToggleButton 
+                      key={cat} 
+                      value={cat}
+                      sx={{
+                        '&.Mui-selected .MuiChip-root': {
+                          transform: 'scale(1.1)',
+                          boxShadow: 2
+                        }
+                      }}
+                    >
                       <Chip
                         label={cat}
                         size="small"
                         sx={{
                           backgroundColor: categoryColors[cat as keyof typeof categoryColors],
                           color: 'white',
-                          fontSize: isMobile ? '0.7rem' : '0.75rem'
+                          fontSize: isMobile ? '0.7rem' : '0.75rem',
+                          fontWeight: selectedCategory === cat ? 'bold' : 'normal',
+                          transition: 'all 0.2s ease'
                         }}
                       />
                     </ToggleButton>
