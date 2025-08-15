@@ -60,7 +60,7 @@ import {
   SportsMotorsports,
   Timer
 } from '@mui/icons-material';
-import { format, isPast, differenceInDays } from 'date-fns';
+import { format, isPast, differenceInDays, differenceInHours } from 'date-fns';
 import { it } from 'date-fns/locale';
 import {
   getLeagueDetails,
@@ -184,6 +184,7 @@ export default function LeagueDetailPage() {
   const nextRace = racesData?.races?.[0];
   const deadline = nextRace ? new Date(nextRace.sprintDate || nextRace.gpDate) : null;
   const daysUntilDeadline = deadline ? differenceInDays(deadline, new Date()) : null;
+  const hoursUntilDeadline = deadline ? differenceInHours(deadline, new Date()) : null;
 
 
   const hasLineupForNextRace = useMemo(() => {
@@ -334,9 +335,21 @@ export default function LeagueDetailPage() {
             </Box>
             <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
             {daysUntilDeadline !== null && daysUntilDeadline >= 0 && (
-              <Chip 
-                label={daysUntilDeadline === 0 ? 'Oggi!' : `In ${daysUntilDeadline} giorni`} 
-                color={daysUntilDeadline <= 3 ? 'warning' : 'success'}
+              <Chip
+                label={
+                  daysUntilDeadline > 0
+                    ? `In ${daysUntilDeadline} giorni`
+                    : (hoursUntilDeadline != null && hoursUntilDeadline > 0)
+                    ? `In ${hoursUntilDeadline} ore`
+                    : 'In scadenza!'
+                }
+                color={
+                  daysUntilDeadline < 1
+                    ? 'error'
+                    : daysUntilDeadline <= 3
+                    ? 'warning'
+                    : 'success'
+                }
                 sx={{ fontWeight: 'bold' }}
               />
             )}
