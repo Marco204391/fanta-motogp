@@ -338,9 +338,9 @@ export default function LeagueDetailPage() {
               <Chip
                 label={
                   daysUntilDeadline > 0
-                    ? `In ${daysUntilDeadline} giorni`
+                    ? `Schiera entro ${daysUntilDeadline} giorni`
                     : (hoursUntilDeadline != null && hoursUntilDeadline > 0)
-                    ? `In ${hoursUntilDeadline} ore`
+                    ? `Schiara entro ${hoursUntilDeadline} ore`
                     : 'In scadenza!'
                 }
                 color={
