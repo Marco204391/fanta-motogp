@@ -56,13 +56,7 @@ function MobileResultCard({ result, index, selectedSession }: {
 }) {
   const isPodium = result.position <= 3;
   const isDNF = result.status !== 'FINISHED';
-  
-  const getTimeDisplay = () => {
-    if (selectedSession === 'fp1' || selectedSession === 'fp2' || selectedSession === 'pr' || selectedSession === 'qualifying') {
-      return result.bestLap?.time || '-';
-    }
-    return result.time || '-';
-  };
+  const isRaceOrSprint = selectedSession === 'race' || selectedSession === 'sprint';
 
   return (
     <Card 
@@ -76,7 +70,7 @@ function MobileResultCard({ result, index, selectedSession }: {
       }}
     >
       <Box sx={{ p: 1.5 }}>
-        {/* Prima riga: Posizione, Numero, Nome, Punti/Tempo principale */}
+        {/* Prima riga: Posizione, Numero, Nome */}
         <Box 
           sx={{ 
             display: 'flex',
@@ -132,14 +126,10 @@ function MobileResultCard({ result, index, selectedSession }: {
             </Typography>
           </Box>
 
-          {/* Punti o Tempo principale */}
-          {(selectedSession === 'race' || selectedSession === 'sprint') ? (
+          {/* Punti (solo per gara/sprint) */}
+          {isRaceOrSprint && (
             <Typography variant="subtitle1" fontWeight="bold" color="primary">
               {result.points || 0} pt
-            </Typography>
-          ) : (
-            <Typography variant="body2" fontWeight="medium">
-              {getTimeDisplay()}
             </Typography>
           )}
         </Box>
@@ -151,7 +141,7 @@ function MobileResultCard({ result, index, selectedSession }: {
           </Typography>
         </Box>
 
-        {/* Terza riga: Dati aggiuntivi */}
+        {/* Terza riga: Dati specifici per tipo di sessione */}
         <Box 
           sx={{ 
             display: 'flex',
@@ -161,30 +151,39 @@ function MobileResultCard({ result, index, selectedSession }: {
             gap: 1
           }}
         >
-          {/* Gap (solo per gara/sprint) */}
-          {(selectedSession === 'race' || selectedSession === 'sprint') && (
+          {isRaceOrSprint ? (
+            <>
+              {/* Time */}
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Time: {result.time || result.gap || '-'}
+                </Typography>
+              </Box>
+
+              {/* Laps */}
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Giri: {result.totalLaps || '-'}
+                </Typography>
+              </Box>
+
+              {/* Status se non è FINISHED */}
+              {isDNF && (
+                <Chip 
+                  label={result.status}
+                  size="small"
+                  color="error"
+                  sx={{ height: 20, fontSize: '0.65rem' }}
+                />
+              )}
+            </>
+          ) : (
+            /* FP1, FP2, PR, Qualifiche - Solo Giro Veloce */
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Gap: {result.gap || result.time || '-'}
+                Giro veloce: {result.bestLap?.time || '-'}
               </Typography>
             </Box>
-          )}
-
-          {/* Giro Veloce */}
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Giro veloce: {result.bestLap?.time || '-'}
-            </Typography>
-          </Box>
-
-          {/* Status se non è FINISHED */}
-          {isDNF && (
-            <Chip 
-              label={result.status}
-              size="small"
-              color="error"
-              sx={{ height: 20, fontSize: '0.65rem' }}
-            />
           )}
         </Box>
       </Box>
@@ -264,24 +263,6 @@ export default function RaceDetailPage() {
   const race = raceData.race;
   const hasResults = raceResultsData?.results && Object.keys(raceResultsData.results).length > 0;
   const hasSprint = raceResultsData?.results?.SPRINT && Object.keys(raceResultsData.results.SPRINT).length > 0;
-
-  // Funzione per formattare il tempo migliore
-  const formatBestLap = (bestLap: any) => {
-    if (!bestLap) return '-';
-    if (typeof bestLap === 'string') return bestLap;
-    if (bestLap.time) {
-      return bestLap.number ? `${bestLap.time} (Giro ${bestLap.number})` : bestLap.time;
-    }
-    return '-';
-  };
-
-  // Funzione per mostrare il tempo nelle sessioni di prove/qualifiche
-  const getTimeDisplay = (result: RaceResult) => {
-    if (selectedSession === 'fp1' || selectedSession === 'fp2' || selectedSession === 'pr' || selectedSession === 'qualifying') {
-      return formatBestLap(result.bestLap);
-    }
-    return result.time || result.gap || '-';
-  };
 
   return (
     <Box className="fade-in" sx={{ pb: 2 }}>
@@ -494,19 +475,22 @@ export default function RaceDetailPage() {
                           <TableCell>Pos</TableCell>
                           <TableCell>Pilota</TableCell>
                           <TableCell>Team</TableCell>
-                          <TableCell align="right">
-                            {(selectedSession === 'race' || selectedSession === 'sprint') ? 'Punti' : 'Tempo'}
-                          </TableCell>
-                          {(selectedSession === 'race' || selectedSession === 'sprint') && (
-                            <TableCell align="right">Gap</TableCell>
+                          {(selectedSession === 'race' || selectedSession === 'sprint') ? (
+                            <>
+                              <TableCell align="right">Time</TableCell>
+                              <TableCell align="right">Laps</TableCell>
+                              <TableCell align="right">Punti</TableCell>
+                            </>
+                          ) : (
+                            <TableCell align="right">Giro Veloce</TableCell>
                           )}
-                          <TableCell align="right">Giro Veloce</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {categoryResults.map((result: RaceResult, index: number) => {
                           const isPodium = result.position <= 3;
                           const isDNF = result.status !== 'FINISHED';
+                          const isRaceOrSprint = selectedSession === 'race' || selectedSession === 'sprint';
                           
                           return (
                             <TableRow 
@@ -558,27 +542,27 @@ export default function RaceDetailPage() {
                                   {result.rider.team}
                                 </Typography>
                               </TableCell>
-                              <TableCell align="right">
-                                {(selectedSession === 'race' || selectedSession === 'sprint') ? (
-                                  <Typography fontWeight="bold" color="primary">
-                                    {result.points || 0}
-                                  </Typography>
-                                ) : (
-                                  <Typography>
-                                    {getTimeDisplay(result)}
-                                  </Typography>
-                                )}
-                              </TableCell>
-                              {(selectedSession === 'race' || selectedSession === 'sprint') && (
+                              {isRaceOrSprint ? (
+                                <>
+                                  <TableCell align="right">
+                                    {result.time || result.gap || '-'}
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    {result.totalLaps || '-'}
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Typography fontWeight="bold" color="primary">
+                                      {result.points || 0}
+                                    </Typography>
+                                  </TableCell>
+                                </>
+                              ) : (
                                 <TableCell align="right">
-                                  {result.gap || result.time || '-'}
+                                  <Typography variant="body2">
+                                    {result.bestLap?.time || '-'}
+                                  </Typography>
                                 </TableCell>
                               )}
-                              <TableCell align="right">
-                                <Typography variant="body2">
-                                  {formatBestLap(result.bestLap)}
-                                </Typography>
-                              </TableCell>
                             </TableRow>
                           );
                         })}
