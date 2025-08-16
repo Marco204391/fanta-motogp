@@ -340,7 +340,7 @@ export default function LeagueDetailPage() {
                   daysUntilDeadline > 0
                     ? `Schiera entro ${daysUntilDeadline} giorni`
                     : (hoursUntilDeadline != null && hoursUntilDeadline > 0)
-                    ? `Schiara entro ${hoursUntilDeadline} ore`
+                    ? `Schiera entro ${hoursUntilDeadline} ore`
                     : 'In scadenza!'
                 }
                 color={
