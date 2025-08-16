@@ -422,7 +422,12 @@ export class MotoGPApiService {
   }
 
   async calculateTeamScores(raceId: string, session: SessionType) {
-    console.log(`-- Inizio calcolo punteggi per ${session} della gara ${raceId} --`);
+    if (session !== SessionType.RACE) {
+      console.log(`-- Calcolo punteggi per ${session} saltato, verrà eseguito insieme a RACE --`);
+      return;
+    }
+
+    console.log(`-- Inizio calcolo punteggi combinato (Gara + Sprint) per la gara ${raceId} --`);
     try {
       const allSessionResults = await prisma.raceResult.findMany({
         where: { raceId, session: { in: ['RACE', 'SPRINT'] } },
@@ -433,23 +438,29 @@ export class MotoGPApiService {
         console.log(`Nessun risultato (Gara/Sprint) trovato per la gara.`);
         return;
       }
-
-      const raceResults = allSessionResults.filter(r => r.session === 'RACE');
+      
+      const raceResultsMap = new Map<string, { position: number | null, status: string }>();
       const sprintResultsMap = new Map<string, { position: number | null, status: string }>();
-      allSessionResults.filter(r => r.session === 'SPRINT').forEach(result => {
-        sprintResultsMap.set(result.riderId, { position: result.position, status: result.status });
-      });
+      const maxPositions: Record<string, { race: number, sprint: number }> = {};
 
+      allSessionResults.forEach(result => {
+        const category = result.rider.category;
+        if (!maxPositions[category]) {
+          maxPositions[category] = { race: 0, sprint: 0 };
+        }
+        
+        if (result.session === 'RACE') {
+          raceResultsMap.set(result.riderId, { position: result.position, status: result.status });
+          if (result.position) maxPositions[category].race = Math.max(maxPositions[category].race, result.position);
+        } else if (result.session === 'SPRINT') {
+          sprintResultsMap.set(result.riderId, { position: result.position, status: result.status });
+          if (result.position) maxPositions[category].sprint = Math.max(maxPositions[category].sprint, result.position);
+        }
+      });
+      
       const qualifyingResults = await prisma.raceResult.findMany({
-          where: {
-              raceId,
-              session: 'QUALIFYING',
-              position: { in: [1, 2, 3] }
-          },
-          select: {
-              riderId: true,
-              position: true
-          }
+          where: { raceId, session: 'QUALIFYING', position: { in: [1, 2, 3] } },
+          select: { riderId: true, position: true }
       });
 
       const qualifyingBonusMap = new Map<string, number>();
@@ -457,19 +468,6 @@ export class MotoGPApiService {
           if (result.position === 1) qualifyingBonusMap.set(result.riderId, -5);
           if (result.position === 2) qualifyingBonusMap.set(result.riderId, -3);
           if (result.position === 3) qualifyingBonusMap.set(result.riderId, -1);
-      });
-
-      const maxPositions = raceResults.reduce((acc, result) => {
-        const category = result.rider.category;
-        if (result.position && result.position > (acc[category] || 0)) {
-          acc[category] = result.position;
-        }
-        return acc;
-      }, {} as Record<Category, number>);
-
-      const resultMap = new Map<string, { position: number | null, status: string }>();
-      raceResults.forEach(result => {
-        resultMap.set(result.riderId, { position: result.position, status: result.status });
       });
 
       const lineups = await prisma.raceLineup.findMany({
@@ -485,58 +483,55 @@ export class MotoGPApiService {
         let riderScores = [];
 
         for (const lineupRider of lineup.lineupRiders) {
-          const result = resultMap.get(lineupRider.riderId);
-          const sprintResult = sprintResultsMap.get(lineupRider.riderId);
+          const riderCategory = lineupRider.rider.category;
           const predictedPosition = lineupRider.predictedPosition;
-          let points = 0;
-          let basePoints = 0;
+          const maxPosRace = maxPositions[riderCategory]?.race || 25;
+          
+          const raceResult = raceResultsMap.get(lineupRider.riderId);
+          const raceBasePoints = (raceResult?.position === null || raceResult?.position === undefined) ? (maxPosRace + 1) : raceResult.position;
+          const racePredictionMalus = Math.abs(predictedPosition - raceBasePoints);
 
-          if (!result) {
-            const riderCategory = lineupRider.rider.category;
-            const maxPos = maxPositions[riderCategory] || 25;
-            basePoints = maxPos + 1;
-          } else {
-            const { position, status } = result;
-            const riderCategory = lineupRider.rider.category;
-            const maxPos = maxPositions[riderCategory] || 25;
-
-            if (status === 'DNS') {
-              basePoints = maxPos + 1;
-            } else {
-              basePoints = position ?? (maxPos + 1);
+          let sprintBasePoints = 0;
+          let sprintPredictionMalus = 0;
+          const sprintResult = sprintResultsMap.get(lineupRider.riderId);
+          if (riderCategory === 'MOTOGP') {
+            const maxPosSprint = maxPositions[riderCategory]?.sprint || 15;
+            sprintBasePoints = (sprintResult?.position === null || sprintResult?.position === undefined) ? (sprintResult ? maxPosSprint + 1 : 0) : sprintResult.position;
+            if (sprintBasePoints > 0) {
+              sprintPredictionMalus = Math.abs(predictedPosition - sprintBasePoints);
             }
           }
-          
-          const difference = Math.abs(predictedPosition - basePoints);
-          points = basePoints + difference;
-          
-          const qualifyingBonus = (session === SessionType.RACE) ? (qualifyingBonusMap.get(lineupRider.riderId) || 0) : 0;
-          points += qualifyingBonus;
+
+          const qualifyingBonus = qualifyingBonusMap.get(lineupRider.riderId) || 0;
+
+          const finalBase = raceBasePoints + sprintBasePoints;
+          const finalMalus = racePredictionMalus + sprintPredictionMalus;
+          const pilotTotalPoints = finalBase + finalMalus + qualifyingBonus;
 
           riderScores.push({
             rider: lineupRider.rider.name,
             riderCategory: lineupRider.rider.category,
-            points,
+            points: pilotTotalPoints,
             predicted: predictedPosition,
-            actual: result?.position ?? result?.status,
+            actual: raceResult?.position ?? raceResult?.status,
             sprintPosition: sprintResult?.position ?? sprintResult?.status,
-            base: basePoints,
-            predictionMalus: difference, 
-            qualifyingBonus
+            base: finalBase,
+            predictionMalus: finalMalus,
+            qualifyingBonus,
           });
-          totalPoints += points;
+          totalPoints += pilotTotalPoints;
         }
         
         await prisma.teamScore.upsert({
-          where: { teamId_raceId_session: { teamId: lineup.teamId, raceId, session } },
+          where: { teamId_raceId_session: { teamId: lineup.teamId, raceId, session: SessionType.RACE } },
           update: { totalPoints, calculatedAt: new Date(), riderScores: riderScores as any },
-          create: { teamId: lineup.teamId, raceId, session, totalPoints, riderScores: riderScores as any }
+          create: { teamId: lineup.teamId, raceId, session: SessionType.RACE, totalPoints, riderScores: riderScores as any }
         });
 
-        console.log(`Team ${lineup.team.name}: ${totalPoints} punti per ${session}`);
+        console.log(`Team ${lineup.team.name}: ${totalPoints} punti (combinato)`);
       }
     } catch (error) {
-      console.error(`Errore nel calcolo dei punteggi per ${session}:`, error);
+      console.error(`Errore nel calcolo dei punteggi combinati:`, error);
     }
   }
   
