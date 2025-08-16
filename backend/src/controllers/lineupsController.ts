@@ -52,7 +52,8 @@ export const getLineup = async (req: AuthRequest, res: Response) => {
         if (!acc[result.riderId]) {
             acc[result.riderId] = {};
         }
-        acc[result.riderId][result.session] = result.position;
+        const sessionKey = result.session === 'QUALIFYING' ? 'Q' : result.session;
+        acc[result.riderId][sessionKey] = result.position;
         return acc;
     }, {} as Record<string, Record<string, number | null>>);
 
