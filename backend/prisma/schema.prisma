@@ -71,6 +71,8 @@ model Team {
   leagueId      String
   league        League    @relation(fields: [leagueId], references: [id])
 
+  startingPoints Int      @default(0) // <-- NUOVO CAMPO
+
   riders        TeamRider[]
   scores        TeamScore[]
   lineups       RaceLineup[]

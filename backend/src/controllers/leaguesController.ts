@@ -364,7 +364,8 @@ export const getLeagueStandings = async (req: Request, res: Response) => {
     });
 
     const standings = teams.map(team => {
-      const totalPoints = team.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0);
+      const totalRacePoints = team.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0);
+      const totalPoints = (team.startingPoints || 0) + totalRacePoints;
       return {
         teamId: team.id,
         teamName: team.name,
@@ -374,7 +375,7 @@ export const getLeagueStandings = async (req: Request, res: Response) => {
         gamesPlayed: team.scores.length
       };
     })
-    .sort((a, b) => a.totalPoints - b.totalPoints) // CORRETTO: Ordine crescente (vince chi ha meno punti)
+    .sort((a, b) => a.totalPoints - b.totalPoints)
     .map((team, index) => ({
       ...team,
       position: index + 1,
