@@ -180,7 +180,7 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
           teamId: team.id,
           teamName: team.name,
           userId: team.userId,
-          username: team.user.username,
+          userName: team.user.username,
           totalPoints: totalPoints,
         };
       })
@@ -375,7 +375,7 @@ export const getLeagueStandings = async (req: Request, res: Response) => {
         teamId: team.id,
         teamName: team.name,
         userId: team.userId,
-        username: team.user.username,
+        userName: team.user.username,
         totalPoints,
         gamesPlayed: team.scores.length
       };
