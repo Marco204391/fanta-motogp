@@ -3,9 +3,9 @@ import React from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button, Box, Typography, Chip, Paper, Divider
+  Button, Box, Typography, Chip, Paper
 } from '@mui/material';
-import { EmojiEvents, TrendingUp } from '@mui/icons-material';
+import { EmojiEvents, HelpOutline } from '@mui/icons-material';
 
 interface ScoreBreakdownProps {
   open: boolean;
@@ -22,14 +22,18 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
   const displayData = hasScores ? riderScores : lineup.map((l: any) => ({
     rider: l.rider.name,
     number: l.rider.number,
+    riderCategory: l.rider.category,
     predicted: l.predictedPosition,
     actual: 'N/A',
+    sprintPosition: 'N/A',
     base: '-',
-    predictionBonus: '-',
+    predictionMalus: '-',
     qualifyingBonus: '-',
     points: '-',
   }));
 
+  // Determina se almeno un pilota è MotoGP per mostrare la colonna Sprint
+  const showSprintColumn = displayData.some((score: any) => score.riderCategory === 'MOTOGP');
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -50,10 +54,11 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
             <TableHead>
               <TableRow>
                 <TableCell>Pilota</TableCell>
-                <TableCell align="center">Pos. Prevista</TableCell>
-                <TableCell align="center">Pos. Reale</TableCell>
+                <TableCell align="center">Prevista</TableCell>
+                <TableCell align="center">Gara</TableCell>
+                {showSprintColumn && <TableCell align="center">Sprint</TableCell>}
                 <TableCell align="right">Base</TableCell>
-                <TableCell align="right">Bonus Prev.</TableCell>
+                <TableCell align="right">Malus Prev.</TableCell>
                 <TableCell align="right">Bonus Qual.</TableCell>
                 <TableCell align="right"><strong>Totale</strong></TableCell>
               </TableRow>
@@ -69,14 +74,20 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
                   </TableCell>
                   <TableCell align="center">{score.predicted}°</TableCell>
                   <TableCell align="center">
-                    {score.actual ? `${score.actual}°` : 'In attesa'}
+                    {score.actual || '-'}
                   </TableCell>
+                  {showSprintColumn && (
+                    <TableCell align="center">
+                      {score.riderCategory === 'MOTOGP' ? (score.sprintPosition || '-') : 'N/D'}
+                    </TableCell>
+                  )}
                   <TableCell align="right">{score.base}</TableCell>
                   <TableCell align="right">
                     <Chip 
-                      label={hasScores ? `+${score.predictionBonus}` : '-'}
+                      label={hasScores ? `+${score.predictionMalus}` : '-'}
                       size="small"
-                      color={hasScores && score.predictionBonus > 0 ? "success" : "default"}
+                      color={hasScores && score.predictionMalus > 0 ? "error" : "default"}
+                      variant="outlined"
                     />
                   </TableCell>
                   <TableCell align="right">{score.qualifyingBonus || 0}</TableCell>
@@ -90,7 +101,7 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
               
               {hasScores && (
                 <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                  <TableCell colSpan={6} align="right">
+                  <TableCell colSpan={showSprintColumn ? 7 : 6} align="right">
                     <Typography variant="subtitle1" fontWeight="bold">
                       TOTALE
                     </Typography>
@@ -106,12 +117,10 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
           </Table>
         </TableContainer>
         
-        <Box mt={2} p={2} bgcolor="info.lighter" borderRadius={1}>
-          <Typography variant="caption" component="div">
-            <strong>Legenda:</strong><br/>
-            • Base: Punti per posizione di arrivo<br/>
-            • Bonus Prev.: Punti bonus per accuratezza previsione<br/>
-            • Bonus Qual.: Punti extra per pole position o giro veloce
+        <Box mt={2} p={1.5} bgcolor="action.hover" borderRadius={1}>
+          <Typography variant="caption" component="div" sx={{ display: 'flex', alignItems: 'center' }}>
+            <HelpOutline fontSize="small" sx={{ mr: 1 }} />
+            <strong>Legenda:</strong>&nbsp; Punti = Base + Malus Prev. + Bonus Qual.&nbsp;<strong>(vince chi fa meno punti)</strong>
           </Typography>
         </Box>
       </DialogContent>

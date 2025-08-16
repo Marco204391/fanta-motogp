@@ -1,6 +1,6 @@
 // backend/src/services/motogpApiService.ts
 import axios from 'axios';
-import { Category, PrismaClient, RiderType, SessionType } from '@prisma/client';
+import { Category, PrismaClient, RiderType, Rider, SessionType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -222,7 +222,7 @@ export class MotoGPApiService {
       throw error;
     }
   }
-
+  
   async syncRaceResults(raceId: string) {
     try {
       const race = await prisma.race.findUnique({ where: { id: raceId } });
@@ -274,30 +274,46 @@ export class MotoGPApiService {
           }
 
           if (q2Session) {
+            console.log(`[QUALIFYING LOG - ${category}] Trovata sessione Q2. Recupero risultati...`);
             const q2ResultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${q2Session.id}&test=false`);
             if (q2ResultsResponse.data?.classification) {
               const q2Results = q2ResultsResponse.data.classification;
+              console.log(`[QUALIFYING LOG - ${category}] Risultati Q2 trovati: ${q2Results.length} piloti.`);
               let finalClassification = q2Results;
 
               if (q1Session) {
+                console.log(`[QUALIFYING LOG - ${category}] Trovata sessione Q1. Recupero risultati per unire...`);
                 const q1ResultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${q1Session.id}&test=false`);
                 if (q1ResultsResponse.data?.classification) {
                   const q1Results = q1ResultsResponse.data.classification;
-                  const q1RidersNotInQ2 = q1Results.slice(2);
+                  console.log(`[QUALIFYING LOG - ${category}] Risultati Q1 trovati: ${q1Results.length} piloti.`);
+
+                  const q2RiderIds = new Set(q2Results.map((r: any) => r.rider.riders_api_uuid));
+                  const q1RidersToAppend = q1Results.filter((r: any) => !q2RiderIds.has(r.rider.riders_api_uuid));
+                  
+                  console.log(`[QUALIFYING LOG - ${category}] Piloti da Q1 da accodare (non presenti in Q2): ${q1RidersToAppend.length}`);
+                  
                   const lastQ2Position = q2Results.length;
-                  const adjustedQ1Riders = q1RidersNotInQ2.map((rider: any, index: number) => ({
+                  console.log(`[QUALIFYING LOG - ${category}] Ultima posizione in Q2: ${lastQ2Position}. Le posizioni dei piloti da Q1 partiranno da ${lastQ2Position + 1}.`);
+
+                  const adjustedQ1Riders = q1RidersToAppend.map((rider: any, index: number) => ({
                       ...rider,
                       position: lastQ2Position + index + 1,
                   }));
 
+                  if (adjustedQ1Riders.length > 0) {
+                    console.log(`[QUALIFYING LOG - ${category}] Esempio pilota riposizionato da Q1: ${adjustedQ1Riders[0].rider.full_name}, Nuova Posizione: ${adjustedQ1Riders[0].position}`);
+                  }
+
                   finalClassification = [...q2Results, ...adjustedQ1Riders];
+                  console.log(`[QUALIFYING LOG - ${category}] Classifica finale unita. Totale piloti: ${finalClassification.length}.`);
                 }
               }
-
+              console.log(`[QUALIFYING LOG - ${category}] Salvataggio della classifica finale delle qualifiche...`);
               await this.saveRaceResults(raceId, category, finalClassification, SessionType.QUALIFYING);
             }
           } else if (q1Session) {
-            // Fallback for categories that only have one qualifying session
+            console.log(`[QUALIFYING LOG - ${category}] Trovata solo sessione Q1 (o fallback). Salvo direttamente i risultati di Q1.`);
             const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${q1Session.id}&test=false`);
             if (resultsResponse.data?.classification) {
               await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.QUALIFYING);
@@ -330,13 +346,13 @@ export class MotoGPApiService {
 
     for (const result of finalClassification) {
       let rider = await prisma.rider.findUnique({ where: { apiRiderId: result.rider.riders_api_uuid } });
+      
       if (!rider) {
-        rider = await prisma.rider.findFirst({ where: { name: { contains: result.rider.full_name }, category } });
-      }
-
-      if (!rider) {
-        console.warn(`⚠️ Pilota non trovato nel DB, impossibile salvare il risultato per: ${result.rider.full_name}`);
-        continue;
+        rider = await this.fetchAndCreateRider(result.rider.riders_api_uuid, category);
+        if (!rider) {
+            console.warn(`[SAVE RESULTS] ⚠️ Impossibile trovare o creare il pilota ${result.rider.full_name}. Risultato saltato.`);
+            continue;
+        }
       }
       
       let status: 'FINISHED' | 'DNF' | 'DNS' | 'DSQ' = 'FINISHED';
@@ -360,30 +376,70 @@ export class MotoGPApiService {
         create: {
           session,
           ...dataToSave,
-          race: {
-            connect: { id: raceId }
-          },
-          rider: {
-            connect: { id: rider.id }
-          }
+          race: { connect: { id: raceId } },
+          rider: { connect: { id: rider.id } }
         },
       });
+    }
+  }
+
+  private async fetchAndCreateRider(apiRiderId: string, category: Category): Promise<Rider | null> {
+    try {
+        console.log(`[RIDER FETCH] Pilota con ID API ${apiRiderId} non trovato nel DB. Tentativo di recupero dall'API MotoGP...`);
+        const response = await this.axiosInstance.get(`/riders/${apiRiderId}`);
+        const apiRider = response.data;
+
+        if (!apiRider) {
+            console.log(`[RIDER FETCH] Nessun dato trovato dall'API per l'ID ${apiRiderId}.`);
+            return null;
+        }
+
+        const riderFullName = `${apiRider.name} ${apiRider.surname}`;
+        const careerStep = apiRider.current_career_step;
+
+        const riderData = {
+            name: riderFullName,
+            apiRiderId: apiRider.id,
+            category,
+            number: careerStep?.number || 999, 
+            team: careerStep?.sponsored_team || 'Team Sconosciuto',
+            nationality: apiRider.country?.iso || 'N/A',
+            value: 0,
+            isActive: true,
+            photoUrl: careerStep?.pictures?.profile?.main ?? careerStep?.pictures?.portrait,
+            riderType: getRiderType(apiRider) || RiderType.WILDCARD,
+        };
+
+        const newRider = await prisma.rider.create({
+            data: riderData
+        });
+        console.log(`[RIDER FETCH] Pilota "${newRider.name}" creato con successo nel DB.`);
+        return newRider;
+    } catch (error) {
+        console.error(`[RIDER FETCH] ❌ Errore durante il recupero e la creazione del pilota con ID API ${apiRiderId}:`, error);
+        return null;
     }
   }
 
   async calculateTeamScores(raceId: string, session: SessionType) {
     console.log(`-- Inizio calcolo punteggi per ${session} della gara ${raceId} --`);
     try {
-      const raceResults = await prisma.raceResult.findMany({
-        where: { raceId, session },
+      const allSessionResults = await prisma.raceResult.findMany({
+        where: { raceId, session: { in: ['RACE', 'SPRINT'] } },
         include: { rider: true },
       });
 
-      if (raceResults.length === 0) {
-        console.log(`Nessun risultato ${session} trovato per la gara.`);
+      if (allSessionResults.length === 0) {
+        console.log(`Nessun risultato (Gara/Sprint) trovato per la gara.`);
         return;
       }
-      
+
+      const raceResults = allSessionResults.filter(r => r.session === 'RACE');
+      const sprintResultsMap = new Map<string, { position: number | null, status: string }>();
+      allSessionResults.filter(r => r.session === 'SPRINT').forEach(result => {
+        sprintResultsMap.set(result.riderId, { position: result.position, status: result.status });
+      });
+
       const qualifyingResults = await prisma.raceResult.findMany({
           where: {
               raceId,
@@ -430,6 +486,7 @@ export class MotoGPApiService {
 
         for (const lineupRider of lineup.lineupRiders) {
           const result = resultMap.get(lineupRider.riderId);
+          const sprintResult = sprintResultsMap.get(lineupRider.riderId);
           const predictedPosition = lineupRider.predictedPosition;
           let points = 0;
           let basePoints = 0;
@@ -456,7 +513,17 @@ export class MotoGPApiService {
           const qualifyingBonus = (session === SessionType.RACE) ? (qualifyingBonusMap.get(lineupRider.riderId) || 0) : 0;
           points += qualifyingBonus;
 
-          riderScores.push({ rider: lineupRider.rider.name, points, predicted: predictedPosition, actual: result?.position ?? result?.status, base: basePoints, diff: difference, qualifyingBonus });
+          riderScores.push({
+            rider: lineupRider.rider.name,
+            riderCategory: lineupRider.rider.category,
+            points,
+            predicted: predictedPosition,
+            actual: result?.position ?? result?.status,
+            sprintPosition: sprintResult?.position ?? sprintResult?.status,
+            base: basePoints,
+            predictionMalus: difference, 
+            qualifyingBonus
+          });
           totalPoints += points;
         }
         
@@ -472,6 +539,7 @@ export class MotoGPApiService {
       console.error(`Errore nel calcolo dei punteggi per ${session}:`, error);
     }
   }
+  
 
   private mapLegacyCategory(legacyId: number): Category | null {
     switch (legacyId) {
