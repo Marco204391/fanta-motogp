@@ -110,18 +110,18 @@ function MobileStandingCard({ standing, position, isUserTeam, onView }: {
   const isPodium = position <= 3;
 
   return (
-    <Card 
-      sx={{ 
+    <Card
+      sx={{
         mb: 1,
         borderLeft: isPodium ? 4 : 0,
-        borderColor: isPodium ? 
-          (position === 1 ? '#FFD700' : position === 2 ? '#C0C0C0' : '#CD7F32') 
+        borderColor: isPodium ?
+          (position === 1 ? '#FFD700' : position === 2 ? '#C0C0C0' : '#CD7F32')
           : 'transparent',
         backgroundColor: isUserTeam ? 'action.selected' : 'inherit'
       }}
     >
-      <Box 
-        sx={{ 
+      <Box
+        sx={{
           p: 1.5,
           display: 'flex',
           alignItems: 'center',
@@ -130,8 +130,8 @@ function MobileStandingCard({ standing, position, isUserTeam, onView }: {
         onClick={() => setExpanded(!expanded)}
       >
         {/* Posizione */}
-        <Box 
-          sx={{ 
+        <Box
+          sx={{
             minWidth: 40,
             display: 'flex',
             flexDirection: 'column',
@@ -139,15 +139,15 @@ function MobileStandingCard({ standing, position, isUserTeam, onView }: {
           }}
         >
           {isPodium && (
-            <WorkspacePremium 
-              sx={{ 
+            <WorkspacePremium
+              sx={{
                 fontSize: 20,
-                color: position === 1 ? '#FFD700' : 
+                color: position === 1 ? '#FFD700' :
                        position === 2 ? '#C0C0C0' : '#CD7F32'
               }}
             />
           )}
-          <Typography 
+          <Typography
             variant={isPodium ? "h6" : "body1"}
             fontWeight={isPodium ? "bold" : "medium"}
           >
@@ -160,10 +160,10 @@ function MobileStandingCard({ standing, position, isUserTeam, onView }: {
           <Typography variant="body2" fontWeight="medium">
             {standing.teamName}
             {isUserTeam && (
-              <Chip 
-                label="Tu" 
-                size="small" 
-                color="primary" 
+              <Chip
+                label="Tu"
+                size="small"
+                color="primary"
                 sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
               />
             )}
@@ -213,10 +213,10 @@ function MobileStandingCard({ standing, position, isUserTeam, onView }: {
               </Box>
             </Grid>
           </Grid>
-          <Button 
-            size="small" 
-            fullWidth 
-            variant="outlined" 
+          <Button
+            size="small"
+            fullWidth
+            variant="outlined"
             onClick={(e) => {
               e.stopPropagation();
               onView();
@@ -391,17 +391,17 @@ export default function LeagueDetailPage() {
       >
         <Grid container alignItems="center" spacing={2}>
           <Grid size={{ xs: 12, md: 8 }}>
-            <Typography 
-              variant={isMobile ? "h5" : "h4"} 
+            <Typography
+              variant={isMobile ? "h5" : "h4"}
               gutterBottom
               sx={{ fontWeight: 'bold' }}
             >
               {league.name}
             </Typography>
-            <Stack 
-              direction="row" 
-              spacing={1} 
-              flexWrap="wrap" 
+            <Stack
+              direction="row"
+              spacing={1}
+              flexWrap="wrap"
               useFlexGap
             >
               <Chip
@@ -420,8 +420,8 @@ export default function LeagueDetailPage() {
                 icon={<Groups sx={{ color: 'white !important' }} />}
                 label={`${league.teams?.length || 0}/${league.maxTeams}`}
                 size={isMobile ? "small" : "medium"}
-                sx={{ 
-                  backgroundColor: 'rgba(255,255,255,0.2)', 
+                sx={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
                   color: 'white',
                   fontSize: isMobile ? '0.7rem' : '0.875rem'
                 }}
@@ -430,8 +430,8 @@ export default function LeagueDetailPage() {
                 icon={<EmojiEvents sx={{ color: 'white !important' }} />}
                 label={`Premio: ${league.prizePool || 0}€`}
                 size={isMobile ? "small" : "medium"}
-                sx={{ 
-                  backgroundColor: 'rgba(255,255,255,0.2)', 
+                sx={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
                   color: 'white',
                   fontSize: isMobile ? '0.7rem' : '0.875rem'
                 }}
@@ -441,8 +441,8 @@ export default function LeagueDetailPage() {
                   icon={<Lock sx={{ color: 'white !important' }} />}
                   label="Team Bloccati"
                   size={isMobile ? "small" : "medium"}
-                  sx={{ 
-                    backgroundColor: 'rgba(255,0,0,0.3)', 
+                  sx={{
+                    backgroundColor: 'rgba(255,0,0,0.3)',
                     color: 'white',
                     fontSize: isMobile ? '0.7rem' : '0.875rem'
                   }}
@@ -450,11 +450,11 @@ export default function LeagueDetailPage() {
               )}
             </Stack>
           </Grid>
-          
+
           <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-            <Stack 
-              direction="row" 
-              spacing={1} 
+            <Stack
+              direction="row"
+              spacing={1}
               justifyContent={{ xs: 'flex-start', md: 'flex-end' }}
               alignItems="center"
             >
@@ -468,15 +468,15 @@ export default function LeagueDetailPage() {
                   <Refresh />
                 </IconButton>
               </Tooltip>
-              
+
               {/* Posizione Mobile */}
               {isMobile && userHasTeam && myPosition > 0 && (
-                <Box 
-                  sx={{ 
+                <Box
+                  sx={{
                     ml: 'auto',
-                    p: 1, 
-                    bgcolor: 'rgba(255,255,255,0.1)', 
-                    borderRadius: 1 
+                    p: 1,
+                    bgcolor: 'rgba(255,255,255,0.1)',
+                    borderRadius: 1
                   }}
                 >
                   <Typography variant="caption" sx={{ opacity: 0.8 }}>
@@ -488,7 +488,7 @@ export default function LeagueDetailPage() {
                 </Box>
               )}
             </Stack>
-            
+
             {/* Posizione Desktop */}
             {!isMobile && userHasTeam && myPosition > 0 && (
               <Box mt={2}>
@@ -503,41 +503,41 @@ export default function LeagueDetailPage() {
           </Grid>
         </Grid>
       </Paper>
-      
+
       {/* Box Scadenza Gara - Responsive */}
       {nextRace && deadline && (
         <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 2, bgcolor: 'action.hover' }}>
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
             alignItems={{ xs: 'stretch', sm: 'center' }}
-            spacing={{ xs: 2, sm: 3 }} 
+            spacing={{ xs: 2, sm: 3 }}
             justifyContent="space-between"
           >
             <Box>
-              <Typography 
-                variant="overline" 
+              <Typography
+                variant="overline"
                 color="text.secondary"
                 sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
               >
                 Prossimo Evento
               </Typography>
-              <Typography 
+              <Typography
                 variant={isMobile ? "subtitle1" : "h6"}
                 sx={{ fontWeight: 'bold' }}
               >
                 {nextRace.name}
               </Typography>
             </Box>
-            
-            <Divider 
-              orientation="vertical" 
-              flexItem 
-              sx={{ display: { xs: 'none', sm: 'block' } }} 
+
+            <Divider
+              orientation="vertical"
+              flexItem
+              sx={{ display: { xs: 'none', sm: 'block' } }}
             />
-            
+
             <Box>
-              <Typography 
-                variant="overline" 
+              <Typography
+                variant="overline"
                 color="text.secondary"
                 sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
               >
@@ -545,8 +545,8 @@ export default function LeagueDetailPage() {
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
                 <Timer color="primary" fontSize={isMobile ? "small" : "medium"} />
-                <Typography 
-                  variant={isMobile ? "body2" : "h6"} 
+                <Typography
+                  variant={isMobile ? "body2" : "h6"}
                   color="primary.main"
                   sx={{ fontWeight: 'medium' }}
                 >
@@ -554,9 +554,9 @@ export default function LeagueDetailPage() {
                 </Typography>
               </Stack>
             </Box>
-            
+
             <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
-            
+
             {daysUntilDeadline !== null && daysUntilDeadline >= 0 && (
               <Chip
                 label={
@@ -577,7 +577,7 @@ export default function LeagueDetailPage() {
                 sx={{ fontWeight: 'bold' }}
               />
             )}
-            
+
             <Button
               variant="contained"
               onClick={handleManageLineup}
@@ -596,9 +596,9 @@ export default function LeagueDetailPage() {
         <Alert
           severity="warning"
           action={
-            <Button 
-              color="inherit" 
-              size="small" 
+            <Button
+              color="inherit"
+              size="small"
               onClick={handleCreateTeam}
             >
               Crea Team
@@ -615,9 +615,9 @@ export default function LeagueDetailPage() {
         <Alert
           severity="info"
           action={
-            <Button 
-              color="inherit" 
-              size="small" 
+            <Button
+              color="inherit"
+              size="small"
               onClick={handleManageLineup}
             >
               Imposta Lineup
@@ -637,7 +637,7 @@ export default function LeagueDetailPage() {
           variant={isMobile ? "scrollable" : "standard"}
           scrollButtons={isMobile ? "auto" : false}
         >
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <EmojiEvents fontSize="small" />
@@ -645,7 +645,7 @@ export default function LeagueDetailPage() {
               </Box>
             }
           />
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <SportsMotorsports fontSize="small" />
@@ -653,7 +653,7 @@ export default function LeagueDetailPage() {
               </Box>
             }
           />
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <BarChart fontSize="small" />
@@ -662,7 +662,7 @@ export default function LeagueDetailPage() {
             }
           />
           {isAdmin && (
-            <Tab 
+            <Tab
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <Settings fontSize="small" />
@@ -705,14 +705,19 @@ export default function LeagueDetailPage() {
                   <TableCell>Manager</TableCell>
                   <TableCell align="right">Punti Totali</TableCell>
                   <TableCell align="right">Ultima Gara</TableCell>
+                  <TableCell align="right">Gap Prec.</TableCell>
+                  <TableCell align="right">Gap Succ.</TableCell>
                   <TableCell align="center">Trend</TableCell>
-                  <TableCell align="center">Azioni</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {standings.map((standing: any, index: number) => {
                   const position = index + 1;
                   const isUserTeam = standing.userId === user?.id;
+                  const prevPoints = index > 0 ? standings[index - 1].totalPoints : null;
+                  const nextPoints = index < standings.length - 1 ? standings[index + 1].totalPoints : null;
+                  const gapPrev = prevPoints !== null ? standing.totalPoints - prevPoints : null;
+                  const gapNext = nextPoints !== null ? nextPoints - standing.totalPoints : null;
 
                   return (
                     <TableRow
@@ -751,20 +756,28 @@ export default function LeagueDetailPage() {
                           <Typography variant="body2" color="text.secondary">-</Typography>
                         )}
                       </TableCell>
+                      <TableCell align="right">
+                        {gapPrev !== null ? (
+                          <Typography variant="body2" color="error.main">
+                            +{gapPrev}
+                          </Typography>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        {gapNext !== null ? (
+                           <Typography variant="body2" color="success.main">
+                           -{gapNext}
+                         </Typography>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
                       <TableCell align="center">
                         {standing.trend === 'up' && <TrendingUp color="success" />}
                         {standing.trend === 'down' && <TrendingDown color="error" />}
                         {standing.trend === 'same' && <Remove color="disabled" />}
-                      </TableCell>
-                      <TableCell align="center">
-                        <Tooltip title="Visualizza Team">
-                          <IconButton
-                            size="small"
-                            onClick={() => navigate(`/teams/${standing.teamId}`)}
-                          >
-                            <Visibility fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   );
@@ -807,14 +820,14 @@ export default function LeagueDetailPage() {
                   <CardContent sx={{ p: isMobile ? 2 : 3 }}>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                       <Box>
-                        <Typography 
+                        <Typography
                           variant={isMobile ? "subtitle1" : "h6"}
                           fontWeight="bold"
                         >
                           {teamLineup.teamName}
                         </Typography>
-                        <Typography 
-                          variant={isMobile ? "caption" : "body2"} 
+                        <Typography
+                          variant={isMobile ? "caption" : "body2"}
                           color="text.secondary"
                         >
                           di {teamLineup.userName}
@@ -833,10 +846,10 @@ export default function LeagueDetailPage() {
                           {teamLineup.lineup.slice(0, isMobile ? 4 : 6).map((lr: any) => (
                             <ListItem key={lr.id} sx={{ px: 0 }}>
                               <ListItemAvatar>
-                                <Avatar 
-                                  sx={{ 
-                                    bgcolor: 'primary.main', 
-                                    width: isMobile ? 28 : 32, 
+                                <Avatar
+                                  sx={{
+                                    bgcolor: 'primary.main',
+                                    width: isMobile ? 28 : 32,
                                     height: isMobile ? 28 : 32,
                                     fontSize: isMobile ? '0.75rem' : '0.875rem'
                                   }}
@@ -852,10 +865,10 @@ export default function LeagueDetailPage() {
                                 }
                                 secondary={
                                   <Box component="span">
-                                    <Typography 
-                                      component="span" 
+                                    <Typography
+                                      component="span"
                                       variant="caption"
-                                      sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+                                      sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
                                     >
                                       Prev: {lr.predictedPosition || '-'}° •
                                       Reale: {lr.actualPosition || lr.actualStatus || '-'}
@@ -874,8 +887,8 @@ export default function LeagueDetailPage() {
                         </List>
 
                         {teamLineup.lineup.length > (isMobile ? 4 : 6) && (
-                          <Typography 
-                            variant="caption" 
+                          <Typography
+                            variant="caption"
                             color="text.secondary"
                             sx={{ display: 'block', textAlign: 'center', mt: 1 }}
                           >
@@ -916,8 +929,8 @@ export default function LeagueDetailPage() {
           <Grid size={{ xs: 12, md: 6 }}>
             <Card>
               <CardContent>
-                <Typography 
-                  variant={isMobile ? "subtitle1" : "h6"} 
+                <Typography
+                  variant={isMobile ? "subtitle1" : "h6"}
                   gutterBottom
                   fontWeight="bold"
                 >
@@ -929,8 +942,8 @@ export default function LeagueDetailPage() {
                       <ListItemText
                         primary={stat.raceName}
                         secondary={`Winner: ${stat.topTeam} - ${stat.topPoints} pt`}
-                        primaryTypographyProps={{ 
-                          fontSize: isMobile ? '0.875rem' : '1rem' 
+                        primaryTypographyProps={{
+                          fontSize: isMobile ? '0.875rem' : '1rem'
                         }}
                       />
                       <Chip
@@ -953,8 +966,8 @@ export default function LeagueDetailPage() {
           <Grid size={{ xs: 12, md: 6 }}>
             <Card>
               <CardContent>
-                <Typography 
-                  variant={isMobile ? "subtitle1" : "h6"} 
+                <Typography
+                  variant={isMobile ? "subtitle1" : "h6"}
                   gutterBottom
                   fontWeight="bold"
                 >
@@ -977,7 +990,7 @@ export default function LeagueDetailPage() {
                               value={(rider.teamCount / league.currentTeams) * 100}
                               sx={{ mt: 1, height: 6 }}
                             />
-                            <Typography 
+                            <Typography
                               variant="caption"
                               sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
                             >
@@ -985,8 +998,8 @@ export default function LeagueDetailPage() {
                             </Typography>
                           </Box>
                         }
-                        primaryTypographyProps={{ 
-                          fontSize: isMobile ? '0.875rem' : '1rem' 
+                        primaryTypographyProps={{
+                          fontSize: isMobile ? '0.875rem' : '1rem'
                         }}
                       />
                     </ListItem>
@@ -1000,8 +1013,8 @@ export default function LeagueDetailPage() {
           <Grid size={12}>
             <Card>
               <CardContent>
-                <Typography 
-                  variant={isMobile ? "subtitle1" : "h6"} 
+                <Typography
+                  variant={isMobile ? "subtitle1" : "h6"}
                   gutterBottom
                   fontWeight="bold"
                 >
@@ -1013,21 +1026,21 @@ export default function LeagueDetailPage() {
                     return (
                       <Grid key={category} size={{ xs: 12, sm: 4 }}>
                         <Paper sx={{ p: isMobile ? 1.5 : 2, textAlign: 'center' }}>
-                          <Typography 
-                            variant="subtitle2" 
+                          <Typography
+                            variant="subtitle2"
                             color="text.secondary"
                             sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
                           >
                             {category}
                           </Typography>
-                          <Typography 
-                            variant={isMobile ? "h5" : "h4"} 
+                          <Typography
+                            variant={isMobile ? "h5" : "h4"}
                             color="primary"
                           >
                             {stats.avg.toFixed(1)}
                           </Typography>
-                          <Typography 
-                            variant="caption" 
+                          <Typography
+                            variant="caption"
                             display="block"
                             sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
                           >
@@ -1062,8 +1075,8 @@ export default function LeagueDetailPage() {
             <Grid size={{ xs: 12, md: 6 }}>
               <Card>
                 <CardContent>
-                  <Typography 
-                    variant={isMobile ? "subtitle1" : "h6"} 
+                  <Typography
+                    variant={isMobile ? "subtitle1" : "h6"}
                     gutterBottom
                     fontWeight="bold"
                   >
@@ -1086,10 +1099,10 @@ export default function LeagueDetailPage() {
                           </Typography>
                         }
                       />
-                      <Typography 
-                        variant="caption" 
-                        color="text.secondary" 
-                        display="block" 
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
                         ml={isMobile ? 5 : 7}
                         sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
                       >
@@ -1126,8 +1139,8 @@ export default function LeagueDetailPage() {
             <Grid size={{ xs: 12, md: 6 }}>
               <Card>
                 <CardContent>
-                  <Typography 
-                    variant={isMobile ? "subtitle1" : "h6"} 
+                  <Typography
+                    variant={isMobile ? "subtitle1" : "h6"}
                     gutterBottom
                     fontWeight="bold"
                   >
@@ -1190,8 +1203,8 @@ export default function LeagueDetailPage() {
             <Grid size={12}>
               <Card>
                 <CardContent>
-                  <Typography 
-                    variant={isMobile ? "subtitle1" : "h6"} 
+                  <Typography
+                    variant={isMobile ? "subtitle1" : "h6"}
                     gutterBottom
                     fontWeight="bold"
                   >
@@ -1200,8 +1213,8 @@ export default function LeagueDetailPage() {
 
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 6, sm: 3 }}>
-                      <Typography 
-                        variant="caption" 
+                      <Typography
+                        variant="caption"
                         color="text.secondary"
                         sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
                       >
@@ -1212,8 +1225,8 @@ export default function LeagueDetailPage() {
                       </Typography>
                     </Grid>
                     <Grid size={{ xs: 6, sm: 3 }}>
-                      <Typography 
-                        variant="caption" 
+                      <Typography
+                        variant="caption"
                         color="text.secondary"
                         sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
                       >
@@ -1224,8 +1237,8 @@ export default function LeagueDetailPage() {
                       </Typography>
                     </Grid>
                     <Grid size={{ xs: 6, sm: 3 }}>
-                      <Typography 
-                        variant="caption" 
+                      <Typography
+                        variant="caption"
                         color="text.secondary"
                         sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
                       >
@@ -1236,8 +1249,8 @@ export default function LeagueDetailPage() {
                       </Typography>
                     </Grid>
                     <Grid size={{ xs: 6, sm: 3 }}>
-                      <Typography 
-                        variant="caption" 
+                      <Typography
+                        variant="caption"
                         color="text.secondary"
                         sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
                       >
@@ -1256,10 +1269,10 @@ export default function LeagueDetailPage() {
       )}
 
       {/* Dialog Invita Membri - Responsive */}
-      <Dialog 
-        open={showInviteDialog} 
-        onClose={() => setShowInviteDialog(false)} 
-        maxWidth="sm" 
+      <Dialog
+        open={showInviteDialog}
+        onClose={() => setShowInviteDialog(false)}
+        maxWidth="sm"
         fullWidth
         fullScreen={isMobile}
       >
