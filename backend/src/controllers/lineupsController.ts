@@ -44,7 +44,7 @@ export const getLineup = async (req: AuthRequest, res: Response) => {
         where: {
             raceId,
             riderId: { in: riderIds },
-            session: { in: ['FP1', 'FP2', 'PR'] }
+            session: { in: ['FP1', 'FP2', 'PR', 'QUALIFYING'] }
         }
     });
 
