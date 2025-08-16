@@ -64,7 +64,7 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
                   </Tooltip>
                 </TableCell>
                 <TableCell align="right">
-                  <Tooltip title="Malus = |Prevista - Base Gara| + |Prevista - Base Sprint| (solo MotoGP)">
+                  <Tooltip title="Malus = |Prevista - Pos. Gara| + |Prevista - Pos. Sprint| (solo MotoGP)">
                     <Box component="span" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', cursor: 'help' }}>
                       Malus Prev. <HelpOutline sx={{ fontSize: 14, ml: 0.5 }} />
                     </Box>

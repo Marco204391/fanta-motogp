@@ -485,10 +485,12 @@ export class MotoGPApiService {
         for (const lineupRider of lineup.lineupRiders) {
           const riderCategory = lineupRider.rider.category;
           const predictedPosition = lineupRider.predictedPosition;
-          const maxPosRace = maxPositions[riderCategory]?.race || 25;
           
+          const maxPosRace = maxPositions[riderCategory]?.race || 25;
           const raceResult = raceResultsMap.get(lineupRider.riderId);
-          const raceBasePoints = (raceResult?.position === null || raceResult?.position === undefined) ? (maxPosRace + 1) : raceResult.position;
+          const raceBasePoints = (raceResult?.position === null || raceResult?.position === undefined) 
+                                 ? (maxPosRace + 1) 
+                                 : raceResult.position;
           const racePredictionMalus = Math.abs(predictedPosition - raceBasePoints);
 
           let sprintBasePoints = 0;
@@ -496,7 +498,9 @@ export class MotoGPApiService {
           const sprintResult = sprintResultsMap.get(lineupRider.riderId);
           if (riderCategory === 'MOTOGP') {
             const maxPosSprint = maxPositions[riderCategory]?.sprint || 15;
-            sprintBasePoints = (sprintResult?.position === null || sprintResult?.position === undefined) ? (sprintResult ? maxPosSprint + 1 : 0) : sprintResult.position;
+            sprintBasePoints = (sprintResult?.position === null || sprintResult?.position === undefined) 
+                                 ? (sprintResult ? maxPosSprint + 1 : 0) 
+                                 : sprintResult.position;
             if (sprintBasePoints > 0) {
               sprintPredictionMalus = Math.abs(predictedPosition - sprintBasePoints);
             }
