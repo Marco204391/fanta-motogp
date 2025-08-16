@@ -40,7 +40,11 @@ import {
   ListItemAvatar,
   IconButton,
   Tooltip,
-  LinearProgress
+  LinearProgress,
+  useTheme,
+  useMediaQuery,
+  Collapse,
+  Badge
 } from '@mui/material';
 import {
   TrendingUp,
@@ -58,7 +62,9 @@ import {
   Refresh,
   Visibility,
   SportsMotorsports,
-  Timer
+  Timer,
+  ExpandMore,
+  ExpandLess
 } from '@mui/icons-material';
 import { format, isPast, differenceInDays, differenceInHours } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -88,8 +94,141 @@ function TabPanel(props: TabPanelProps) {
       hidden={value !== index}
       {...other}
     >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ py: { xs: 2, sm: 3 } }}>{children}</Box>}
     </div>
+  );
+}
+
+// Componente Mobile per visualizzare una posizione in classifica
+function MobileStandingCard({ standing, position, isUserTeam, onView }: {
+  standing: any;
+  position: number;
+  isUserTeam: boolean;
+  onView: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isPodium = position <= 3;
+
+  return (
+    <Card 
+      sx={{ 
+        mb: 1,
+        borderLeft: isPodium ? 4 : 0,
+        borderColor: isPodium ? 
+          (position === 1 ? '#FFD700' : position === 2 ? '#C0C0C0' : '#CD7F32') 
+          : 'transparent',
+        backgroundColor: isUserTeam ? 'action.selected' : 'inherit'
+      }}
+    >
+      <Box 
+        sx={{ 
+          p: 1.5,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5
+        }}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {/* Posizione */}
+        <Box 
+          sx={{ 
+            minWidth: 40,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}
+        >
+          {isPodium && (
+            <WorkspacePremium 
+              sx={{ 
+                fontSize: 20,
+                color: position === 1 ? '#FFD700' : 
+                       position === 2 ? '#C0C0C0' : '#CD7F32'
+              }}
+            />
+          )}
+          <Typography 
+            variant={isPodium ? "h6" : "body1"}
+            fontWeight={isPodium ? "bold" : "medium"}
+          >
+            {position}
+          </Typography>
+        </Box>
+
+        {/* Nome Team e Manager */}
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography variant="body2" fontWeight="medium">
+            {standing.teamName}
+            {isUserTeam && (
+              <Chip 
+                label="Tu" 
+                size="small" 
+                color="primary" 
+                sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+              />
+            )}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {standing.userName}
+          </Typography>
+        </Box>
+
+        {/* Punti */}
+        <Box sx={{ textAlign: 'right', mr: 1 }}>
+          <Typography variant="h6" fontWeight="bold" color="primary">
+            {standing.totalPoints || 0}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            punti
+          </Typography>
+        </Box>
+
+        {/* Expand Icon */}
+        <IconButton size="small">
+          {expanded ? <ExpandLess /> : <ExpandMore />}
+        </IconButton>
+      </Box>
+
+      {/* Dettagli Espansi */}
+      <Collapse in={expanded}>
+        <Divider />
+        <Box sx={{ p: 1.5, backgroundColor: 'action.hover' }}>
+          <Grid container spacing={1}>
+            <Grid size={6}>
+              <Typography variant="caption" color="text.secondary">
+                Ultima Gara
+              </Typography>
+              <Typography variant="body2">
+                {standing.lastRacePoints ? `+${standing.lastRacePoints} pt` : '-'}
+              </Typography>
+            </Grid>
+            <Grid size={6}>
+              <Typography variant="caption" color="text.secondary">
+                Trend
+              </Typography>
+              <Box display="flex" alignItems="center" gap={0.5}>
+                {standing.trend === 'up' && <TrendingUp color="success" fontSize="small" />}
+                {standing.trend === 'down' && <TrendingDown color="error" fontSize="small" />}
+                {standing.trend === 'same' && <Remove color="disabled" fontSize="small" />}
+              </Box>
+            </Grid>
+          </Grid>
+          <Button 
+            size="small" 
+            fullWidth 
+            variant="outlined" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onView();
+            }}
+            sx={{ mt: 1 }}
+            startIcon={<Visibility />}
+          >
+            Visualizza Team
+          </Button>
+        </Box>
+      </Collapse>
+    </Card>
   );
 }
 
@@ -99,6 +238,9 @@ export default function LeagueDetailPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { notify } = useNotification();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
@@ -186,7 +328,6 @@ export default function LeagueDetailPage() {
   const daysUntilDeadline = deadline ? differenceInDays(deadline, new Date()) : null;
   const hoursUntilDeadline = deadline ? differenceInHours(deadline, new Date()) : null;
 
-
   const hasLineupForNextRace = useMemo(() => {
     if (!lineupsData?.lineups || !myTeam) {
       return false;
@@ -238,64 +379,118 @@ export default function LeagueDetailPage() {
   };
 
   return (
-    <Box>
-      {/* Header Lega */}
+    <Box sx={{ pb: isMobile ? 2 : 0 }}>
+      {/* Header Lega - Responsive */}
       <Paper
         sx={{
-          p: 3,
-          mb: 3,
+          p: isMobile ? 2 : 3,
+          mb: 2,
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           color: 'white'
         }}
       >
         <Grid container alignItems="center" spacing={2}>
-          <Grid size={{ xs: 12, md: 8}}>
-            <Typography variant="h4" gutterBottom>
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Typography 
+              variant={isMobile ? "h5" : "h4"} 
+              gutterBottom
+              sx={{ fontWeight: 'bold' }}
+            >
               {league.name}
             </Typography>
-            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+            <Stack 
+              direction="row" 
+              spacing={1} 
+              flexWrap="wrap" 
+              useFlexGap
+            >
               <Chip
                 icon={<ContentCopy sx={{ color: 'white !important' }} />}
                 label={`Codice: ${league.code}`}
                 onClick={handleShareCode}
+                size={isMobile ? "small" : "medium"}
                 sx={{
                   backgroundColor: 'rgba(255,255,255,0.2)',
                   color: 'white',
+                  fontSize: isMobile ? '0.7rem' : '0.875rem',
                   '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' }
                 }}
               />
               <Chip
                 icon={<Groups sx={{ color: 'white !important' }} />}
-                label={`${league.teams?.length || 0}/${league.maxTeams} Team`}
-                sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                label={`${league.teams?.length || 0}/${league.maxTeams}`}
+                size={isMobile ? "small" : "medium"}
+                sx={{ 
+                  backgroundColor: 'rgba(255,255,255,0.2)', 
+                  color: 'white',
+                  fontSize: isMobile ? '0.7rem' : '0.875rem'
+                }}
               />
               <Chip
                 icon={<EmojiEvents sx={{ color: 'white !important' }} />}
                 label={`Premio: ${league.prizePool || 0}€`}
-                sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                size={isMobile ? "small" : "medium"}
+                sx={{ 
+                  backgroundColor: 'rgba(255,255,255,0.2)', 
+                  color: 'white',
+                  fontSize: isMobile ? '0.7rem' : '0.875rem'
+                }}
               />
               {league.teamsLocked && (
                 <Chip
                   icon={<Lock sx={{ color: 'white !important' }} />}
                   label="Team Bloccati"
-                  sx={{ backgroundColor: 'rgba(255,0,0,0.3)', color: 'white' }}
+                  size={isMobile ? "small" : "medium"}
+                  sx={{ 
+                    backgroundColor: 'rgba(255,0,0,0.3)', 
+                    color: 'white',
+                    fontSize: isMobile ? '0.7rem' : '0.875rem'
+                  }}
                 />
               )}
             </Stack>
           </Grid>
-          <Grid size={{ xs: 12, md: 4}} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-            <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
+          
+          <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+            <Stack 
+              direction="row" 
+              spacing={1} 
+              justifyContent={{ xs: 'flex-start', md: 'flex-end' }}
+              alignItems="center"
+            >
               <Tooltip title="Aggiorna Dati">
                 <IconButton
                   color="inherit"
                   onClick={() => forceRefresh()}
                   sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                  size={isMobile ? "small" : "medium"}
                 >
                   <Refresh />
                 </IconButton>
               </Tooltip>
+              
+              {/* Posizione Mobile */}
+              {isMobile && userHasTeam && myPosition > 0 && (
+                <Box 
+                  sx={{ 
+                    ml: 'auto',
+                    p: 1, 
+                    bgcolor: 'rgba(255,255,255,0.1)', 
+                    borderRadius: 1 
+                  }}
+                >
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                    Posizione
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                    #{myPosition}
+                  </Typography>
+                </Box>
+              )}
             </Stack>
-            {userHasTeam && myPosition > 0 && (
+            
+            {/* Posizione Desktop */}
+            {!isMobile && userHasTeam && myPosition > 0 && (
               <Box mt={2}>
                 <Typography variant="h6">
                   La tua posizione: #{myPosition}
@@ -309,38 +504,66 @@ export default function LeagueDetailPage() {
         </Grid>
       </Paper>
       
-      {/* Box Scadenza Gara */}
+      {/* Box Scadenza Gara - Responsive */}
       {nextRace && deadline && (
-        <Paper sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
-          <Stack direction={{xs: 'column', sm: 'row'}} alignItems="center" spacing={{xs: 1, sm: 3}} justifyContent="space-between">
+        <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 2, bgcolor: 'action.hover' }}>
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            spacing={{ xs: 2, sm: 3 }} 
+            justifyContent="space-between"
+          >
             <Box>
-              <Typography variant="overline" color="text.secondary">
+              <Typography 
+                variant="overline" 
+                color="text.secondary"
+                sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+              >
                 Prossimo Evento
               </Typography>
-              <Typography variant="h6">
+              <Typography 
+                variant={isMobile ? "subtitle1" : "h6"}
+                sx={{ fontWeight: 'bold' }}
+              >
                 {nextRace.name}
               </Typography>
             </Box>
-            <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+            
+            <Divider 
+              orientation="vertical" 
+              flexItem 
+              sx={{ display: { xs: 'none', sm: 'block' } }} 
+            />
+            
             <Box>
-              <Typography variant="overline" color="text.secondary">
+              <Typography 
+                variant="overline" 
+                color="text.secondary"
+                sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+              >
                 Deadline Schieramento
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Timer color="primary" />
-                <Typography variant="h6" color="primary.main">
-                  {format(deadline, 'eeee dd MMMM HH:mm', { locale: it })}
+                <Timer color="primary" fontSize={isMobile ? "small" : "medium"} />
+                <Typography 
+                  variant={isMobile ? "body2" : "h6"} 
+                  color="primary.main"
+                  sx={{ fontWeight: 'medium' }}
+                >
+                  {format(deadline, isMobile ? 'dd MMM HH:mm' : 'eeee dd MMMM HH:mm', { locale: it })}
                 </Typography>
               </Stack>
             </Box>
+            
             <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
+            
             {daysUntilDeadline !== null && daysUntilDeadline >= 0 && (
               <Chip
                 label={
                   daysUntilDeadline > 0
-                    ? `Schiera entro ${daysUntilDeadline} giorni`
+                    ? `${daysUntilDeadline} giorni`
                     : (hoursUntilDeadline != null && hoursUntilDeadline > 0)
-                    ? `Schiera entro ${hoursUntilDeadline} ore`
+                    ? `${hoursUntilDeadline} ore`
                     : 'In scadenza!'
                 }
                 color={
@@ -350,15 +573,19 @@ export default function LeagueDetailPage() {
                     ? 'warning'
                     : 'success'
                 }
+                size={isMobile ? "small" : "medium"}
                 sx={{ fontWeight: 'bold' }}
               />
             )}
+            
             <Button
               variant="contained"
               onClick={handleManageLineup}
               disabled={!userHasTeam}
+              fullWidth={isMobile}
+              size={isMobile ? "small" : "medium"}
             >
-              {hasLineupForNextRace ? 'Modifica Schieramento' : 'Schiera Formazione'}
+              {hasLineupForNextRace ? 'Modifica' : 'Schiera'}
             </Button>
           </Stack>
         </Paper>
@@ -369,11 +596,15 @@ export default function LeagueDetailPage() {
         <Alert
           severity="warning"
           action={
-            <Button color="inherit" size="small" onClick={handleCreateTeam}>
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={handleCreateTeam}
+            >
               Crea Team
             </Button>
           }
-          sx={{ mb: 3 }}
+          sx={{ mb: 2 }}
         >
           Non hai ancora un team in questa lega!
         </Alert>
@@ -384,116 +615,171 @@ export default function LeagueDetailPage() {
         <Alert
           severity="info"
           action={
-            <Button color="inherit" size="small" onClick={handleManageLineup}>
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={handleManageLineup}
+            >
               Imposta Lineup
             </Button>
           }
-          sx={{ mb: 3 }}
+          sx={{ mb: 2 }}
         >
           Non hai ancora impostato il lineup per la prossima gara ({nextRace.name})
         </Alert>
       )}
 
-      {/* Tabs */}
-      <Paper sx={{ mb: 3 }}>
+      {/* Tabs - Responsive */}
+      <Paper sx={{ mb: 2 }}>
         <Tabs
           value={selectedTab}
           onChange={(_, v) => setSelectedTab(v)}
-          variant="scrollable"
-          scrollButtons="auto"
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons={isMobile ? "auto" : false}
         >
-          <Tab label="Classifica" icon={<EmojiEvents />} iconPosition="start" />
-          <Tab label="Lineup Gara" icon={<SportsMotorsports />} iconPosition="start" />
-          <Tab label="Statistiche" icon={<BarChart />} iconPosition="start" />
-          {isAdmin && <Tab label="Gestione" icon={<Settings />} iconPosition="start" />}
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <EmojiEvents fontSize="small" />
+                {!isMobile && <Typography variant="body2">Classifica</Typography>}
+              </Box>
+            }
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <SportsMotorsports fontSize="small" />
+                {!isMobile && <Typography variant="body2">Lineup</Typography>}
+              </Box>
+            }
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <BarChart fontSize="small" />
+                {!isMobile && <Typography variant="body2">Stats</Typography>}
+              </Box>
+            }
+          />
+          {isAdmin && (
+            <Tab 
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Settings fontSize="small" />
+                  {!isMobile && <Typography variant="body2">Admin</Typography>}
+                </Box>
+              }
+            />
+          )}
         </Tabs>
       </Paper>
 
-      {/* Tab: Classifica */}
+      {/* Tab: Classifica - Responsive */}
       <TabPanel value={selectedTab} index={0}>
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Pos</TableCell>
-                <TableCell>Team</TableCell>
-                <TableCell>Manager</TableCell>
-                <TableCell align="right">Punti Totali</TableCell>
-                <TableCell align="right">Ultima Gara</TableCell>
-                <TableCell align="center">Trend</TableCell>
-                <TableCell align="center">Azioni</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {standings.map((standing: any, index: number) => {
-                const position = index + 1;
-                const isUserTeam = standing.userId === user?.id;
+        {isMobile ? (
+          // Layout Mobile - Cards
+          <Box>
+            {standings.map((standing: any, index: number) => {
+              const position = index + 1;
+              const isUserTeam = standing.userId === user?.id;
 
-                return (
-                  <TableRow
-                    key={standing.teamId}
-                    sx={{
-                      backgroundColor: isUserTeam ? 'action.selected' : 'inherit',
-                      '&:hover': { backgroundColor: 'action.hover' }
-                    }}
-                  >
-                    <TableCell>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        {position === 1 && <WorkspacePremium sx={{ color: '#FFD700' }} />}
-                        {position === 2 && <WorkspacePremium sx={{ color: '#C0C0C0' }} />}
-                        {position === 3 && <WorkspacePremium sx={{ color: '#CD7F32' }} />}
-                        <Typography variant="h6">{position}</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography fontWeight={isUserTeam ? 'bold' : 'normal'}>
-                        {standing.teamName}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{standing.userName}</TableCell>
-                    <TableCell align="right">
-                      <Typography variant="h6">{standing.totalPoints || 0}</Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      {standing.lastRacePoints ? (
-                        <Chip
-                          label={`+${standing.lastRacePoints}`}
-                          size="small"
-                          color="success"
-                          variant="outlined"
-                        />
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">-</Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="center">
-                      {standing.trend === 'up' && <TrendingUp color="success" />}
-                      {standing.trend === 'down' && <TrendingDown color="error" />}
-                      {standing.trend === 'same' && <Remove color="disabled" />}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Visualizza Team">
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/teams/${standing.teamId}`)}
-                        >
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              return (
+                <MobileStandingCard
+                  key={standing.teamId}
+                  standing={standing}
+                  position={position}
+                  isUserTeam={isUserTeam}
+                  onView={() => navigate(`/teams/${standing.teamId}`)}
+                />
+              );
+            })}
+          </Box>
+        ) : (
+          // Layout Desktop - Tabella
+          <TableContainer component={Paper}>
+            <Table size={isTablet ? "small" : "medium"}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Pos</TableCell>
+                  <TableCell>Team</TableCell>
+                  <TableCell>Manager</TableCell>
+                  <TableCell align="right">Punti Totali</TableCell>
+                  <TableCell align="right">Ultima Gara</TableCell>
+                  <TableCell align="center">Trend</TableCell>
+                  <TableCell align="center">Azioni</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {standings.map((standing: any, index: number) => {
+                  const position = index + 1;
+                  const isUserTeam = standing.userId === user?.id;
+
+                  return (
+                    <TableRow
+                      key={standing.teamId}
+                      sx={{
+                        backgroundColor: isUserTeam ? 'action.selected' : 'inherit',
+                        '&:hover': { backgroundColor: 'action.hover' }
+                      }}
+                    >
+                      <TableCell>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {position === 1 && <WorkspacePremium sx={{ color: '#FFD700' }} />}
+                          {position === 2 && <WorkspacePremium sx={{ color: '#C0C0C0' }} />}
+                          {position === 3 && <WorkspacePremium sx={{ color: '#CD7F32' }} />}
+                          <Typography variant="h6">{position}</Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography fontWeight={isUserTeam ? 'bold' : 'normal'}>
+                          {standing.teamName}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{standing.userName}</TableCell>
+                      <TableCell align="right">
+                        <Typography variant="h6">{standing.totalPoints || 0}</Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        {standing.lastRacePoints ? (
+                          <Chip
+                            label={`+${standing.lastRacePoints}`}
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">-</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="center">
+                        {standing.trend === 'up' && <TrendingUp color="success" />}
+                        {standing.trend === 'down' && <TrendingDown color="error" />}
+                        {standing.trend === 'same' && <Remove color="disabled" />}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="Visualizza Team">
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/teams/${standing.teamId}`)}
+                          >
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </TabPanel>
 
-      {/* Tab: Lineup Gara */}
+      {/* Tab: Lineup Gara - Responsive */}
       <TabPanel value={selectedTab} index={1}>
         {/* Selettore Gara */}
         <Box mb={3}>
-          <FormControl fullWidth>
+          <FormControl fullWidth size={isMobile ? "small" : "medium"}>
             <InputLabel>Seleziona Gara</InputLabel>
             <Select
               value={selectedRaceId || ''}
@@ -502,7 +788,7 @@ export default function LeagueDetailPage() {
             >
               {racesData?.races?.map((race: any) => (
                 <MenuItem key={race.id} value={race.id}>
-                  {race.name} - {format(new Date(race.gpDate), 'dd MMM yyyy', { locale: it })}
+                  {race.name} - {format(new Date(race.gpDate), 'dd MMM', { locale: it })}
                 </MenuItem>
               ))}
             </Select>
@@ -514,51 +800,88 @@ export default function LeagueDetailPage() {
             <CircularProgress />
           </Box>
         ) : (
-          <Grid container spacing={3}>
+          <Grid container spacing={isMobile ? 2 : 3}>
             {lineupsData?.lineups?.map((teamLineup: any) => (
-              <Grid key={teamLineup.teamId} size={{ xs: 12, md: 6}}>
+              <Grid key={teamLineup.teamId} size={{ xs: 12, md: 6 }}>
                 <Card>
-                  <CardContent>
+                  <CardContent sx={{ p: isMobile ? 2 : 3 }}>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                       <Box>
-                        <Typography variant="h6">{teamLineup.teamName}</Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography 
+                          variant={isMobile ? "subtitle1" : "h6"}
+                          fontWeight="bold"
+                        >
+                          {teamLineup.teamName}
+                        </Typography>
+                        <Typography 
+                          variant={isMobile ? "caption" : "body2"} 
+                          color="text.secondary"
+                        >
                           di {teamLineup.userName}
                         </Typography>
                       </Box>
                       <Chip
                         label={`${teamLineup.totalPoints ?? 'N/D'} pt`}
                         color="primary"
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Box>
 
                     {teamLineup.lineup && teamLineup.lineup.length > 0 ? (
                       <>
-                        <List dense>
-                          {teamLineup.lineup.slice(0, 6).map((lr: any, idx: number) => (
-                            <ListItem key={lr.id}>
+                        <List dense sx={{ p: 0 }}>
+                          {teamLineup.lineup.slice(0, isMobile ? 4 : 6).map((lr: any) => (
+                            <ListItem key={lr.id} sx={{ px: 0 }}>
                               <ListItemAvatar>
-                                <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
+                                <Avatar 
+                                  sx={{ 
+                                    bgcolor: 'primary.main', 
+                                    width: isMobile ? 28 : 32, 
+                                    height: isMobile ? 28 : 32,
+                                    fontSize: isMobile ? '0.75rem' : '0.875rem'
+                                  }}
+                                >
                                   {lr.rider.number}
                                 </Avatar>
                               </ListItemAvatar>
                               <ListItemText
-                                primary={lr.rider.name}
+                                primary={
+                                  <Typography variant={isMobile ? "body2" : "body1"}>
+                                    {lr.rider.name}
+                                  </Typography>
+                                }
                                 secondary={
                                   <Box component="span">
-                                    Prev: {lr.predictedPosition || '-'}° •
-                                    Reale: {lr.actualPosition || lr.actualStatus || '-'}
+                                    <Typography 
+                                      component="span" 
+                                      variant="caption"
+                                      sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+                                    >
+                                      Prev: {lr.predictedPosition || '-'}° •
+                                      Reale: {lr.actualPosition || lr.actualStatus || '-'}
+                                    </Typography>
                                   </Box>
                                 }
                               />
                               <Chip
-                                label={`${lr.points || 0} pt`}
+                                label={`${lr.points || 0}`}
                                 size="small"
                                 variant="outlined"
+                                sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
                               />
                             </ListItem>
                           ))}
                         </List>
+
+                        {teamLineup.lineup.length > (isMobile ? 4 : 6) && (
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary"
+                            sx={{ display: 'block', textAlign: 'center', mt: 1 }}
+                          >
+                            +{teamLineup.lineup.length - (isMobile ? 4 : 6)} altri
+                          </Typography>
+                        )}
 
                         {teamLineup.riderScores && (
                           <Button
@@ -567,8 +890,9 @@ export default function LeagueDetailPage() {
                             variant="outlined"
                             onClick={() => handleShowScoreBreakdown(teamLineup)}
                             startIcon={<BarChart />}
+                            sx={{ mt: 2 }}
                           >
-                            Analisi Dettagliata Punti
+                            Analisi Punti
                           </Button>
                         )}
                       </>
@@ -583,30 +907,31 @@ export default function LeagueDetailPage() {
             ))}
           </Grid>
         )}
-
-        {(!lineupsData?.lineups || lineupsData.lineups.length === 0) && !loadingLineups && (
-          <Alert severity="info">
-            Nessun lineup disponibile per questa gara
-          </Alert>
-        )}
       </TabPanel>
 
-      {/* Tab: Statistiche */}
+      {/* Tab: Statistiche - Responsive */}
       <TabPanel value={selectedTab} index={2}>
-        <Grid container spacing={3}>
+        <Grid container spacing={isMobile ? 2 : 3}>
           {/* Top Scorer per Gara */}
-          <Grid size={{ xs: 12, md: 6}}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography 
+                  variant={isMobile ? "subtitle1" : "h6"} 
+                  gutterBottom
+                  fontWeight="bold"
+                >
                   Top Scorer per Gara
                 </Typography>
-                <List>
-                  {leagueData.raceStats?.map((stat: any) => (
+                <List dense={isMobile}>
+                  {leagueData?.raceStats?.map((stat: any) => (
                     <ListItem key={stat.raceId}>
                       <ListItemText
                         primary={stat.raceName}
                         secondary={`Winner: ${stat.topTeam} - ${stat.topPoints} pt`}
+                        primaryTypographyProps={{ 
+                          fontSize: isMobile ? '0.875rem' : '1rem' 
+                        }}
                       />
                       <Chip
                         label={format(new Date(stat.raceDate), 'dd/MM', { locale: it })}
@@ -615,7 +940,7 @@ export default function LeagueDetailPage() {
                     </ListItem>
                   ))}
                 </List>
-                {(!leagueData.raceStats || leagueData.raceStats.length === 0) && (
+                {(!leagueData?.raceStats || leagueData.raceStats.length === 0) && (
                   <Typography variant="body2" color="text.secondary">
                     Nessuna statistica disponibile
                   </Typography>
@@ -625,17 +950,23 @@ export default function LeagueDetailPage() {
           </Grid>
 
           {/* Piloti più Scelti */}
-          <Grid size={{ xs: 12, md: 6}}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography 
+                  variant={isMobile ? "subtitle1" : "h6"} 
+                  gutterBottom
+                  fontWeight="bold"
+                >
                   Piloti più Scelti
                 </Typography>
-                <List>
-                  {leagueData.popularRiders?.slice(0, 5).map((rider: any, idx: number) => (
+                <List dense={isMobile}>
+                  {leagueData?.popularRiders?.slice(0, 5).map((rider: any, idx: number) => (
                     <ListItem key={rider.riderId}>
                       <ListItemAvatar>
-                        <Avatar>{idx + 1}</Avatar>
+                        <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
+                          {idx + 1}
+                        </Avatar>
                       </ListItemAvatar>
                       <ListItemText
                         primary={rider.riderName}
@@ -644,49 +975,65 @@ export default function LeagueDetailPage() {
                             <LinearProgress
                               variant="determinate"
                               value={(rider.teamCount / league.currentTeams) * 100}
-                              sx={{ mt: 1 }}
+                              sx={{ mt: 1, height: 6 }}
                             />
-                            <Typography variant="caption">
+                            <Typography 
+                              variant="caption"
+                              sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+                            >
                               {rider.teamCount}/{league.currentTeams} team ({Math.round((rider.teamCount / league.currentTeams) * 100)}%)
                             </Typography>
                           </Box>
                         }
+                        primaryTypographyProps={{ 
+                          fontSize: isMobile ? '0.875rem' : '1rem' 
+                        }}
                       />
                     </ListItem>
                   ))}
                 </List>
-                {(!leagueData.popularRiders || leagueData.popularRiders.length === 0) && (
-                  <Typography variant="body2" color="text.secondary">
-                    Nessuna statistica disponibile
-                  </Typography>
-                )}
               </CardContent>
             </Card>
           </Grid>
 
           {/* Media Punti per Categoria */}
-          <Grid size={{ xs: 12}}>
+          <Grid size={12}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography 
+                  variant={isMobile ? "subtitle1" : "h6"} 
+                  gutterBottom
+                  fontWeight="bold"
+                >
                   Performance Media per Categoria
                 </Typography>
                 <Grid container spacing={2}>
                   {['MOTOGP', 'MOTO2', 'MOTO3'].map(category => {
-                    const stats = leagueData.categoryStats?.[category] || { avg: 0, max: 0, min: 0 };
+                    const stats = leagueData?.categoryStats?.[category] || { avg: 0, max: 0, min: 0 };
                     return (
-                      <Grid key={category} size={{ xs: 12, md: 4}}>
-                        <Paper sx={{ p: 2, textAlign: 'center' }}>
-                          <Typography variant="subtitle2" color="text.secondary">
+                      <Grid key={category} size={{ xs: 12, sm: 4 }}>
+                        <Paper sx={{ p: isMobile ? 1.5 : 2, textAlign: 'center' }}>
+                          <Typography 
+                            variant="subtitle2" 
+                            color="text.secondary"
+                            sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
+                          >
                             {category}
                           </Typography>
-                          <Typography variant="h4" color="primary">
+                          <Typography 
+                            variant={isMobile ? "h5" : "h4"} 
+                            color="primary"
+                          >
                             {stats.avg.toFixed(1)}
                           </Typography>
-                          <Typography variant="caption" display="block">
+                          <Typography 
+                            variant="caption" 
+                            display="block"
+                            sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+                          >
                             Media punti
                           </Typography>
-                          <Box display="flex" justifyContent="space-around" mt={2}>
+                          <Box display="flex" justifyContent="space-around" mt={1}>
                             <Box>
                               <Typography variant="caption" color="text.secondary">Min</Typography>
                               <Typography variant="body2">{stats.min}</Typography>
@@ -707,15 +1054,19 @@ export default function LeagueDetailPage() {
         </Grid>
       </TabPanel>
 
-      {/* Tab: Gestione (solo per admin) */}
+      {/* Tab: Gestione (solo per admin) - Responsive */}
       {isAdmin && (
         <TabPanel value={selectedTab} index={3}>
-          <Grid container spacing={3}>
+          <Grid container spacing={isMobile ? 2 : 3}>
             {/* Impostazioni Lega */}
-            <Grid size={{ xs: 12, md: 6}}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography 
+                    variant={isMobile ? "subtitle1" : "h6"} 
+                    gutterBottom
+                    fontWeight="bold"
+                  >
                     Impostazioni Lega
                   </Typography>
 
@@ -726,16 +1077,27 @@ export default function LeagueDetailPage() {
                           <Switch
                             checked={teamsLocked}
                             onChange={(e) => setTeamsLocked(e.target.checked)}
+                            size={isMobile ? "small" : "medium"}
                           />
                         }
-                        label="Blocca Modifiche Team"
+                        label={
+                          <Typography variant={isMobile ? "body2" : "body1"}>
+                            Blocca Modifiche Team
+                          </Typography>
+                        }
                       />
-                      <Typography variant="caption" color="text.secondary" display="block" ml={4}>
-                        Impedisce ai membri di modificare i roster dei team
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary" 
+                        display="block" 
+                        ml={isMobile ? 5 : 7}
+                        sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+                      >
+                        Impedisce ai membri di modificare i roster
                       </Typography>
                     </Box>
 
-                    <FormControl fullWidth>
+                    <FormControl fullWidth size={isMobile ? "small" : "medium"}>
                       <InputLabel>Visibilità Lineup</InputLabel>
                       <Select
                         value={lineupVisibility}
@@ -743,7 +1105,7 @@ export default function LeagueDetailPage() {
                         label="Visibilità Lineup"
                       >
                         <MenuItem value="ALWAYS_VISIBLE">Sempre Visibile</MenuItem>
-                        <MenuItem value="AFTER_DEADLINE">Solo dopo la deadline</MenuItem>
+                        <MenuItem value="AFTER_DEADLINE">Solo dopo deadline</MenuItem>
                       </Select>
                     </FormControl>
 
@@ -751,8 +1113,9 @@ export default function LeagueDetailPage() {
                       variant="contained"
                       onClick={handleSaveSettings}
                       disabled={updateSettingsMutation.isPending}
+                      size={isMobile ? "small" : "medium"}
                     >
-                      {updateSettingsMutation.isPending ? 'Salvataggio...' : 'Salva Impostazioni'}
+                      {updateSettingsMutation.isPending ? 'Salvataggio...' : 'Salva'}
                     </Button>
                   </Stack>
                 </CardContent>
@@ -760,10 +1123,14 @@ export default function LeagueDetailPage() {
             </Grid>
 
             {/* Azioni Rapide */}
-            <Grid size={{ xs: 12, md: 6}}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography 
+                    variant={isMobile ? "subtitle1" : "h6"} 
+                    gutterBottom
+                    fontWeight="bold"
+                  >
                     Azioni Rapide
                   </Typography>
 
@@ -773,8 +1140,9 @@ export default function LeagueDetailPage() {
                       startIcon={<Share />}
                       onClick={handleShareCode}
                       fullWidth
+                      size={isMobile ? "small" : "medium"}
                     >
-                      Condividi Codice Lega
+                      Condividi Codice
                     </Button>
 
                     <Button
@@ -782,6 +1150,7 @@ export default function LeagueDetailPage() {
                       startIcon={<Groups />}
                       onClick={() => setShowInviteDialog(true)}
                       fullWidth
+                      size={isMobile ? "small" : "medium"}
                     >
                       Invita Membri
                     </Button>
@@ -791,8 +1160,9 @@ export default function LeagueDetailPage() {
                       startIcon={<NotificationsActive />}
                       onClick={() => notify('Funzione in sviluppo', 'info')}
                       fullWidth
+                      size={isMobile ? "small" : "medium"}
                     >
-                      Invia Notifica a Tutti
+                      Invia Notifica
                     </Button>
 
                     <Divider />
@@ -802,6 +1172,7 @@ export default function LeagueDetailPage() {
                       color="warning"
                       startIcon={<Lock />}
                       fullWidth
+                      size={isMobile ? "small" : "medium"}
                       onClick={() => {
                         if (confirm('Sei sicuro di voler chiudere le iscrizioni?')) {
                           notify('Funzione in sviluppo', 'info');
@@ -810,54 +1181,71 @@ export default function LeagueDetailPage() {
                     >
                       Chiudi Iscrizioni
                     </Button>
-
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      fullWidth
-                      onClick={() => notify('Funzione in sviluppo', 'info')}
-                    >
-                      Elimina Lega
-                    </Button>
                   </Stack>
                 </CardContent>
               </Card>
             </Grid>
 
             {/* Info Lega */}
-            <Grid size={{ xs: 12}}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography 
+                    variant={isMobile ? "subtitle1" : "h6"} 
+                    gutterBottom
+                    fontWeight="bold"
+                  >
                     Informazioni Lega
                   </Typography>
 
                   <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 3}}>
-                      <Typography variant="caption" color="text.secondary">
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary"
+                        sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+                      >
                         Codice Lega
                       </Typography>
-                      <Typography variant="h6">{league.code}</Typography>
+                      <Typography variant={isMobile ? "body1" : "h6"}>
+                        {league.code}
+                      </Typography>
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 3}}>
-                      <Typography variant="caption" color="text.secondary">
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary"
+                        sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+                      >
                         Membri
                       </Typography>
-                      <Typography variant="h6">
+                      <Typography variant={isMobile ? "body1" : "h6"}>
                         {league.currentTeams}/{league.maxTeams}
                       </Typography>
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 3}}>
-                      <Typography variant="caption" color="text.secondary">
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary"
+                        sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+                      >
                         Budget
                       </Typography>
-                      <Typography variant="h6">{league.budget}€</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 3}}>
-                      <Typography variant="caption" color="text.secondary">
-                        Premio Totale
+                      <Typography variant={isMobile ? "body1" : "h6"}>
+                        {league.budget}€
                       </Typography>
-                      <Typography variant="h6">{league.prizePool}€</Typography>
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary"
+                        sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+                      >
+                        Premio
+                      </Typography>
+                      <Typography variant={isMobile ? "body1" : "h6"}>
+                        {league.prizePool}€
+                      </Typography>
                     </Grid>
                   </Grid>
                 </CardContent>
@@ -867,48 +1255,14 @@ export default function LeagueDetailPage() {
         </TabPanel>
       )}
 
-      {/* Dialog Impostazioni */}
-      <Dialog open={showSettings} onClose={() => setShowSettings(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Impostazioni Lega</DialogTitle>
-        <DialogContent>
-          <Stack spacing={3} sx={{ mt: 2 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={teamsLocked}
-                  onChange={(e) => setTeamsLocked(e.target.checked)}
-                />
-              }
-              label="Blocca modifiche ai team"
-            />
-
-            <FormControl fullWidth>
-              <InputLabel>Visibilità Lineup</InputLabel>
-              <Select
-                value={lineupVisibility}
-                onChange={(e) => setLineupVisibility(e.target.value)}
-                label="Visibilità Lineup"
-              >
-                <MenuItem value="ALWAYS_VISIBLE">Sempre Visibile</MenuItem>
-                <MenuItem value="AFTER_DEADLINE">Solo dopo la deadline</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowSettings(false)}>Annulla</Button>
-          <Button
-            variant="contained"
-            onClick={handleSaveSettings}
-            disabled={updateSettingsMutation.isPending}
-          >
-            {updateSettingsMutation.isPending ? 'Salvataggio...' : 'Salva Modifiche'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Dialog Invita Membri */}
-      <Dialog open={showInviteDialog} onClose={() => setShowInviteDialog(false)} maxWidth="sm" fullWidth>
+      {/* Dialog Invita Membri - Responsive */}
+      <Dialog 
+        open={showInviteDialog} 
+        onClose={() => setShowInviteDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>Invita Membri</DialogTitle>
         <DialogContent>
           <Typography variant="body2" gutterBottom>
