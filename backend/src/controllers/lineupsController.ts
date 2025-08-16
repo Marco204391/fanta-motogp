@@ -58,7 +58,8 @@ export const getLineup = async (req: AuthRequest, res: Response) => {
 
 
     if (!lineup) {
-      return res.status(404).json({
+      return res.status(200).json({
+          lineup: null, // Invia null invece di un errore
           message: 'Nessuno schieramento trovato per questa gara.',
           practiceResults: resultsByRider
       });
