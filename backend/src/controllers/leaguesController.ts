@@ -172,14 +172,19 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
     }
 
     const standings = league.teams
-      .map(team => ({
-        teamId: team.id,
-        teamName: team.name,
-        userId: team.userId,
-        username: team.user.username,
-        totalPoints: team.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0),
-      }))
-      .sort((a, b) => a.totalPoints - b.totalPoints); // Corretto per Fanta-MotoGP (meno punti è meglio)
+      .map(team => {
+        const totalRacePoints = team.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0);
+        const totalPoints = (team.startingPoints || 0) + totalRacePoints; 
+        
+        return {
+          teamId: team.id,
+          teamName: team.name,
+          userId: team.userId,
+          username: team.user.username,
+          totalPoints: totalPoints,
+        };
+      })
+      .sort((a, b) => a.totalPoints - b.totalPoints);
 
     res.json({
       league: {
