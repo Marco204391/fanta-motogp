@@ -100,11 +100,12 @@ function TabPanel(props: TabPanelProps) {
 }
 
 // Componente Mobile per visualizzare una posizione in classifica
-function MobileStandingCard({ standing, position, isUserTeam, onView }: {
+function MobileStandingCard({ standing, position, isUserTeam, gapPrev, gapNext }: {
   standing: any;
   position: number;
   isUserTeam: boolean;
-  onView: () => void;
+  gapPrev: number | null;
+  gapNext: number | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const isPodium = position <= 3;
@@ -194,7 +195,7 @@ function MobileStandingCard({ standing, position, isUserTeam, onView }: {
         <Divider />
         <Box sx={{ p: 1.5, backgroundColor: 'action.hover' }}>
           <Grid container spacing={1}>
-            <Grid size={6}>
+            <Grid size={{ xs: 4}}>
               <Typography variant="caption" color="text.secondary">
                 Ultima Gara
               </Typography>
@@ -202,30 +203,23 @@ function MobileStandingCard({ standing, position, isUserTeam, onView }: {
                 {standing.lastRacePoints ? `+${standing.lastRacePoints} pt` : '-'}
               </Typography>
             </Grid>
-            <Grid size={6}>
+            <Grid size={{ xs: 4}}>
               <Typography variant="caption" color="text.secondary">
-                Trend
+                Gap Prec.
               </Typography>
-              <Box display="flex" alignItems="center" gap={0.5}>
-                {standing.trend === 'up' && <TrendingUp color="success" fontSize="small" />}
-                {standing.trend === 'down' && <TrendingDown color="error" fontSize="small" />}
-                {standing.trend === 'same' && <Remove color="disabled" fontSize="small" />}
-              </Box>
+              <Typography variant="body2" color={gapPrev !== null ? 'error.main' : 'text.secondary'}>
+                {gapPrev !== null ? `+${gapPrev}` : '-'}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 4}}>
+              <Typography variant="caption" color="text.secondary">
+                Gap Succ.
+              </Typography>
+               <Typography variant="body2" color={gapNext !== null ? 'success.main' : 'text.secondary'}>
+                {gapNext !== null ? `-${gapNext}` : '-'}
+              </Typography>
             </Grid>
           </Grid>
-          <Button
-            size="small"
-            fullWidth
-            variant="outlined"
-            onClick={(e) => {
-              e.stopPropagation();
-              onView();
-            }}
-            sx={{ mt: 1 }}
-            startIcon={<Visibility />}
-          >
-            Visualizza Team
-          </Button>
         </Box>
       </Collapse>
     </Card>
@@ -682,6 +676,10 @@ export default function LeagueDetailPage() {
             {standings.map((standing: any, index: number) => {
               const position = index + 1;
               const isUserTeam = standing.userId === user?.id;
+              const prevPoints = index > 0 ? standings[index - 1].totalPoints : null;
+              const nextPoints = index < standings.length - 1 ? standings[index + 1].totalPoints : null;
+              const gapPrev = prevPoints !== null ? standing.totalPoints - prevPoints : null;
+              const gapNext = nextPoints !== null ? nextPoints - standing.totalPoints : null;
 
               return (
                 <MobileStandingCard
@@ -689,7 +687,8 @@ export default function LeagueDetailPage() {
                   standing={standing}
                   position={position}
                   isUserTeam={isUserTeam}
-                  onView={() => navigate(`/teams/${standing.teamId}`)}
+                  gapPrev={gapPrev}
+                  gapNext={gapNext}
                 />
               );
             })}
@@ -815,7 +814,7 @@ export default function LeagueDetailPage() {
         ) : (
           <Grid container spacing={isMobile ? 2 : 3}>
             {lineupsData?.lineups?.map((teamLineup: any) => (
-              <Grid key={teamLineup.teamId} size={{ xs: 12, md: 6 }}>
+              <Grid key={teamLineup.teamId} size={{ xs: 12, md: 6}}>
                 <Card>
                   <CardContent sx={{ p: isMobile ? 2 : 3 }}>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
