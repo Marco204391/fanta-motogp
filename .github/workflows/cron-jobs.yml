@@ -1,7 +1,7 @@
 name: FantaMotoGP Cron Jobs
 
 on:
-  schedule:
+  # schedule:
     # Esegue ogni ora durante i weekend di gara (Venerdì-Lunedì: 0,1,5,6)
     # - cron: '0 * * * 0,1,5,6'
     # Sincronizza i piloti ogni Lunedì alle 3:00 AM UTC
