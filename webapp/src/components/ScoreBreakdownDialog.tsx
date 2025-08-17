@@ -168,7 +168,7 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
                 • <strong>Malus:</strong> |Previsione - Reale| per ogni sessione
               </Typography>
               <Typography variant="caption" component="div">
-                • <strong>Bonus Qual:</strong> 1°: -5 | 2°: -3 | 3°: -1
+                • <strong>Bonus Qual:</strong> 1°: -5 | 2°: -3 | 3°: -2
               </Typography>
               <Typography variant="caption" component="div">
                 • <strong>Ritirati:</strong> Ultimo + 1

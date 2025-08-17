@@ -455,7 +455,7 @@ export class MotoGPApiService {
       qualifyingResults.forEach(result => {
           if (result.position === 1) qualifyingBonusMap.set(result.riderId, -5);
           if (result.position === 2) qualifyingBonusMap.set(result.riderId, -3);
-          if (result.position === 3) qualifyingBonusMap.set(result.riderId, -1);
+          if (result.position === 3) qualifyingBonusMap.set(result.riderId, -2);
       });
 
       const teamsInRace = await prisma.team.findMany({
