@@ -3,43 +3,15 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMyLeagues, getPublicLeagues, joinLeague } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Typography,
-  CircularProgress,
-  Alert,
-  Card,
-  CardContent,
-  CardActions,
-  Grid,
-  Button,
-  Chip,
-  Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Tabs,
-  Tab,
-  IconButton,
-  Tooltip,
-  Paper,
-  useTheme,
-  useMediaQuery,
-  SpeedDial,
-  SpeedDialAction,
-  SpeedDialIcon
+import { 
+   Box, Typography, CircularProgress, Card, CardContent, CardActions,
+   Grid, Button, Chip, Stack, Dialog, DialogTitle, DialogContent,
+   DialogActions, TextField, Tabs, Tab, IconButton, Paper, useTheme, 
+   useMediaQuery, SpeedDial, SpeedDialAction, SpeedDialIcon
 } from '@mui/material';
-import {
-  EmojiEvents,
-  Groups,
-  Add,
-  Lock,
-  Public,
-  ContentCopy,
-  Login,
-  Code
+import { 
+  EmojiEvents, Groups, Add, Lock, Public,
+  ContentCopy, Login, Code, Check
 } from '@mui/icons-material';
 
 interface League {
@@ -84,149 +56,253 @@ function LeagueCard({ league, onJoin, onView, isMyLeague }: {
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [copied, setCopied] = useState(false);
   
-  const handleCopyCode = () => {
+  const handleCopyCode = (e: React.MouseEvent) => {
+    e.stopPropagation();
     navigator.clipboard.writeText(league.code);
-    // In produzione useresti un toast/snackbar
-    alert('Codice copiato!');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <CardContent sx={{ flexGrow: 1, p: isMobile ? 2 : 3 }}>
-        <Stack 
-          direction={isMobile ? "column" : "row"} 
-          justifyContent="space-between" 
-          alignItems={isMobile ? "flex-start" : "flex-start"} 
-          mb={2}
-          spacing={1}
-        >
-          <Box sx={{ width: '100%' }}>
+    <Card sx={{ 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column',
+      transition: 'box-shadow 0.3s',
+      '&:hover': {
+        boxShadow: 4
+      }
+    }}>
+      <CardContent sx={{ 
+        flexGrow: 1, 
+        p: isMobile ? 1.5 : 2,
+        pb: isMobile ? 1 : 1.5
+      }}>
+        {/* Header con nome e sport */}
+        <Box mb={isMobile ? 1 : 1.5}>
+          <Typography 
+            variant={isMobile ? "subtitle1" : "h6"} 
+            sx={{ 
+              fontWeight: 'bold',
+              fontSize: isMobile ? '0.95rem' : '1.25rem',
+              lineHeight: 1.2,
+              mb: 0.5
+            }}
+            noWrap
+          >
+            {league.name}
+          </Typography>
+          
+          {/* Chips per stato */}
+          <Stack 
+            direction="row" 
+            spacing={0.5} 
+            flexWrap="wrap" 
+            useFlexGap
+            sx={{ mt: 0.5 }}
+          >
+            <Chip
+              icon={league.isPrivate ? <Lock /> : <Public />}
+              label={league.isPrivate ? 'Privata' : 'Pubblica'}
+              size="small"
+              color={league.isPrivate ? 'default' : 'primary'}
+              sx={{ 
+                height: isMobile ? 20 : 24,
+                fontSize: isMobile ? '0.7rem' : '0.75rem',
+                '& .MuiChip-icon': {
+                  fontSize: isMobile ? '0.9rem' : '1rem'
+                }
+              }}
+            />
+            {isMyLeague && league.userPosition && (
+              <Chip
+                icon={<EmojiEvents />}
+                label={`${league.userPosition}° posto`}
+                size="small"
+                color="warning"
+                sx={{ 
+                  height: isMobile ? 20 : 24,
+                  fontSize: isMobile ? '0.7rem' : '0.75rem',
+                  '& .MuiChip-icon': {
+                    fontSize: isMobile ? '0.9rem' : '1rem'
+                  }
+                }}
+              />
+            )}
+          </Stack>
+        </Box>
+
+        {/* Info compatte */}
+        <Stack spacing={isMobile ? 0.5 : 1}>
+          {/* Codice con icona copia inline */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
             <Typography 
-              variant={isMobile ? "subtitle1" : "h6"} 
-              gutterBottom
-              sx={{ fontWeight: 'bold' }}
+              variant="body2" 
+              color="text.secondary"
+              sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
             >
-              {league.name}
+              Codice:
             </Typography>
-            <Stack 
-              direction="row" 
-              spacing={1} 
-              flexWrap="wrap" 
-              useFlexGap
-              sx={{ mb: 1 }}
-            >
-              <Chip
-                icon={league.isPrivate ? <Lock /> : <Public />}
-                label={league.isPrivate ? 'Privata' : 'Pubblica'}
-                size="small"
-                color={league.isPrivate ? 'default' : 'primary'}
-              />
-              <Chip
-                icon={<Groups />}
-                label={`${league.currentTeams}/${league.maxTeams}`}
-                size="small"
-                color={league.currentTeams >= league.maxTeams ? 'error' : 'default'}
-              />
-            </Stack>
-          </Box>
-          {isMyLeague && (
-            <Tooltip title="Copia codice lega">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  fontFamily: 'monospace',
+                  fontWeight: 'bold',
+                  color: 'primary.main',
+                  fontSize: isMobile ? '0.8rem' : '0.875rem'
+                }}
+              >
+                {league.code}
+              </Typography>
               <IconButton 
                 size="small" 
                 onClick={handleCopyCode}
-                sx={{ alignSelf: 'flex-start' }}
+                sx={{ 
+                  p: 0.25,
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
               >
-                <ContentCopy fontSize="small" />
+                {copied ? (
+                  <Check sx={{ fontSize: isMobile ? 14 : 16, color: 'success.main' }} />
+                ) : (
+                  <ContentCopy sx={{ fontSize: isMobile ? 14 : 16, color: 'text.secondary' }} />
+                )}
               </IconButton>
-            </Tooltip>
-          )}
-        </Stack>
+            </Box>
+          </Box>
 
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid size={6}>
-            <Box>
+          {/* Partecipanti */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
+            >
+              Partecipanti:
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Groups sx={{ fontSize: isMobile ? 14 : 16, color: 'text.secondary' }} />
               <Typography 
-                variant={isMobile ? "h6" : "h5"} 
-                color="primary"
-                sx={{ fontWeight: 'bold' }}
+                variant="body2" 
+                sx={{ 
+                  fontWeight: 'medium',
+                  fontSize: isMobile ? '0.8rem' : '0.875rem'
+                }}
               >
-                {league.budget}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Budget
+                {league.currentTeams}/{league.maxTeams}
               </Typography>
             </Box>
-          </Grid>
-          {isMyLeague && league.userPosition && (
-            <Grid size={6}>
-              <Box>
-                <Typography 
-                  variant={isMobile ? "h6" : "h5"} 
-                  color="secondary"
-                  sx={{ fontWeight: 'bold' }}
-                >
-                  {league.userPosition}°
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Posizione
-                </Typography>
-              </Box>
-            </Grid>
-          )}
-        </Grid>
+          </Box>
 
-        {isMyLeague && (
-          <Box 
-            sx={{ 
-              p: 1, 
-              bgcolor: 'action.hover', 
-              borderRadius: 1,
-              mb: 1
-            }}
-          >
+          {/* Budget */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
             <Typography 
-              variant="caption" 
+              variant="body2" 
               color="text.secondary"
-              sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+              sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
             >
-              Codice: <strong>{league.code}</strong>
+              Budget:
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontWeight: 'medium',
+                fontSize: isMobile ? '0.8rem' : '0.875rem'
+              }}
+            >
+              {league.budget}€
             </Typography>
           </Box>
-        )}
+
+          {/* Punti (solo per le mie leghe) */}
+          {isMyLeague && league.userPoints !== undefined && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
+              >
+                I tuoi punti:
+              </Typography>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  fontWeight: 'bold',
+                  color: 'success.main',
+                  fontSize: isMobile ? '0.8rem' : '0.875rem'
+                }}
+              >
+                {league.userPoints} pts
+              </Typography>
+            </Box>
+          )}
+        </Stack>
       </CardContent>
       
-      <CardActions sx={{ p: isMobile ? 2 : 3, pt: 0 }}>
+      <CardActions sx={{ 
+        p: isMobile ? 1.5 : 2, 
+        pt: 0,
+        gap: 1
+      }}>
         {isMyLeague ? (
           <Button 
             fullWidth 
             variant="contained" 
             onClick={onView}
-            size={isMobile ? "medium" : "large"}
+            size={isMobile ? "small" : "medium"}
+            sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
           >
             Vai alla Lega
           </Button>
-        ) : league.hasTeam ? (
-          <Button 
-            fullWidth 
-            variant="outlined" 
-            onClick={onView}
-            size={isMobile ? "medium" : "large"}
-          >
-            Visualizza
-          </Button>
         ) : (
-          <Button
-            fullWidth
-            variant="contained"
-            color="primary"
-            startIcon={<Login />}
-            onClick={onJoin}
-            disabled={league.currentTeams >= league.maxTeams}
-            size={isMobile ? "medium" : "large"}
-          >
-            {league.currentTeams >= league.maxTeams ? 'Lega Piena' : 'Unisciti'}
-          </Button>
+          <>
+            <Button 
+              variant="outlined" 
+              onClick={onView}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                flex: 1,
+                fontSize: isMobile ? '0.75rem' : '0.875rem'
+              }}
+            >
+              Dettagli
+            </Button>
+            {!league.hasTeam && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={!isMobile && <Login />}
+                onClick={onJoin}
+                disabled={league.currentTeams >= league.maxTeams}
+                size={isMobile ? "small" : "medium"}
+                sx={{ 
+                  flex: 1,
+                  fontSize: isMobile ? '0.75rem' : '0.875rem'
+                }}
+              >
+                {league.currentTeams >= league.maxTeams ? 'Piena' : 'Unisciti'}
+              </Button>
+            )}
+          </>
         )}
       </CardActions>
     </Card>
@@ -257,7 +333,7 @@ export default function LeaguesPage() {
   });
 
   const joinLeagueMutation = useMutation({
-    mutationFn: joinLeague,
+    mutationFn: (code: string) => joinLeague(code),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myLeagues'] });
       queryClient.invalidateQueries({ queryKey: ['publicLeagues'] });
@@ -267,299 +343,241 @@ export default function LeaguesPage() {
       alert('Ti sei unito alla lega con successo!');
     },
     onError: (error: any) => {
-      alert(error.response?.data?.error || 'Errore durante l\'iscrizione alla lega');
+      alert(error.response?.data?.error || 'Errore durante l\'accesso alla lega');
     },
   });
+
+  const handleJoinLeague = (codeOrId?: string) => {
+    // Se viene passato un codice/ID direttamente (dalla lega pubblica)
+    if (codeOrId) {
+      joinLeagueMutation.mutate(codeOrId);
+    } 
+    // Altrimenti usa il codice dal dialog
+    else if (joinCode) {
+      joinLeagueMutation.mutate(joinCode);
+    }
+  };
+
+  const handleViewLeague = (leagueId: string) => {
+    navigate(`/leagues/${leagueId}`);
+  };
+
+  const handleCreateLeague = () => {
+    navigate('/leagues/create');
+  };
 
   const myLeagues: League[] = myLeaguesData?.leagues || [];
   const publicLeagues: League[] = publicLeaguesData?.leagues || [];
 
-  const handleJoinWithCode = () => {
-    if (!joinCode.trim()) {
-      alert('Inserisci un codice valido');
-      return;
-    }
-    joinLeagueMutation.mutate(joinCode.trim());
-  };
-
-  const isLoading = loadingMyLeagues || (tabValue === 1 && loadingPublicLeagues);
-
   const speedDialActions = [
-    { 
-      icon: <Add />, 
+    {
+      icon: <Add />,
       name: 'Crea Lega',
-      action: () => navigate('/leagues/create')
+      onClick: handleCreateLeague,
     },
-    { 
-      icon: <Code />, 
-      name: 'Inserisci Codice',
-      action: () => setJoinDialogOpen(true)
+    {
+      icon: <Code />,
+      name: 'Unisciti con Codice',
+      onClick: () => setJoinDialogOpen(true),
     },
   ];
 
-  return (
-    <Box sx={{ pb: isMobile ? 10 : 2 }}>
-      {/* Header - Responsive */}
-      <Stack 
-        direction={isMobile ? "column" : "row"} 
-        justifyContent="space-between" 
-        alignItems={isMobile ? "flex-start" : "center"} 
-        mb={3}
-        spacing={2}
-      >
-        <Box>
-          <Typography 
-            variant={isMobile ? "h5" : "h4"} 
-            gutterBottom
-            sx={{ fontWeight: 'bold' }}
-          >
-            Leghe
-          </Typography>
-          <Typography 
-            variant={isMobile ? "body2" : "body1"} 
-            color="text.secondary"
-          >
-            Gestisci le tue leghe e scoprine di nuove
-          </Typography>
-        </Box>
-        
-        {/* Desktop Actions */}
-        {!isMobile && (
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="outlined"
-              startIcon={<Login />}
-              onClick={() => setJoinDialogOpen(true)}
-            >
-              Inserisci Codice
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => navigate('/leagues/create')}
-            >
-              Crea Lega
-            </Button>
-          </Stack>
-        )}
-      </Stack>
+  const getGridColumns = () => {
+    if (isMobile) return 12;
+    if (isTablet) return 6;
+    return 4;
+  };
 
-      {/* Tabs - Responsive */}
-      <Paper sx={{ mb: 2 }}>
+  return (
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      pb: 10
+    }}>
+      <Box sx={{ 
+        bgcolor: 'background.paper',
+        borderBottom: 1,
+        borderColor: 'divider',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
+      }}>
         <Tabs 
           value={tabValue} 
           onChange={(_, newValue) => setTabValue(newValue)}
-          variant={isMobile ? "fullWidth" : "standard"}
+          variant="fullWidth"
         >
           <Tab 
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Typography variant={isMobile ? "caption" : "body2"}>
-                  Le mie leghe
-                </Typography>
-                <Chip 
-                  label={myLeagues.length} 
-                  size="small"
-                  sx={{ height: 20, fontSize: '0.7rem' }}
-                />
-              </Box>
-            }
+            label="Le Mie Leghe" 
+            icon={<EmojiEvents />} 
+            iconPosition="start"
+            sx={{ fontSize: isMobile ? '0.8rem' : '0.875rem' }}
           />
           <Tab 
-            label={
-              <Typography variant={isMobile ? "caption" : "body2"}>
-                Leghe pubbliche
-              </Typography>
-            }
+            label="Leghe Pubbliche" 
+            icon={<Public />} 
+            iconPosition="start"
+            sx={{ fontSize: isMobile ? '0.8rem' : '0.875rem' }}
           />
         </Tabs>
-      </Paper>
+      </Box>
 
-      {isLoading ? (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <>
-          {/* Tab: Le mie leghe */}
-          <TabPanel value={tabValue} index={0}>
-            {myLeagues.length === 0 ? (
-              <Card>
-                <CardContent sx={{ textAlign: 'center', py: isMobile ? 3 : 4 }}>
-                  <EmojiEvents 
-                    sx={{ 
-                      fontSize: isMobile ? 48 : 64, 
-                      color: 'text.secondary', 
-                      mb: 2 
-                    }} 
+      <Box sx={{ p: isMobile ? 1.5 : 3 }}>
+        {/* Le Mie Leghe */}
+        <TabPanel value={tabValue} index={0}>
+          {loadingMyLeagues ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : myLeagues.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                Non sei ancora in nessuna lega
+              </Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                Crea una nuova lega o unisciti a una esistente per iniziare a giocare!
+              </Typography>
+              <Stack direction={isMobile ? "column" : "row"} spacing={2} justifyContent="center" sx={{ mt: 3 }}>
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={handleCreateLeague}
+                  size={isMobile ? "small" : "medium"}
+                >
+                  Crea Lega
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<Code />}
+                  onClick={() => setJoinDialogOpen(true)}
+                  size={isMobile ? "small" : "medium"}
+                >
+                  Unisciti con Codice
+                </Button>
+              </Stack>
+            </Paper>
+          ) : (
+            <Grid container spacing={isMobile ? 1.5 : 2}>
+              {myLeagues.map((league: League) => (
+                <Grid key={league.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                  <LeagueCard
+                    league={league}
+                    onView={() => handleViewLeague(league.id)}
+                    isMyLeague
                   />
-                  <Typography 
-                    variant={isMobile ? "subtitle1" : "h6"} 
-                    gutterBottom
-                  >
-                    Non sei ancora in nessuna lega
-                  </Typography>
-                  <Typography 
-                    variant={isMobile ? "caption" : "body2"} 
-                    color="text.secondary" 
-                    sx={{ mb: 3 }}
-                  >
-                    Unisciti a una lega pubblica o usa un codice invito per iniziare!
-                  </Typography>
-                  <Stack 
-                    direction={isMobile ? "column" : "row"} 
-                    spacing={2} 
-                    justifyContent="center"
-                  >
-                    <Button
-                      variant="outlined"
-                      onClick={() => setJoinDialogOpen(true)}
-                      fullWidth={isMobile}
-                      size={isMobile ? "medium" : "large"}
-                    >
-                      Usa un codice
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={() => setTabValue(1)}
-                      fullWidth={isMobile}
-                      size={isMobile ? "medium" : "large"}
-                    >
-                      Esplora leghe pubbliche
-                    </Button>
-                  </Stack>
-                </CardContent>
-              </Card>
-            ) : (
-              <Grid container spacing={isMobile ? 2 : 3}>
-                {myLeagues.map((league) => (
-                  <Grid 
-                    key={league.id} 
-                    size={{ 
-                      xs: 12, 
-                      sm: isTablet ? 6 : 6, 
-                      md: 4 
-                    }}
-                  >
-                    <LeagueCard
-                      league={league}
-                      onView={() => navigate(`/leagues/${league.id}`)}
-                      isMyLeague
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </TabPanel>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </TabPanel>
 
-          {/* Tab: Leghe pubbliche */}
-          <TabPanel value={tabValue} index={1}>
-            {publicLeagues.length === 0 ? (
-              <Alert severity="info">
-                Nessuna lega pubblica disponibile al momento.
-              </Alert>
-            ) : (
-              <Grid container spacing={isMobile ? 2 : 3}>
-                {publicLeagues.map((league) => (
-                  <Grid 
-                    key={league.id} 
-                    size={{ 
-                      xs: 12, 
-                      sm: isTablet ? 6 : 6, 
-                      md: 4 
-                    }}
-                  >
-                    <LeagueCard
-                      league={league}
-                      onJoin={!league.hasTeam ? () => {
-                        if (league.currentTeams < league.maxTeams) {
-                          joinLeagueMutation.mutate(league.code);
-                        }
-                      } : undefined}
-                      onView={() => navigate(`/leagues/${league.id}`)}
-                      isMyLeague={false}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </TabPanel>
-        </>
-      )}
+        {/* Leghe Pubbliche */}
+        <TabPanel value={tabValue} index={1}>
+          {loadingPublicLeagues ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : publicLeagues.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                Nessuna lega pubblica disponibile
+              </Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                Al momento non ci sono leghe pubbliche aperte. Puoi creare la tua!
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={handleCreateLeague}
+                sx={{ mt: 2 }}
+                size={isMobile ? "small" : "medium"}
+              >
+                Crea Lega
+              </Button>
+            </Paper>
+          ) : (
+            <Grid container spacing={isMobile ? 1.5 : 2}>
+              {publicLeagues.map((league: League) => (
+                <Grid key={league.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                  <LeagueCard
+                    league={league}
+                    onJoin={() => handleJoinLeague(league.code)}
+                    onView={() => handleViewLeague(league.id)}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </TabPanel>
+      </Box>
 
-      {/* Mobile Floating Action Button / SpeedDial */}
-      {isMobile && (
-        <SpeedDial
-          ariaLabel="Azioni Lega"
-          sx={{ position: 'fixed', bottom: 72, right: 16 }}
-          icon={<SpeedDialIcon />}
-          onClose={() => setSpeedDialOpen(false)}
-          onOpen={() => setSpeedDialOpen(true)}
-          open={speedDialOpen}
-        >
-          {speedDialActions.map((action) => (
-            <SpeedDialAction
-              key={action.name}
-              icon={action.icon}
-              tooltipTitle={action.name}
-              onClick={() => {
-                action.action();
-                setSpeedDialOpen(false);
-              }}
-            />
-          ))}
-        </SpeedDial>
-      )}
+      {/* FAB con Speed Dial */}
+      <SpeedDial
+        ariaLabel="Azioni Lega"
+        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+        icon={<SpeedDialIcon />}
+        onClose={() => setSpeedDialOpen(false)}
+        onOpen={() => setSpeedDialOpen(true)}
+        open={speedDialOpen}
+      >
+        {speedDialActions.map((action) => (
+          <SpeedDialAction
+            key={action.name}
+            icon={action.icon}
+            tooltipTitle={action.name}
+            onClick={() => {
+              setSpeedDialOpen(false);
+              action.onClick();
+            }}
+          />
+        ))}
+      </SpeedDial>
 
-      {/* Dialog per unirsi con codice - Responsive */}
+      {/* Dialog Unisciti con Codice */}
       <Dialog 
         open={joinDialogOpen} 
-        onClose={() => setJoinDialogOpen(false)} 
-        maxWidth="xs" 
+        onClose={() => setJoinDialogOpen(false)}
+        maxWidth="xs"
         fullWidth
-        fullScreen={isMobile}
+        PaperProps={{
+          sx: { m: isMobile ? 2 : 3 }
+        }}
       >
-        <DialogTitle>
-          <Typography variant={isMobile ? "h6" : "h5"}>
-            Unisciti a una Lega
-          </Typography>
-        </DialogTitle>
+        <DialogTitle>Unisciti a una Lega</DialogTitle>
         <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <TextField
-              autoFocus
-              label="Codice Lega"
-              fullWidth
-              variant="outlined"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Inserisci il codice..."
-              inputProps={{ maxLength: 8 }}
-              size={isMobile ? "small" : "medium"}
-            />
-            <Typography 
-              variant="caption" 
-              color="text.secondary" 
-              sx={{ mt: 1, display: 'block' }}
-            >
-              Inserisci il codice di 8 caratteri fornito dal creatore della lega
-            </Typography>
-          </Box>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Codice Lega"
+            fullWidth
+            variant="outlined"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+            placeholder="Inserisci il codice"
+            inputProps={{ 
+              style: { 
+                fontFamily: 'monospace',
+                letterSpacing: '0.1em',
+                fontSize: isMobile ? '0.9rem' : '1rem'
+              } 
+            }}
+            size={isMobile ? "small" : "medium"}
+          />
         </DialogContent>
-        <DialogActions sx={{ p: isMobile ? 2 : 3 }}>
+        <DialogActions>
           <Button 
             onClick={() => setJoinDialogOpen(false)}
-            size={isMobile ? "medium" : "large"}
+            size={isMobile ? "small" : "medium"}
           >
             Annulla
           </Button>
           <Button
-            onClick={handleJoinWithCode}
+            onClick={() => handleJoinLeague()}
             variant="contained"
-            disabled={joinLeagueMutation.isPending}
-            size={isMobile ? "medium" : "large"}
+            disabled={!joinCode || joinLeagueMutation.isPending}
+            size={isMobile ? "small" : "medium"}
           >
-            {joinLeagueMutation.isPending ? 'Unione in corso...' : 'Unisciti'}
+            {joinLeagueMutation.isPending ? 'Accesso...' : 'Unisciti'}
           </Button>
         </DialogActions>
       </Dialog>
