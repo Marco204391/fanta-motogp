@@ -2,69 +2,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Grid,
-  Button,
-  Chip,
-  Avatar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Alert,
-  CircularProgress,
-  Tabs,
-  Tab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Switch,
-  FormControlLabel,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Stack,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  IconButton,
-  Tooltip,
-  LinearProgress,
-  useTheme,
-  useMediaQuery,
-  Collapse,
-  Badge
+import { 
+  Box, Typography, Card, CardContent, Grid, Button, Chip, Avatar, Table,
+  TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Alert,
+  CircularProgress, Tabs, Tab, Dialog, DialogTitle, DialogContent, 
+  DialogActions, Switch, FormControlLabel, Select, MenuItem, FormControl, 
+  InputLabel, Stack, Divider, List, ListItem, ListItemText, ListItemAvatar,
+  IconButton, Tooltip, LinearProgress, useTheme, useMediaQuery, Collapse
 } from '@mui/material';
-import {
-  TrendingUp,
-  TrendingDown,
-  Remove,
-  Groups,
-  Settings,
-  Share,
-  Lock,
-  ContentCopy,
-  NotificationsActive,
-  EmojiEvents,
-  WorkspacePremium,
-  BarChart,
-  Refresh,
-  Visibility,
-  SportsMotorsports,
-  Timer,
-  ExpandMore,
-  ExpandLess
+import { 
+  TrendingUp, TrendingDown, Remove, Groups, Settings, Share, Lock,
+  ContentCopy, NotificationsActive, EmojiEvents, WorkspacePremium, 
+  BarChart, Refresh, SportsMotorsports, Timer, ExpandMore, ExpandLess
 } from '@mui/icons-material';
 import { format, isPast, differenceInDays, differenceInHours } from 'date-fns';
 import { it } from 'date-fns/locale';
