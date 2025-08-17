@@ -171,7 +171,7 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
                 • <strong>Bonus Qual:</strong> 1°: -5 | 2°: -3 | 3°: -2
               </Typography>
               <Typography variant="caption" component="div">
-                • <strong>Ritirati:</strong> Ultimo + 1
+                • <strong>Non partecipanti alla gara (non classificati):</strong> Ultimo + 1
               </Typography>
               
               <Box mt={1} p={1} bgcolor="background.paper" borderRadius={0.5}>
