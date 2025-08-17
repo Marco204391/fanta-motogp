@@ -869,8 +869,7 @@ export default function LeagueDetailPage() {
                                       variant="caption"
                                       sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
                                     >
-                                      Prev: {lr.predictedPosition || '-'}° •
-                                      Reale: {lr.actualPosition || lr.actualStatus || '-'}
+                                      Prev: {lr.predictedPosition || '-'}°
                                     </Typography>
                                   </Box>
                                 }

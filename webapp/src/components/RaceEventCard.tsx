@@ -90,7 +90,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         }}>
           <SportsScore fontSize="small" />
           <Typography variant="caption" fontWeight="bold">
-            GARA OGGI
+            IN CORSO
           </Typography>
           <SportsScore
             fontSize="small"
