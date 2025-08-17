@@ -2,17 +2,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
+import {
   Box, Typography, Card, CardContent, Grid, Button, Chip, Avatar, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Alert,
-  CircularProgress, Tabs, Tab, Dialog, DialogTitle, DialogContent, 
-  DialogActions, Switch, FormControlLabel, Select, MenuItem, FormControl, 
+  CircularProgress, Tabs, Tab, Dialog, DialogTitle, DialogContent,
+  DialogActions, Switch, FormControlLabel, Select, MenuItem, FormControl,
   InputLabel, Stack, Divider, List, ListItem, ListItemText, ListItemAvatar,
   IconButton, Tooltip, LinearProgress, useTheme, useMediaQuery, Collapse
 } from '@mui/material';
-import { 
+import {
   TrendingUp, TrendingDown, Remove, Groups, Settings, Share, Lock,
-  ContentCopy, NotificationsActive, EmojiEvents, WorkspacePremium, 
+  ContentCopy, NotificationsActive, EmojiEvents, WorkspacePremium,
   BarChart, Refresh, SportsMotorsports, Timer, ExpandMore, ExpandLess
 } from '@mui/icons-material';
 import { format, isPast, differenceInDays, differenceInHours } from 'date-fns';
@@ -22,7 +22,7 @@ import {
   getMyTeamInLeague,
   updateLeagueSettings,
   getLeagueRaceLineups,
-  getUpcomingRaces
+  getAllRaces // Modificato: uso getAllRaces invece di getUpcomingRaces
 } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -217,10 +217,10 @@ export default function LeagueDetailPage() {
     enabled: !!leagueId
   });
 
-  // Query prossime gare
+  // Query per tutte le gare della stagione
   const { data: racesData } = useQuery({
-    queryKey: ['upcomingRaces'],
-    queryFn: getUpcomingRaces
+    queryKey: ['allRaces', new Date().getFullYear()],
+    queryFn: () => getAllRaces(new Date().getFullYear()),
   });
 
   // Query lineup per gara selezionata
@@ -251,13 +251,31 @@ export default function LeagueDetailPage() {
     }
   }, [leagueData]);
 
-  // Seleziona automaticamente la prossima gara
+  // Seleziona automaticamente la gara più recente o la prossima
   useEffect(() => {
     if (racesData?.races && !selectedRaceId) {
-      const nextRace = racesData.races.find((r: any) => !isPast(new Date(r.gpDate)));
-      if (nextRace) {
-        setSelectedRaceId(nextRace.id);
-      }
+        const races = racesData.races.sort((a: any, b: any) => new Date(a.gpDate).getTime() - new Date(b.gpDate).getTime());
+        const now = new Date();
+        
+        // Trova l'indice della prossima gara
+        const nextRaceIndex = races.findIndex((race: any) => !isPast(new Date(race.gpDate)));
+
+        if (nextRaceIndex !== -1) {
+            // Se c'è una gara imminente, controlla se quella precedente è appena finita
+            const previousRaceIndex = nextRaceIndex - 1;
+            if (previousRaceIndex >= 0) {
+                const previousRace = races[previousRaceIndex];
+                // Se la gara precedente è finita negli ultimi 3 giorni, la seleziona
+                if (differenceInDays(now, new Date(previousRace.gpDate)) <= 3) {
+                    setSelectedRaceId(previousRace.id);
+                    return;
+                }
+            }
+            setSelectedRaceId(races[nextRaceIndex].id);
+        } else if (races.length > 0) {
+            // Se non ci sono gare imminenti, seleziona l'ultima gara della stagione
+            setSelectedRaceId(races[races.length - 1].id);
+        }
     }
   }, [racesData, selectedRaceId]);
 
@@ -266,7 +284,8 @@ export default function LeagueDetailPage() {
   const myTeam = myTeamData?.team;
   const isAdmin = league?.isAdmin;
   const userHasTeam = !!myTeam;
-  const nextRace = racesData?.races?.[0];
+  const allRaces = racesData?.races || [];
+  const nextRace = allRaces.find((r: any) => !isPast(new Date(r.gpDate)));
   const deadline = nextRace ? new Date(nextRace.sprintDate || nextRace.gpDate) : null;
   const daysUntilDeadline = deadline ? differenceInDays(deadline, new Date()) : null;
   const hoursUntilDeadline = deadline ? differenceInHours(deadline, new Date()) : null;
@@ -333,7 +352,7 @@ export default function LeagueDetailPage() {
         }}
       >
         <Grid container alignItems="center" spacing={2}>
-          <Grid size={{ xs: 12, md: 8 }}>
+          <Grid size={{ xs: 12, md: 8}}>
             <Typography
               variant={isMobile ? "h5" : "h4"}
               gutterBottom
@@ -394,7 +413,7 @@ export default function LeagueDetailPage() {
             </Stack>
           </Grid>
 
-          <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+          <Grid size={{ xs: 12, md: 4}} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
             <Stack
               direction="row"
               spacing={1}
@@ -747,7 +766,7 @@ export default function LeagueDetailPage() {
               onChange={(e) => setSelectedRaceId(e.target.value)}
               label="Seleziona Gara"
             >
-              {racesData?.races?.map((race: any) => (
+              {allRaces?.map((race: any) => (
                 <MenuItem key={race.id} value={race.id}>
                   {race.name} - {format(new Date(race.gpDate), 'dd MMM', { locale: it })}
                 </MenuItem>
@@ -873,7 +892,7 @@ export default function LeagueDetailPage() {
       <TabPanel value={selectedTab} index={2}>
         <Grid container spacing={isMobile ? 2 : 3}>
           {/* Top Scorer per Gara */}
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 6}}>
             <Card>
               <CardContent>
                 <Typography
@@ -910,7 +929,7 @@ export default function LeagueDetailPage() {
           </Grid>
 
           {/* Piloti più Scelti */}
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 6}}>
             <Card>
               <CardContent>
                 <Typography
@@ -971,7 +990,7 @@ export default function LeagueDetailPage() {
                   {['MOTOGP', 'MOTO2', 'MOTO3'].map(category => {
                     const stats = leagueData?.categoryStats?.[category] || { avg: 0, max: 0, min: 0 };
                     return (
-                      <Grid key={category} size={{ xs: 12, sm: 4 }}>
+                      <Grid key={category} size={{ xs: 12, sm: 4}}>
                         <Paper sx={{ p: isMobile ? 1.5 : 2, textAlign: 'center' }}>
                           <Typography
                             variant="subtitle2"
@@ -1019,7 +1038,7 @@ export default function LeagueDetailPage() {
         <TabPanel value={selectedTab} index={3}>
           <Grid container spacing={isMobile ? 2 : 3}>
             {/* Impostazioni Lega */}
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 6}}>
               <Card>
                 <CardContent>
                   <Typography
@@ -1083,7 +1102,7 @@ export default function LeagueDetailPage() {
             </Grid>
 
             {/* Azioni Rapide */}
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 6}}>
               <Card>
                 <CardContent>
                   <Typography
@@ -1159,7 +1178,7 @@ export default function LeagueDetailPage() {
                   </Typography>
 
                   <Grid container spacing={2}>
-                    <Grid size={{ xs: 6, sm: 3 }}>
+                    <Grid size={{ xs: 6, sm: 3}}>
                       <Typography
                         variant="caption"
                         color="text.secondary"
@@ -1171,7 +1190,7 @@ export default function LeagueDetailPage() {
                         {league.code}
                       </Typography>
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
+                    <Grid size={{ xs: 6, sm: 3}}>
                       <Typography
                         variant="caption"
                         color="text.secondary"
@@ -1183,7 +1202,7 @@ export default function LeagueDetailPage() {
                         {league.currentTeams}/{league.maxTeams}
                       </Typography>
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
+                    <Grid size={{ xs: 6, sm: 3}}>
                       <Typography
                         variant="caption"
                         color="text.secondary"
@@ -1195,7 +1214,7 @@ export default function LeagueDetailPage() {
                         {league.budget}€
                       </Typography>
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
+                    <Grid size={{ xs: 6, sm: 3}}>
                       <Typography
                         variant="caption"
                         color="text.secondary"
