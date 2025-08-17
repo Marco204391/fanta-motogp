@@ -411,7 +411,7 @@ export class MotoGPApiService {
 
   async calculateTeamScores(raceId: string, session: SessionType) {
     if (session !== SessionType.RACE) {
-      console.log(`-- Calcolo punteggi per ${session} posticipato. Verrà eseguito con la sessione RACE. --`);
+      console.log(`-- Il calcolo dei punteggi per la sessione ${session} verrà eseguito insieme a quello della gara principale. --`);
       return;
     }
 
@@ -459,11 +459,6 @@ export class MotoGPApiService {
       });
 
       const teamsInRace = await prisma.team.findMany({
-          where: {
-              league: {
-                  races: { some: { id: raceId } }
-              }
-          },
           include: {
               riders: { include: { rider: true } },
               lineups: { 
