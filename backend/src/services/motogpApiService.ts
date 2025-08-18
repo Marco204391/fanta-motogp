@@ -446,6 +446,7 @@ export class MotoGPApiService {
         }
       });
       
+      // Bonus Qualifiche
       const qualifyingResults = await prisma.raceResult.findMany({
           where: { raceId, session: 'QUALIFYING', position: { in: [1, 2, 3] } },
           select: { riderId: true, position: true }
@@ -456,6 +457,28 @@ export class MotoGPApiService {
           if (result.position === 1) qualifyingBonusMap.set(result.riderId, -5);
           if (result.position === 2) qualifyingBonusMap.set(result.riderId, -3);
           if (result.position === 3) qualifyingBonusMap.set(result.riderId, -2);
+      });
+
+      // NUOVO: Bonus Sprint per MotoGP (solo top 10)
+      const sprintBonusMap = new Map<string, number>();
+      const sprintBonusPoints = [-10, -9, -8, -7, -6, -5, -4, -3, -2, -1]; // Dal 1° al 10°
+      
+      // Filtra solo i piloti MotoGP dalla Sprint
+      const motogpSprintResults = await prisma.raceResult.findMany({
+        where: { 
+          raceId, 
+          session: 'SPRINT',
+          position: { lte: 10, gte: 1 },
+          rider: { category: 'MOTOGP' }
+        },
+        select: { riderId: true, position: true },
+        orderBy: { position: 'asc' }
+      });
+
+      motogpSprintResults.forEach(result => {
+        if (result.position && result.position <= 10) {
+          sprintBonusMap.set(result.riderId, sprintBonusPoints[result.position - 1]);
+        }
       });
 
       const teamsInRace = await prisma.team.findMany({
@@ -510,26 +533,20 @@ export class MotoGPApiService {
           const raceResult = raceResultsMap.get(rider.id);
           const sprintResult = sprintResultsMap.get(rider.id);
           
+          // Calcolo punti base (solo dalla gara principale)
           const raceBasePoints = raceResult?.position ?? (maxPositions[rider.category].race + 1);
           
-          let sprintBasePoints = 0;
-          if (rider.category === 'MOTOGP') {
-              if (sprintResultsMap.size > 0) {
-                  sprintBasePoints = sprintResult?.position ?? (maxPositions.MOTOGP.sprint + 1);
-              }
-          }
-          const totalBasePoints = raceBasePoints + sprintBasePoints;
-
+          // Calcolo malus previsione (solo per la gara principale)
           const racePredictionMalus = Math.abs(predictedPosition - raceBasePoints);
-          let sprintPredictionMalus = 0;
-          if (rider.category === 'MOTOGP' && sprintResultsMap.size > 0) {
-              sprintPredictionMalus = Math.abs(predictedPosition - sprintBasePoints);
-          }
-          const totalPredictionMalus = racePredictionMalus + sprintPredictionMalus;
           
+          // Bonus qualifiche
           const qualifyingBonus = qualifyingBonusMap.get(rider.id) || 0;
-
-          const pilotTotalPoints = totalBasePoints + totalPredictionMalus + qualifyingBonus;
+          
+          // NUOVO: Bonus Sprint (solo per piloti MotoGP)
+          const sprintBonus = sprintBonusMap.get(rider.id) || 0;
+          
+          // Calcolo totale punti pilota
+          const pilotTotalPoints = raceBasePoints + racePredictionMalus + qualifyingBonus + sprintBonus;
           totalTeamPoints += pilotTotalPoints;
 
           riderScores.push({
@@ -539,14 +556,13 @@ export class MotoGPApiService {
             predicted: predictedPosition,
             actual: raceResult?.position ?? raceResult?.status,
             sprintPosition: sprintResult?.position ?? sprintResult?.status,
-            base: totalBasePoints,
-            predictionMalus: totalPredictionMalus,
+            base: raceBasePoints,
+            predictionMalus: racePredictionMalus,
             qualifyingBonus,
+            sprintBonus,
             details: {
               raceBase: raceBasePoints,
-              sprintBase: sprintBasePoints,
               raceMalus: racePredictionMalus,
-              sprintMalus: sprintPredictionMalus,
             }
           });
         }
@@ -562,13 +578,15 @@ export class MotoGPApiService {
         });
 
         console.log(`Team ${team.name}: ${totalTeamPoints} punti (combinato). Note: ${calculationNotes || 'Schieramento regolare'}`);
+        console.log(`  - Bonus Sprint applicati: ${[...sprintBonusMap.entries()].filter(([rid]) => 
+          lineupToUse.lineupRiders.some((lr: any) => lr.rider.id === rid)
+        ).map(([_, bonus]) => bonus).join(', ') || 'nessuno'}`);
       }
     } catch (error) {
       console.error(`Errore nel calcolo dei punteggi combinati per la gara ${raceId}:`, error);
     }
   }
   
-
   private mapLegacyCategory(legacyId: number): Category | null {
     switch (legacyId) {
       case 3: return Category.MOTOGP;

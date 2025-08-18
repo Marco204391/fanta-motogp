@@ -31,6 +31,7 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
     base: '-',
     predictionMalus: '-',
     qualifyingBonus: '-',
+    sprintBonus: '-',
     points: '-',
   }));
 
@@ -62,7 +63,8 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
                 {showSprintColumn && <TableCell align="center" sx={{ px: 0.5 }}>Sprint</TableCell>}
                 <TableCell align="center" sx={{ px: 0.5 }}>Base</TableCell>
                 <TableCell align="center" sx={{ px: 0.5 }}>Malus</TableCell>
-                <TableCell align="center" sx={{ px: 0.5 }}>Qual</TableCell>
+                <TableCell align="center" sx={{ px: 0.5 }}>Qual B.</TableCell>
+                {showSprintColumn && <TableCell align="center" sx={{ px: 0.5 }}>Sprint B.</TableCell>}
                 <TableCell align="right" sx={{ px: 1 }}><strong>Tot</strong></TableCell>
               </TableRow>
             </TableHead>
@@ -89,7 +91,7 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
                   </TableCell>
                   {showSprintColumn && (
                     <TableCell align="center" sx={{ px: 0.5 }}>
-                      <Typography variant="body2">
+                      <Typography variant="body2" color="text.secondary">
                         {score.riderCategory === 'MOTOGP' 
                           ? (typeof score.sprintPosition === 'number' ? `${score.sprintPosition}°` : score.sprintPosition || '-')
                           : '-'}
@@ -113,6 +115,15 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
                       </Typography>
                     ) : '0'}
                   </TableCell>
+                  {showSprintColumn && (
+                    <TableCell align="center" sx={{ px: 0.5 }}>
+                      {score.riderCategory === 'MOTOGP' && score.sprintBonus && score.sprintBonus < 0 ? (
+                        <Typography variant="body2" color="info.main">
+                          {score.sprintBonus}
+                        </Typography>
+                      ) : '0'}
+                    </TableCell>
+                  )}
                   <TableCell align="right" sx={{ px: 1 }}>
                     <Typography variant="body2" fontWeight="bold">
                       {score.points}
@@ -124,7 +135,7 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
               {/* Totale */}
               {hasScores && (
                 <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                  <TableCell colSpan={showSprintColumn ? 7 : 6} align="right" sx={{ px: 1 }}>
+                  <TableCell colSpan={showSprintColumn ? 8 : 7} align="right" sx={{ px: 1 }}>
                     <Typography variant="subtitle2" fontWeight="bold">
                       TOTALE
                     </Typography>
@@ -155,28 +166,31 @@ export function ScoreBreakdownDialog({ open, onClose, lineupData }: ScoreBreakdo
           <Collapse in={showHelp}>
             <Box mt={1} p={1.5} bgcolor="action.hover" borderRadius={1}>
               <Typography variant="caption" component="div" gutterBottom>
-                <strong>Formula:</strong> Base + Malus + Bonus Qual = Totale
+                <strong>Formula:</strong> Base + Malus + Bonus Qual + Bonus Sprint = Totale
               </Typography>
               <Typography variant="caption" component="div" color="error" gutterBottom>
                 ⚠️ <strong>Vince chi fa MENO punti</strong>
               </Typography>
               
               <Typography variant="caption" component="div" sx={{ mt: 1 }}>
-                • <strong>Base:</strong> Pos. arrivo (Gara + Sprint per MotoGP)
+                • <strong>Base:</strong> Posizione di arrivo nella gara principale
               </Typography>
               <Typography variant="caption" component="div">
-                • <strong>Malus:</strong> |Previsione - Reale| per ogni sessione
+                • <strong>Malus:</strong> |Previsione - Posizione reale| (solo gara principale)
               </Typography>
               <Typography variant="caption" component="div">
                 • <strong>Bonus Qual:</strong> 1°: -5 | 2°: -3 | 3°: -2
               </Typography>
               <Typography variant="caption" component="div">
-                • <strong>Non partecipanti alla gara (non classificati):</strong> Ultimo + 1
+                • <strong>Bonus Sprint (solo MotoGP):</strong> 1°: -10 | 2°: -9 | 3°: -8 | ... | 10°: -1
+              </Typography>
+              <Typography variant="caption" component="div">
+                • <strong>Non classificati:</strong> Ultimo + 1
               </Typography>
               
               <Box mt={1} p={1} bgcolor="background.paper" borderRadius={0.5}>
                 <Typography variant="caption" color="text.secondary">
-                  <strong>Nota:</strong> Una sola previsione vale per tutto il weekend (gara + sprint)
+                  <strong>Nota:</strong> La previsione vale solo per la gara principale. La Sprint assegna solo bonus ai primi 10 piloti MotoGP.
                 </Typography>
               </Box>
             </Box>
