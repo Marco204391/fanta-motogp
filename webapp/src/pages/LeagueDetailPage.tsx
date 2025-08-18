@@ -806,50 +806,62 @@ export default function LeagueDetailPage() {
                         size={isMobile ? "small" : "medium"}
                       />
                     </Box>
-
                     {teamLineup.lineup && teamLineup.lineup.length > 0 ? (
                       <>
                         <List dense sx={{ p: 0 }}>
-                          {teamLineup.lineup.slice(0, isMobile ? 4 : 6).map((lr: any) => (
-                            <ListItem key={lr.id} sx={{ px: 0 }}>
-                              <ListItemAvatar>
-                                <Avatar
-                                  sx={{
-                                    bgcolor: 'primary.main',
-                                    width: isMobile ? 28 : 32,
-                                    height: isMobile ? 28 : 32,
-                                    fontSize: isMobile ? '0.75rem' : '0.875rem'
-                                  }}
-                                >
-                                  {lr.rider.number}
-                                </Avatar>
-                              </ListItemAvatar>
-                              <ListItemText
-                                primary={
-                                  <Typography variant={isMobile ? "body2" : "body1"}>
-                                    {lr.rider.name}
-                                  </Typography>
-                                }
-                                secondary={
-                                  <Box component="span">
-                                    <Typography
-                                      component="span"
-                                      variant="caption"
-                                      sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-                                    >
-                                      Prev: {lr.predictedPosition || '-'}°
+                          {teamLineup.lineup.slice(0, isMobile ? 4 : 6).map((lr: any) => {
+                            const riderScore = teamLineup.riderScores?.find(
+                              (rs: any) => rs.rider === lr.rider.name
+                            );
+                            
+                            return (
+                              <ListItem key={lr.id} sx={{ px: 0 }}>
+                                <ListItemAvatar>
+                                  <Avatar
+                                    sx={{
+                                      bgcolor: 'primary.main',
+                                      width: isMobile ? 28 : 32,
+                                      height: isMobile ? 28 : 32,
+                                      fontSize: isMobile ? '0.75rem' : '0.875rem'
+                                    }}
+                                  >
+                                    {lr.rider.number}
+                                  </Avatar>
+                                </ListItemAvatar>
+                                <ListItemText
+                                  primary={
+                                    <Typography variant={isMobile ? "body2" : "body1"}>
+                                      {lr.rider.name}
                                     </Typography>
-                                  </Box>
-                                }
-                              />
-                              <Chip
-                                label={`${lr.points || 0}`}
-                                size="small"
-                                variant="outlined"
-                                sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-                              />
-                            </ListItem>
-                          ))}
+                                  }
+                                  secondary={
+                                    <Box component="span">
+                                      <Typography
+                                        component="span"
+                                        variant="caption"
+                                        sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+                                      >
+                                        Prev: {lr.predictedPosition || '-'}°
+                                        {riderScore && riderScore.actual && (
+                                          <> | Arr: {typeof riderScore.actual === 'number' ? `${riderScore.actual}°` : riderScore.actual}</>
+                                        )}
+                                      </Typography>
+                                    </Box>
+                                  }
+                                />
+                                <Chip
+                                  label={riderScore ? `${riderScore.points}` : '0'}
+                                  size="small"
+                                  variant={riderScore && riderScore.points ? "filled" : "outlined"}
+                                  color={riderScore && riderScore.points ? "primary" : "default"}
+                                  sx={{ 
+                                    fontSize: isMobile ? '0.65rem' : '0.75rem',
+                                    fontWeight: riderScore && riderScore.points ? 'bold' : 'normal'
+                                  }}
+                                />
+                              </ListItem>
+                            );
+                          })}
                         </List>
 
                         {teamLineup.lineup.length > (isMobile ? 4 : 6) && (
@@ -862,7 +874,7 @@ export default function LeagueDetailPage() {
                           </Typography>
                         )}
 
-                        {teamLineup.riderScores && (
+                        {teamLineup.riderScores && teamLineup.riderScores.length > 0 && (
                           <Button
                             size="small"
                             fullWidth
