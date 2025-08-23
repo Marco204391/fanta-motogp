@@ -809,7 +809,7 @@ export default function LeagueDetailPage() {
                     {teamLineup.lineup && teamLineup.lineup.length > 0 ? (
                       <>
                         <List dense sx={{ p: 0 }}>
-                          {teamLineup.lineup.slice(0, isMobile ? 4 : 6).map((lr: any) => {
+                          {teamLineup.lineup.map((lr: any) => {
                             const riderScore = teamLineup.riderScores?.find(
                               (rs: any) => rs.rider === lr.rider.name
                             );
@@ -863,16 +863,6 @@ export default function LeagueDetailPage() {
                             );
                           })}
                         </List>
-
-                        {teamLineup.lineup.length > (isMobile ? 4 : 6) && (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ display: 'block', textAlign: 'center', mt: 1 }}
-                          >
-                            +{teamLineup.lineup.length - (isMobile ? 4 : 6)} altri
-                          </Typography>
-                        )}
 
                         {teamLineup.riderScores && teamLineup.riderScores.length > 0 && (
                           <Button
