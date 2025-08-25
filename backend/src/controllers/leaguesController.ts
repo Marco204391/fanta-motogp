@@ -154,7 +154,16 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
                 rider: true
               }
             },
-            scores: true
+            scores: {
+              include: {
+                race: true
+              },
+              orderBy: {
+                race: {
+                  gpDate: 'desc'
+                }
+              }
+            }
           }
         }
       }
@@ -171,10 +180,38 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Crea una mappa per tracciare le posizioni precedenti
+    const previousPositions = new Map<string, number>();
+    
+    // Se ci sono almeno 2 gare, calcola le posizioni dopo la penultima gara
+    if (league.teams.some(team => team.scores.length >= 2)) {
+      const penultimateStandings = league.teams
+        .map(team => {
+          // Escludi l'ultimo punteggio (gara più recente)
+          const scoresWithoutLast = team.scores.slice(1); // slice(1) perché sono ordinate DESC
+          const totalWithoutLast = scoresWithoutLast.reduce((sum, s) => sum + s.totalPoints, 0) + (team.startingPoints || 0);
+          
+          return {
+            teamId: team.id,
+            totalPoints: totalWithoutLast
+          };
+        })
+        .sort((a, b) => a.totalPoints - b.totalPoints);
+
+      // Assegna le posizioni precedenti
+      penultimateStandings.forEach((team, index) => {
+        previousPositions.set(team.teamId, index + 1);
+      });
+    }
+
+    // Calcola la classifica attuale con tutti i campi necessari
     const standings = league.teams
       .map(team => {
         const totalRacePoints = team.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0);
-        const totalPoints = (team.startingPoints || 0) + totalRacePoints; 
+        const totalPoints = (team.startingPoints || 0) + totalRacePoints;
+        
+        // Calcola i punti dell'ultima gara
+        const lastRacePoints = team.scores.length > 0 ? team.scores[0].totalPoints : null;
         
         return {
           teamId: team.id,
@@ -182,9 +219,33 @@ export const getLeagueById = async (req: AuthRequest, res: Response) => {
           userId: team.userId,
           userName: team.user.username,
           totalPoints: totalPoints,
+          lastRacePoints: lastRacePoints,
+          gamesPlayed: team.scores.length
         };
       })
-      .sort((a, b) => a.totalPoints - b.totalPoints);
+      .sort((a, b) => a.totalPoints - b.totalPoints)
+      .map((team, index) => {
+        const currentPosition = index + 1;
+        const previousPosition = previousPositions.get(team.teamId);
+        
+        // Calcola il trend
+        let trend: 'up' | 'down' | 'same' | null = null;
+        if (previousPosition !== undefined) {
+          if (currentPosition < previousPosition) {
+            trend = 'up';
+          } else if (currentPosition > previousPosition) {
+            trend = 'down';
+          } else {
+            trend = 'same';
+          }
+        }
+        
+        return {
+          ...team,
+          position: currentPosition,
+          trend: trend
+        };
+      });
 
     res.json({
       league: {
