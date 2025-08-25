@@ -460,6 +460,7 @@ export const getLeagueRaceLineups = async (req: AuthRequest, res: Response) => {
         totalPoints: teamScore?.totalPoints ?? null,
         lineup: lineupRiders || [],
         riderScores: teamScore?.riderScores ?? [],
+        isFallback: lineup?.isFallback,
       };
     });
 
@@ -536,6 +537,7 @@ export const getLeagueRaceLineupsForWeb = async (req: AuthRequest, res: Response
                 totalPoints: teamScore?.totalPoints ?? null,
                 lineup: lineupRiders,
                 riderScores: teamScore?.riderScores ?? [],
+                isFallback: lineup?.isFallback,
             };
         });
 

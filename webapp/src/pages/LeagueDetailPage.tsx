@@ -13,7 +13,7 @@ import {
 import {
   TrendingUp, TrendingDown, Remove, Groups, Settings, Share, Lock,
   ContentCopy, NotificationsActive, EmojiEvents, WorkspacePremium,
-  BarChart, Refresh, SportsMotorsports, Timer, ExpandMore, ExpandLess
+  BarChart, Refresh, SportsMotorsports, Timer, ExpandMore, ExpandLess, Info
 } from '@mui/icons-material';
 import { format, isPast, differenceInDays, differenceInHours } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -22,7 +22,7 @@ import {
   getMyTeamInLeague,
   updateLeagueSettings,
   getLeagueRaceLineups,
-  getAllRaces // Modificato: uso getAllRaces invece di getUpcomingRaces
+  getAllRaces
 } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -787,12 +787,19 @@ export default function LeagueDetailPage() {
                   <CardContent sx={{ p: isMobile ? 2 : 3 }}>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                       <Box>
-                        <Typography
-                          variant={isMobile ? "subtitle1" : "h6"}
-                          fontWeight="bold"
-                        >
-                          {teamLineup.teamName}
-                        </Typography>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Typography
+                            variant={isMobile ? "subtitle1" : "h6"}
+                            fontWeight="bold"
+                          >
+                            {teamLineup.teamName}
+                          </Typography>
+                          {teamLineup.isFallback && (
+                            <Tooltip title="Formazione applicata d'ufficio dalla gara precedente">
+                              <Info color="warning" fontSize="small" />
+                            </Tooltip>
+                          )}
+                        </Stack>
                         <Typography
                           variant={isMobile ? "caption" : "body2"}
                           color="text.secondary"

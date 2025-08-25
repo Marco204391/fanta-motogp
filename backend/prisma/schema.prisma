@@ -166,6 +166,7 @@ model RaceLineup {
   team      Team      @relation(fields: [teamId], references: [id])
   raceId    String
   race      Race      @relation(fields: [raceId], references: [id])
+  isFallback Boolean  @default(false)
 
   lineupRiders LineupRider[]
   createdAt DateTime   @default(now())

@@ -503,7 +503,22 @@ export class MotoGPApiService {
             });
 
             if (lastValidLineup) {
-                lineupToUse = lastValidLineup;
+                // MODIFICA: Crea una nuova lineup di fallback per la gara corrente
+                const createdLineup = await prisma.raceLineup.create({
+                    data: {
+                        teamId: team.id,
+                        raceId: raceId,
+                        isFallback: true,
+                        lineupRiders: {
+                            create: lastValidLineup.lineupRiders.map(lr => ({
+                                riderId: lr.riderId,
+                                predictedPosition: lr.predictedPosition
+                            }))
+                        }
+                    },
+                    include: { lineupRiders: { include: { rider: true } } }
+                });
+                lineupToUse = createdLineup;
                 calculationNotes = `Calcolato usando lo schieramento della gara precedente (fallback).`;
             } else {
                 const penaltyRiders = ['MOTOGP', 'MOTO2', 'MOTO3'].flatMap(category => 
