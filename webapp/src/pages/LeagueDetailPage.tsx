@@ -549,16 +549,6 @@ export default function LeagueDetailPage() {
             >
               {hasLineupForNextRace ? 'Aggiorna schieramento' : 'Schiera'}
             </Button>
-
-            <Button
-              variant="contained"
-              onClick={handleManageLineup}
-              disabled={!userHasTeam}
-              fullWidth={isMobile}
-              size={isMobile ? "small" : "medium"}
-            >
-              {hasLineupForNextRace ? 'Modifica' : 'Schiera'}
-            </Button>
           </Stack>
         </Paper>
       )}
