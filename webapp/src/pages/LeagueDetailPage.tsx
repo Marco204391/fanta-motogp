@@ -22,7 +22,8 @@ import {
   getMyTeamInLeague,
   updateLeagueSettings,
   getLeagueRaceLineups,
-  getAllRaces
+  getAllRaces,
+  getLineup
 } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -223,11 +224,21 @@ export default function LeagueDetailPage() {
     queryFn: () => getAllRaces(new Date().getFullYear()),
   });
 
-  // Query lineup per gara selezionata
+  // Query lineup per gara selezionata (per visualizzazione)
   const { data: lineupsData, isLoading: loadingLineups } = useQuery({
     queryKey: ['leagueRaceLineups', leagueId, selectedRaceId],
     queryFn: () => getLeagueRaceLineups(leagueId!, selectedRaceId!),
     enabled: !!leagueId && !!selectedRaceId
+  });
+
+  const allRaces = racesData?.races || [];
+  const nextRace = allRaces.find((r: any) => !isPast(new Date(r.gpDate)));
+  const myTeam = myTeamData?.team;
+
+  const { data: nextRaceLineupData } = useQuery({
+    queryKey: ['lineup', myTeam?.id, nextRace?.id],
+    queryFn: () => getLineup(myTeam!.id, nextRace!.id),
+    enabled: !!myTeam && !!nextRace,
   });
 
   // Mutation per aggiornare settings
@@ -281,22 +292,17 @@ export default function LeagueDetailPage() {
 
   const league = leagueData?.league;
   const standings = league?.standings || [];
-  const myTeam = myTeamData?.team;
   const isAdmin = league?.isAdmin;
   const userHasTeam = !!myTeam;
-  const allRaces = racesData?.races || [];
-  const nextRace = allRaces.find((r: any) => !isPast(new Date(r.gpDate)));
+  
   const deadline = nextRace ? new Date(nextRace.sprintDate || nextRace.gpDate) : null;
   const daysUntilDeadline = deadline ? differenceInDays(deadline, new Date()) : null;
   const hoursUntilDeadline = deadline ? differenceInHours(deadline, new Date()) : null;
 
+  // **LOGICA CORRETTA** per il banner, basata sulla query specifica per la prossima gara
   const hasLineupForNextRace = useMemo(() => {
-    if (!lineupsData?.lineups || !myTeam) {
-      return false;
-    }
-    const currentUserLineup = lineupsData.lineups.find((l: any) => l.teamId === myTeam.id);
-    return !!currentUserLineup && currentUserLineup.lineup && currentUserLineup.lineup.length > 0;
-  }, [lineupsData, myTeam]);
+    return !!nextRaceLineupData?.lineup?.lineupRiders?.length;
+  }, [nextRaceLineupData]);
 
   // Calcola posizione utente
   const myPosition = standings.findIndex((s: any) => s.userId === user?.id) + 1;
@@ -543,7 +549,7 @@ export default function LeagueDetailPage() {
             <Button
               variant="contained"
               onClick={handleManageLineup}
-              disabled={!userHasTeam || (deadline != null && isPast(deadline))}
+              disabled={!userHasTeam || isPast(deadline)}
               fullWidth={isMobile}
               size={isMobile ? "small" : "medium"}
             >
@@ -573,7 +579,7 @@ export default function LeagueDetailPage() {
       )}
 
       {/* Alert per lineup mancante */}
-      {userHasTeam && nextRace && selectedRaceId === nextRace.id && !hasLineupForNextRace && !loadingLineups && (
+      {userHasTeam && nextRace && !hasLineupForNextRace && !loadingLineups && (
         <Alert
           severity="info"
           action={
