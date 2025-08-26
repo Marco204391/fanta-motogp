@@ -543,6 +543,16 @@ export default function LeagueDetailPage() {
             <Button
               variant="contained"
               onClick={handleManageLineup}
+              disabled={!userHasTeam || (deadline != null && isPast(deadline))}
+              fullWidth={isMobile}
+              size={isMobile ? "small" : "medium"}
+            >
+              {hasLineupForNextRace ? 'Aggiorna schieramento' : 'Schiera'}
+            </Button>
+
+            <Button
+              variant="contained"
+              onClick={handleManageLineup}
               disabled={!userHasTeam}
               fullWidth={isMobile}
               size={isMobile ? "small" : "medium"}
