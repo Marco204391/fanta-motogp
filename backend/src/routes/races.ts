@@ -5,6 +5,7 @@ import * as racesController from '../controllers/racesController';
 const router = Router();
 
 // Route pubbliche - non richiedono autenticazione
+router.get('/latest', racesController.getLatestRace);
 router.get('/upcoming', racesController.getUpcomingRaces);
 router.get('/past', racesController.getPastRaces);
 router.get('/calendar/:year', racesController.getRaceCalendar);

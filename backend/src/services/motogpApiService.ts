@@ -1,6 +1,6 @@
 // backend/src/services/motogpApiService.ts
 import axios from 'axios';
-import { Category, PrismaClient, RiderType, Rider, SessionType } from '@prisma/client';
+import { Category, PrismaClient, RiderType, Rider, SessionType, Race } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -326,6 +326,157 @@ export class MotoGPApiService {
     }
   }
 
+  async syncSession(raceId: string, category: Category, sessionType: SessionType): Promise<boolean> {
+    if (sessionType === SessionType.QUALIFYING) {
+      return this.syncQualifyingResults(raceId, category);
+    }
+    if (sessionType === SessionType.RACE || sessionType === SessionType.SPRINT) {
+      return this.syncRaceOrSprint(raceId, category, sessionType);
+    }
+    if (sessionType.startsWith('FP') || sessionType === 'PR') {
+      return this.syncPractice(raceId, category, sessionType);
+    }
+    
+    console.warn(`[SKIP] Tipo di sessione non gestito: ${sessionType}`);
+    return false;
+  }
+
+  private async syncRaceOrSprint(raceId: string, category: Category, sessionType: 'RACE' | 'SPRINT'): Promise<boolean> {
+    const race = await this.findRace(raceId);
+    if (!race) return false;
+
+    const categoryId = this.getApiCategoryId(category);
+    if (!categoryId) return false;
+
+    try {
+        const apiSessionType = sessionType.slice(0, 3); // "RAC" o "SPR"
+        const session = await this.findApiSession(race.apiEventId!, categoryId, s => s.type === apiSessionType);
+
+        return await this.processAndSaveSessionResults(race, category, sessionType, session);
+    } catch (error) {
+        console.error(`[FAIL] Errore sync di ${race.name} - ${category} - ${sessionType}:`, error);
+        return false;
+    }
+  }
+
+  private async syncPractice(raceId: string, category: Category, sessionType: 'FP1' | 'FP2' | 'PR'): Promise<boolean> {
+    const race = await this.findRace(raceId);
+    if (!race) return false;
+
+    const categoryId = this.getApiCategoryId(category);
+    if (!categoryId) return false;
+
+    try {
+        const sessionNumber = parseInt(sessionType.replace(/[^0-9]/g, ''), 10) || null;
+        const type = sessionType.replace(/[0-9]/g, '');
+        
+        const session = await this.findApiSession (
+            race.apiEventId!, 
+            categoryId, 
+            s => s.type === sessionType || (s.type === type && s.number === sessionNumber)
+        );
+
+        return await this.processAndSaveSessionResults(race, category, sessionType, session);
+    } catch (error) {
+        console.error(`[FAIL] Errore sync di ${race.name} - ${category} - ${sessionType}:`, error);
+        return false;
+    }
+  }
+  
+  private async syncQualifyingResults(raceId: string, category: Category): Promise<boolean> {
+    const race = await this.findRace(raceId);
+    const categoryId = this.getApiCategoryId(category);
+    if (!race || !categoryId) return false;
+    
+    try {
+        const allSessions = await this.getAllApiSessions(race.apiEventId!, categoryId);
+        const q1Session = allSessions.find((s: any) => s.type === 'Q1' || (s.type === 'Q' && s.number === 1));
+        const q2Session = allSessions.find((s: any) => s.type === 'Q2' || (s.type === 'Q' && s.number === 2));
+
+        if (q1Session?.status !== 'FINISHED' || q2Session?.status !== 'FINISHED') {
+            console.log(`[WAIT] Qualifiche per ${race.name} - ${category} non ancora concluse.`);
+            return false;
+        }
+        
+        const q2Results = await this.fetchSessionResults(q2Session.id);
+        const q1Results = await this.fetchSessionResults(q1Session.id);
+        
+        if (!q2Results || !q1Results) {
+            console.log(`[FAIL] Dati di qualifica mancanti per ${race.name} - ${category}.`);
+            return false;
+        }
+
+        const finalClassification = this.mergeQualifyingResults(q2Results, q1Results);
+        
+        await this.saveRaceResults(raceId, category, finalClassification, SessionType.QUALIFYING);
+        console.log(`[OK] Risultati qualifiche (Q1+Q2) salvati per ${race.name} - ${category}`);
+        return true;
+    } catch (error) {
+        console.error(`[FAIL] Errore sync qualifiche per ${race.name} - ${category}:`, error);
+        return false;
+    }
+  }
+
+  private async fetchSessionResults(sessionId: string): Promise<any[] | null> {
+      try {
+        const response = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${sessionId}&test=false`);
+        return response.data?.classification || null;
+      } catch (error) {
+        console.error(`Errore nel fetch dei risultati per la sessione ${sessionId}`, error);
+        return null;
+      }
+  }
+
+  private async processAndSaveSessionResults(race: Race, category: Category, sessionType: SessionType, session: any): Promise<boolean> {
+    if (session && session.status === 'FINISHED') {
+        const results = await this.fetchSessionResults(session.id);
+        if (results) {
+            await this.saveRaceResults(race.id, category, results, sessionType);
+            console.log(`[OK] Risultati salvati per ${race.name} - ${category} - ${sessionType}`);
+            return true;
+        }
+    } else {
+        console.log(`[INFO] Sessione ${sessionType} per ${race.name} - ${category} non ancora conclusa o non trovata.`);
+    }
+    return false;
+  }
+
+  private mergeQualifyingResults(q2Results: any[], q1Results: any[]): any[] {
+    const q2RiderIds = new Set(q2Results.map((r: any) => r.rider.riders_api_uuid));
+    const q1RidersToAppend = q1Results.filter((r: any) => !q2RiderIds.has(r.rider.riders_api_uuid));
+    const lastQ2Position = q2Results.length;
+    
+    const finalQ1Riders = q1RidersToAppend.map((rider: any, index: number) => ({
+        ...rider,
+        position: lastQ2Position + index + 1,
+    }));
+
+    return [...q2Results, ...finalQ1Riders];
+  }
+
+  private async findRace(raceId: string): Promise<Race | null> {
+    const race = await prisma.race.findUnique({ where: { id: raceId } });
+    if (!race || !race.apiEventId) {
+        console.error(`[HELPER] Gara non trovata o senza apiEventId: ${raceId}`);
+        return null;
+    }
+    return race;
+  }
+
+  private getApiCategoryId(category: Category): string | undefined {
+    return Object.keys(CATEGORY_MAPPING).find(key => CATEGORY_MAPPING[key] === category);
+  }
+  
+  private async getAllApiSessions(eventUuid: string, categoryUuid: string): Promise<any[]> {
+    const response = await this.axiosInstance.get(`/results/sessions?eventUuid=${eventUuid}&categoryUuid=${categoryUuid}`);
+    return response.data;
+  }
+  
+  private async findApiSession(eventUuid: string, categoryUuid: string, filter: (s: any) => boolean): Promise<any | null> {
+    const sessions = await this.getAllApiSessions(eventUuid, categoryUuid);
+    return sessions.find(filter) || null;
+  }
+
   private async saveRaceResults(raceId: string, category: Category, classification: any[], session: SessionType) {
     const finishedRiders = classification.filter(r => r.position !== null);
     const dnfRiders = classification.filter(r => r.position === null).sort((a, b) => (b.total_laps || 0) - (a.total_laps || 0));
@@ -503,7 +654,7 @@ export class MotoGPApiService {
             });
 
             if (lastValidLineup) {
-                // MODIFICA: Crea una nuova lineup di fallback per la gara corrente
+                // Crea una nuova lineup di fallback per la gara corrente
                 const createdLineup = await prisma.raceLineup.create({
                     data: {
                         teamId: team.id,

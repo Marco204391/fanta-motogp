@@ -1,10 +1,53 @@
 // backend/src/controllers/syncController.ts
-import { Response } from 'express';
+import { Request, Response } from 'express'; 
 import { AuthRequest } from '../middleware/auth';
 import { motogpApi } from '../services/motogpApiService';
-import { PrismaClient, SessionType } from '@prisma/client';
+import { PrismaClient, SessionType, Category } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+export const syncScopedSession = async (req: Request, res: Response) => {
+  const { raceId } = req.params;
+  const { category, session } = req.query as { category: Category, session: SessionType };
+
+  if (!raceId || !category || !session) {
+    return res.status(400).json({ error: "I parametri 'raceId', 'category', e 'session' sono obbligatori." });
+  }
+
+  try {
+    console.log(`[CRON-SCOPED] Avvio sync per Gara: ${raceId}, Categoria: ${category}, Sessione: ${session}`);
+    const success = await motogpApi.syncSession(raceId, category, session);
+    
+    if (success) {
+      console.log(`[CRON-SCOPED] SUCCESSO: ${category} - ${session}`);
+      return res.status(200).json({ success: true, message: `Sincronizzazione completata per ${category} - ${session}.` });
+    } else {
+      console.log(`[CRON-SCOPED] INFO: Nessun dato da aggiornare per ${category} - ${session}.`);
+      return res.status(200).json({ success: false, message: `Nessun dato da aggiornare per ${category} - ${session}.` });
+    }
+  } catch (error) {
+    console.error(`[CRON-SCOPED] ERRORE durante la sincronizzazione di ${category} - ${session}:`, error);
+    return res.status(500).json({ error: `Errore durante la sincronizzazione di ${category} - ${session}.` });
+  }
+};
+
+export const triggerScoreCalculation = async (req: Request, res: Response) => {
+  const { raceId } = req.params;
+  if (!raceId) {
+    return res.status(400).json({ error: "Il parametro 'raceId' è obbligatorio." });
+  }
+
+  try {
+    console.log(`[CRON-SCORES] Avvio calcolo punteggi per Gara ID: ${raceId}`);
+    await motogpApi.calculateTeamScores(raceId, SessionType.RACE);
+    
+    console.log(`[CRON-SCORES] Calcolo punteggi completato per Gara ID: ${raceId}`);
+    return res.status(200).json({ success: true, message: `Calcolo punteggi completato per la gara ${raceId}.` });
+  } catch (error) {
+    console.error(`[CRON-SCORES] ERRORE durante il calcolo dei punteggi per ${raceId}:`, error);
+    return res.status(500).json({ error: `Errore durante il calcolo dei punteggi per ${raceId}.` });
+  }
+};
 
 // POST /api/sync/riders - Sincronizza piloti
 export const syncRiders = async (req: AuthRequest, res: Response) => {

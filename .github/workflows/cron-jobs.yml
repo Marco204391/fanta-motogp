@@ -1,75 +1,83 @@
 name: FantaMotoGP Cron Jobs
 
 on:
-  # schedule:
-    # Esegue ogni ora durante i weekend di gara (Venerdì-Lunedì: 0,1,5,6)
-    # - cron: '0 * * * 0,1,5,6'
-    # Sincronizza i piloti ogni Lunedì alle 3:00 AM UTC
-    # - cron: '0 3 * * 1'
-    # Sincronizza il calendario ogni Martedì alle 3:00 AM UTC
-    # - cron: '0 3 * * 2'
-  
-  # Permette l'attivazione manuale dalla tab "Actions" di GitHub
+  schedule:
+    - cron: '0 4 * * 2'        
+    - cron: '*/20 * * * 5,6,0' 
+    - cron: '0 9 * * 1'
   workflow_dispatch:
 
 jobs:
-  # Job per sincronizzare i risultati delle gare durante il weekend
-  sync_race_results:
-    name: Sync Race Results (Hourly on Race Weekend)
+  sync_base_data:
+    name: 1. Sync Base Data (Weekly)
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 * * * 0,1,5,6'
+    if: github.event.schedule == '0 4 * * 2' || github.event_name == 'workflow_dispatch'
     steps:
-      - name: Check and Sync Race Results
+      - name: Trigger Riders & Calendar Sync (Async)
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          API_URL: "https://fanta-motogp.vercel.app/api/sync/cron/sync-results"
         run: |
+          curl --fail -X POST "https://fanta-motogp.vercel.app/api/sync/cron/sync-riders" -H "Authorization: Bearer $CRON_SECRET"
+          curl --fail -X POST "https://fanta-motogp.vercel.app/api/sync/cron/sync-calendar" -H "Authorization: Bearer $CRON_SECRET"
+
+  get_current_race:
+    name: 2a. Get Current Race ID
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '*/20 * * * 5,6,0' || github.event_name == 'workflow_dispatch'
+    outputs:
+      race_id: ${{ steps.fetch_race.outputs.RACE_ID }}
+    steps:
+      - name: Fetch current race from API
+        id: fetch_race
+        run: |
+          response=$(curl --fail -s "https://fanta-motogp.vercel.app/api/races/latest")
+          RACE_ID=$(echo "$response" | jq -r '.id')
+          if [ -z "$RACE_ID" ] || [ "$RACE_ID" == "null" ]; then exit 1; fi
+          echo "RACE_ID=$RACE_ID" >> $GITHUB_OUTPUT
+
+  sync_sessions:
+    name: 2b. Sync ${{ matrix.category }} - ${{ matrix.session }}
+    runs-on: ubuntu-latest
+    needs: get_current_race
+    if: needs.get_current_race.outputs.race_id != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        category: [MOTOGP, MOTO2, MOTO3]
+        session: [FP1, PR, FP2, QUALIFYING, SPRINT, RACE]
+        exclude:
+          - { category: MOTO2, session: SPRINT }
+          - { category: MOTO3, session: SPRINT }
+          
+    steps:
+      - name: Trigger scoped session sync
+        continue-on-error: true
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          RACE_ID: ${{ needs.get_current_race.outputs.race_id }}
+        run: |
+          API_URL="https://fanta-motogp.vercel.app/api/sync/cron/scoped/$RACE_ID?category=${{ matrix.category }}&session=${{ matrix.session }}"
           curl --fail -X GET "$API_URL" -H "Authorization: Bearer $CRON_SECRET"
 
-  # Job per sincronizzare la lista piloti una volta a settimana
-  sync_riders:
-    name: Sync Riders (Weekly)
+  # JOB 3: CALCOLA I PUNTEGGI FINALI
+  calculate_scores:
+    name: 3. Calculate Final Scores (Monday)
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 3 * * 1'
+    if: github.event.schedule == '0 9 * * 1' || github.event_name == 'workflow_dispatch'
     steps:
-      - name: Sync Riders
-        env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          API_URL: "https://fanta-motogp.vercel.app/api/sync/cron/sync-riders"
+      - name: Fetch Last Completed Race ID
+        id: fetch_last_race
         run: |
-          curl --fail -X GET "$API_URL" -H "Authorization: Bearer $CRON_SECRET"
+          response=$(curl --fail -s "https://fanta-motogp.vercel.app/api/races/latest")
+          RACE_ID=$(echo "$response" | jq -r '.id')
+          if [ -z "$RACE_ID" ] || [ "$RACE_ID" == "null" ]; then exit 1; fi
+          echo "RACE_ID=$RACE_ID" >> $GITHUB_OUTPUT
 
-  # Job per sincronizzare il calendario una volta a settimana
-  sync_calendar:
-    name: Sync Calendar (Weekly)
-    runs-on: ubuntu-latest
-    if: github.event.schedule == '0 3 * * 2'
-    steps:
-      - name: Sync Calendar
+      - name: Trigger score calculation
+        if: steps.fetch_last_race.outputs.RACE_ID != ''
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          API_URL: "https://fanta-motogp.vercel.app/api/sync/cron/sync-calendar"
+          RACE_ID: ${{ steps.fetch_last_race.outputs.RACE_ID }}
         run: |
-          curl --fail -X GET "$API_URL" -H "Authorization: Bearer $CRON_SECRET"
-
-  # Job per l'esecuzione manuale di tutte le sincronizzazioni
-  manual_sync_all:
-    name: Manual Sync All
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    steps:
-      - name: Sync Riders
-        env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          curl --fail -X GET "https://fanta-motogp.vercel.app/api/sync/cron/sync-riders" -H "Authorization: Bearer $CRON_SECRET"
-      - name: Sync Calendar
-        env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          curl --fail -X GET "https://fanta-motogp.vercel.app/api/sync/cron/sync-calendar" -H "Authorization: Bearer $CRON_SECRET"
-      - name: Check and Sync Race Results
-        env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          curl --fail -X GET "https://fanta-motogp.vercel.app/api/sync/cron/sync-results" -H "Authorization: Bearer $CRON_SECRET"
+          API_URL="https://fanta-motogp.vercel.app/api/sync/cron/calculate-scores/$RACE_ID"
+          curl --fail -X POST "$API_URL" -H "Authorization: Bearer $CRON_SECRET" -H "Content-Length: 0"

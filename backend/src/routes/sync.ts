@@ -8,6 +8,8 @@ import { motogpApi } from '../services/motogpApiService';
 const prisma = new PrismaClient();
 const router = Router();
 
+router.get('/cron/scoped/:raceId', authenticateCron, syncController.syncScopedSession);
+router.post('/cron/calculate-scores/:raceId', authenticateCron, syncController.triggerScoreCalculation);
 router.get('/cron/sync-riders', authenticateCron, syncController.syncRiders);
 router.get('/cron/sync-calendar', authenticateCron, syncController.syncCalendar);
 router.get('/cron/sync-results', authenticateCron, async (req, res) => {

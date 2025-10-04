@@ -250,3 +250,51 @@ export const getQualifyingResults = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Errore nel recupero dei risultati delle qualifiche' });
   }
 };
+
+export const getLatestRace = async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+
+    const lastRace = await prisma.race.findFirst({
+      where: { gpDate: { lte: now } },
+      orderBy: { gpDate: 'desc' },
+    });
+
+    const nextRace = await prisma.race.findFirst({
+      where: { gpDate: { gte: now } },
+      orderBy: { gpDate: 'asc' },
+    });
+
+    let raceToSync = null;
+
+    if (lastRace && nextRace) {
+      const diffLast = now.getTime() - lastRace.gpDate.getTime();
+      const diffNext = nextRace.gpDate.getTime() - now.getTime();
+      raceToSync = diffLast < diffNext ? lastRace : nextRace;
+    } else {
+      raceToSync = lastRace || nextRace;
+    }
+    
+    if (!raceToSync) {
+      return res.status(404).json({ message: "Nessuna gara rilevante trovata." });
+    }
+
+    return res.json(raceToSync);
+  } catch (error) {
+    console.error("[CRON-HELPER] Errore nel recuperare la gara corrente/rilevante:", error);
+    return res.status(500).json({ error: "Errore interno del server." });
+  }
+};
+
+
+export const getLastCompletedRace = async (req: Request, res: Response) => {
+  const lastRace = await prisma.race.findFirst({
+    where: { gpDate: { lt: new Date() } },
+    orderBy: { gpDate: 'desc' },
+  });
+  
+  if (!lastRace) {
+    return res.status(404).json({ message: "Nessuna gara completata trovata." });
+  }
+  return res.json(lastRace);
+};
