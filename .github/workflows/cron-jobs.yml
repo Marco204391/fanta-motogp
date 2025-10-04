@@ -17,8 +17,8 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl --fail -X POST "https://fanta-motogp.vercel.app/api/sync/cron/sync-riders" -H "Authorization: Bearer $CRON_SECRET"
-          curl --fail -X POST "https://fanta-motogp.vercel.app/api/sync/cron/sync-calendar" -H "Authorization: Bearer $CRON_SECRET"
+          curl --fail -X GET "https://fanta-motogp.vercel.app/api/sync/cron/sync-riders" -H "Authorization: Bearer $CRON_SECRET"
+          curl --fail -X GET "https://fanta-motogp.vercel.app/api/sync/cron/sync-calendar" -H "Authorization: Bearer $CRON_SECRET"
 
   get_current_race:
     name: 2a. Get Current Race ID
