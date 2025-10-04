@@ -2,9 +2,11 @@ name: FantaMotoGP Cron Jobs
 
 on:
   schedule:
-    - cron: '0 4 * * 2'        
-    - cron: '*/20 * * * 5,6,0' 
-    - cron: '0 9 * * 1'
+    - cron: '0 4 * * 2'        # Martedì 04:00 - Sync piloti e calendario
+    - cron: '0 23 * * 5'       # Venerdì 23:00 - Una volta a fine giornata
+    - cron: '*/40 * * * 6'     # Sabato ogni 40 minuti
+    - cron: '*/40 * * * 0'     # Domenica ogni 40 minuti
+    - cron: '0 9 * * 1'        # Lunedì 09:00 - Calcolo punteggi finale
   workflow_dispatch:
 
 jobs:
@@ -23,7 +25,7 @@ jobs:
   get_current_race:
     name: 2a. Get Current Race ID
     runs-on: ubuntu-latest
-    if: github.event.schedule == '*/20 * * * 5,6,0' || github.event_name == 'workflow_dispatch'
+    if: github.event.schedule == '0 23 * * 5' || github.event.schedule == '*/40 * * * 6' || github.event.schedule == '*/40 * * * 0' || github.event_name == 'workflow_dispatch'
     outputs:
       race_id: ${{ steps.fetch_race.outputs.RACE_ID }}
     steps:
