@@ -326,7 +326,31 @@ export class MotoGPApiService {
     }
   }
 
+  private async sessionHasResults (
+    raceId: string, 
+    category: Category, 
+    sessionType: SessionType
+  ): Promise<boolean> {
+    const count = await prisma.raceResult.count({
+      where: {
+        raceId,
+        session: sessionType,
+        rider: { category }
+      }
+    });
+    return count > 0;
+  }
+
   async syncSession(raceId: string, category: Category, sessionType: SessionType): Promise<boolean> {
+    const alreadyExists = await this.sessionHasResults(raceId, category, sessionType);
+    
+    if (alreadyExists) {
+      console.log(`✅ [SKIP] ${category} - ${sessionType} già sincronizzata.`);
+      return true; 
+    }
+
+    console.log(`🔄 [SYNC] Sincronizzazione ${category} - ${sessionType}...`);
+
     if (sessionType === SessionType.QUALIFYING) {
       return this.syncQualifyingResults(raceId, category);
     }
