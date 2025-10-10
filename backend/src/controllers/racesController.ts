@@ -1,5 +1,6 @@
 // backend/src/controllers/racesController.ts
 import { Request, Response } from 'express';
+import { raceWeekendDetector } from '../services/raceWeekendDetector';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -286,7 +287,6 @@ export const getLatestRace = async (req: Request, res: Response) => {
   }
 };
 
-
 export const getLastCompletedRace = async (req: Request, res: Response) => {
   const lastRace = await prisma.race.findFirst({
     where: { gpDate: { lt: new Date() } },
@@ -297,4 +297,26 @@ export const getLastCompletedRace = async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Nessuna gara completata trovata." });
   }
   return res.json(lastRace);
+};
+
+// GET /api/races/is-race-weekend
+export const checkIsRaceWeekend = async (req: Request, res: Response) => {
+  try {
+    const result = await raceWeekendDetector.isRaceWeekend();
+    
+    res.json({
+      isRaceWeekend: result.isRaceWeekend,
+      raceId: result.raceId || null,
+      raceName: result.race?.name || null,
+      raceDate: result.race?.gpDate || null,
+      circuit: result.race?.circuit || null,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Errore nel controllo race weekend:', error);
+    res.status(500).json({ 
+      error: 'Errore nel controllo del weekend di gara',
+      isRaceWeekend: false 
+    });
+  }
 };

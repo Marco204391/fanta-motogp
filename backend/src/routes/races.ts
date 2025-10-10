@@ -8,6 +8,7 @@ const router = Router();
 router.get('/latest', racesController.getLatestRace);
 router.get('/upcoming', racesController.getUpcomingRaces);
 router.get('/past', racesController.getPastRaces);
+router.get('/is-race-weekend', racesController.checkIsRaceWeekend);
 router.get('/calendar/:year', racesController.getRaceCalendar);
 router.get('/:raceId', racesController.getRaceById);
 router.get('/:raceId/results', racesController.getRaceResults);

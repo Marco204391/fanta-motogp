@@ -10,38 +10,57 @@ on:
   workflow_dispatch:
 
 jobs:
+  # JOB 1: SYNC SETTIMANALE (sempre attivo, non dipende da race weekend)
   sync_base_data:
     name: 1. Sync Base Data (Weekly)
     runs-on: ubuntu-latest
     if: github.event.schedule == '0 4 * * 2' || github.event_name == 'workflow_dispatch'
     steps:
-      - name: Trigger Riders & Calendar Sync (Async)
+      - name: Trigger Riders & Calendar Sync
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl --fail -X GET "https://fanta-motogp.vercel.app/api/sync/cron/sync-riders" -H "Authorization: Bearer $CRON_SECRET"
           curl --fail -X GET "https://fanta-motogp.vercel.app/api/sync/cron/sync-calendar" -H "Authorization: Bearer $CRON_SECRET"
 
-  get_current_race:
-    name: 2a. Get Current Race ID
+  # JOB 2: CHECK RACE WEEKEND (determina se procedere con i sync)
+  check_race_weekend:
+    name: 2a. Check if Race Weekend
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 23 * * 5' || github.event.schedule == '*/40 * * * 6' || github.event.schedule == '*/40 * * * 0' || github.event_name == 'workflow_dispatch'
+    if: |
+      github.event.schedule == '0 23 * * 5' || 
+      github.event.schedule == '*/40 * * * 6' || 
+      github.event.schedule == '*/40 * * * 0' || 
+      github.event.schedule == '0 9 * * 1' ||
+      github.event_name == 'workflow_dispatch'
     outputs:
-      race_id: ${{ steps.fetch_race.outputs.RACE_ID }}
+      is_race_weekend: ${{ steps.check.outputs.IS_RACE_WEEKEND }}
+      race_id: ${{ steps.check.outputs.RACE_ID }}
     steps:
-      - name: Fetch current race from API
-        id: fetch_race
+      - name: Check for race this weekend
+        id: check
         run: |
-          response=$(curl --fail -s "https://fanta-motogp.vercel.app/api/races/latest")
-          RACE_ID=$(echo "$response" | jq -r '.id')
-          if [ -z "$RACE_ID" ] || [ "$RACE_ID" == "null" ]; then exit 1; fi
+          response=$(curl --fail -s "https://fanta-motogp.vercel.app/api/races/is-race-weekend")
+          IS_RACE_WEEKEND=$(echo "$response" | jq -r '.isRaceWeekend')
+          RACE_ID=$(echo "$response" | jq -r '.raceId // ""')
+          
+          echo "IS_RACE_WEEKEND=$IS_RACE_WEEKEND" >> $GITHUB_OUTPUT
           echo "RACE_ID=$RACE_ID" >> $GITHUB_OUTPUT
+          
+          if [ "$IS_RACE_WEEKEND" == "true" ]; then
+            echo "✅ Weekend di gara rilevato - Race ID: $RACE_ID"
+          else
+            echo "🏖️  Nessuna gara questo weekend - Sync sessions skipped"
+          fi
 
+  # JOB 3: SYNC SESSIONS (solo se c'è una gara questo weekend)
   sync_sessions:
     name: 2b. Sync ${{ matrix.category }} - ${{ matrix.session }}
     runs-on: ubuntu-latest
-    needs: get_current_race
-    if: needs.get_current_race.outputs.race_id != ''
+    needs: check_race_weekend
+    if: |
+      needs.check_race_weekend.outputs.is_race_weekend == 'true' && 
+      needs.check_race_weekend.outputs.race_id != ''
     strategy:
       fail-fast: false
       matrix:
@@ -56,30 +75,25 @@ jobs:
         continue-on-error: true
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          RACE_ID: ${{ needs.get_current_race.outputs.race_id }}
+          RACE_ID: ${{ needs.check_race_weekend.outputs.race_id }}
         run: |
           API_URL="https://fanta-motogp.vercel.app/api/sync/cron/scoped/$RACE_ID?category=${{ matrix.category }}&session=${{ matrix.session }}"
           curl --fail -X GET "$API_URL" -H "Authorization: Bearer $CRON_SECRET"
 
-  # JOB 3: CALCOLA I PUNTEGGI FINALI
+  # JOB 4: CALCOLA I PUNTEGGI FINALI (solo se c'è stata una gara)
   calculate_scores:
     name: 3. Calculate Final Scores (Monday)
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 9 * * 1' || github.event_name == 'workflow_dispatch'
+    needs: check_race_weekend
+    if: |
+      github.event.schedule == '0 9 * * 1' && 
+      needs.check_race_weekend.outputs.is_race_weekend == 'true' &&
+      needs.check_race_weekend.outputs.race_id != ''
     steps:
-      - name: Fetch Last Completed Race ID
-        id: fetch_last_race
-        run: |
-          response=$(curl --fail -s "https://fanta-motogp.vercel.app/api/races/latest")
-          RACE_ID=$(echo "$response" | jq -r '.id')
-          if [ -z "$RACE_ID" ] || [ "$RACE_ID" == "null" ]; then exit 1; fi
-          echo "RACE_ID=$RACE_ID" >> $GITHUB_OUTPUT
-
       - name: Trigger score calculation
-        if: steps.fetch_last_race.outputs.RACE_ID != ''
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          RACE_ID: ${{ steps.fetch_last_race.outputs.RACE_ID }}
+          RACE_ID: ${{ needs.check_race_weekend.outputs.race_id }}
         run: |
           API_URL="https://fanta-motogp.vercel.app/api/sync/cron/calculate-scores/$RACE_ID"
           curl --fail -X POST "$API_URL" -H "Authorization: Bearer $CRON_SECRET" -H "Content-Length: 0"
