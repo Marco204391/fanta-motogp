@@ -3,7 +3,8 @@ name: FantaMotoGP Cron Jobs
 on:
   schedule:
     - cron: '0 4 * * 2'        # Martedì 04:00 - Sync piloti e calendario
-    - cron: '0 23 * * 5'       # Venerdì 23:00 - Una volta a fine giornata
+    - cron: '0 15 * * 5'       # Venerdì 15:00 
+    - cron: '0 17 * * 5'       # Venerdì 17:00 
     - cron: '*/40 * * * 6'     # Sabato ogni 40 minuti
     - cron: '*/40 * * * 0'     # Domenica ogni 40 minuti
     - cron: '0 9 * * 1'        # Lunedì 09:00 - Calcolo punteggi finale
@@ -28,7 +29,8 @@ jobs:
     name: 2a. Check if Race Weekend
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '0 23 * * 5' || 
+      github.event.schedule == '0 15 * * 5' || 
+      github.event.schedule == '0 17 * * 5' || 
       github.event.schedule == '*/40 * * * 6' || 
       github.event.schedule == '*/40 * * * 0' || 
       github.event.schedule == '0 9 * * 1' ||
