@@ -67,6 +67,12 @@ export interface League {
   userPosition?: number;
   userPoints?: number;
   hasTeam?: boolean;
+  lastRace?: {
+    raceName: string;
+    raceDate: string;
+    points: number;
+    round: number;
+  };
 }
 
 // Race types

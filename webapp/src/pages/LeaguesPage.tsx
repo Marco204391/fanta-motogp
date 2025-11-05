@@ -9,10 +9,12 @@ import {
    DialogActions, TextField, Tabs, Tab, IconButton, Paper, useTheme, 
    useMediaQuery, SpeedDial, SpeedDialAction, SpeedDialIcon
 } from '@mui/material';
-import { 
+import {
   EmojiEvents, Groups, Add, Lock, Public,
-  ContentCopy, Login, Code, Check
+  ContentCopy, Login, Code, Check, SportsScore, TrendingUp
 } from '@mui/icons-material';
+import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
 
 interface League {
   id: string;
@@ -25,6 +27,12 @@ interface League {
   userPosition?: number;
   userPoints?: number;
   hasTeam?: boolean;
+  lastRace?: {
+    raceName: string;
+    raceDate: string;
+    points: number;
+    round: number;
+  };
 }
 
 interface TabPanelProps {
@@ -425,6 +433,94 @@ export default function LeaguesPage() {
       <Box sx={{ p: isMobile ? 1.5 : 3 }}>
         {/* Le Mie Leghe */}
         <TabPanel value={tabValue} index={0}>
+          {/* Banner Riepilogo Ultima Giornata */}
+          {myLeagues.length > 0 && myLeagues.some((l: League) => l.lastRace) && (
+            <Paper
+              sx={{
+                p: isMobile ? 2 : 3,
+                mb: 3,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white'
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                <SportsScore sx={{ fontSize: isMobile ? 24 : 28 }} />
+                <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
+                  Ultime Gare Completate
+                </Typography>
+              </Stack>
+
+              <Grid container spacing={isMobile ? 1.5 : 2}>
+                {myLeagues
+                  .filter((league: League) => league.lastRace)
+                  .map((league: League) => (
+                    <Grid key={league.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                      <Card
+                        sx={{
+                          backgroundColor: 'rgba(255,255,255,0.95)',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255,255,255,1)',
+                            transform: 'translateY(-2px)',
+                            transition: 'all 0.2s'
+                          }
+                        }}
+                      >
+                        <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography
+                                variant="subtitle2"
+                                fontWeight="bold"
+                                color="text.primary"
+                                noWrap
+                              >
+                                {league.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {league.lastRace!.raceName}
+                              </Typography>
+                            </Box>
+                            <Chip
+                              label={`#${league.userPosition}`}
+                              size="small"
+                              color={
+                                league.userPosition === 1 ? 'success' :
+                                league.userPosition && league.userPosition <= 3 ? 'warning' :
+                                'default'
+                              }
+                              sx={{ fontWeight: 'bold' }}
+                            />
+                          </Stack>
+
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                {format(new Date(league.lastRace!.raceDate), 'dd MMM', { locale: it })}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography
+                                variant="h6"
+                                color="success.main"
+                                fontWeight="bold"
+                                sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                              >
+                                <TrendingUp sx={{ fontSize: 20 }} />
+                                +{league.lastRace!.points}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                punti totali: {league.userPoints}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+              </Grid>
+            </Paper>
+          )}
+
           {loadingMyLeagues ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress />

@@ -1,15 +1,17 @@
 // webapp/src/components/LeagueCard.tsx
 import React from 'react';
-import { 
-  Card, CardContent, CardActions, Box, Typography, 
-  Button, Chip, Stack, Avatar, LinearProgress, IconButton, Grid 
+import {
+  Card, CardContent, CardActions, Box, Typography,
+  Button, Chip, Stack, Avatar, LinearProgress, IconButton, Grid, Divider
 } from '@mui/material';
-import { 
-  Groups, Lock, Public, ContentCopy, Login, 
-  EmojiEvents, TrendingUp 
+import {
+  Groups, Lock, Public, ContentCopy, Login,
+  EmojiEvents, TrendingUp, SportsScore, CalendarToday
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../contexts/NotificationContext';
+import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
 
 interface League {
   id: string;
@@ -26,6 +28,12 @@ interface League {
     name: string;
     points: number;
   }>;
+  lastRace?: {
+    raceName: string;
+    raceDate: string;
+    points: number;
+    round: number;
+  };
 }
 
 export function LeagueCard({ 
@@ -146,12 +154,66 @@ export function LeagueCard({
           )}
         </Grid>
 
-        {/* Code Display */}
-        {isMyLeague && (
-          <Box 
-            sx={{ 
-              mt: 2, 
-              p: 1.5, 
+        {/* Last Race Info - Solo per le mie leghe con dati disponibili */}
+        {isMyLeague && league.lastRace && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Box>
+              <Stack direction="row" alignItems="center" spacing={0.5} mb={1}>
+                <SportsScore sx={{ fontSize: 18, color: 'primary.main' }} />
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  ULTIMA GARA
+                </Typography>
+              </Stack>
+
+              <Box
+                sx={{
+                  p: 1.5,
+                  backgroundColor: 'action.hover',
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
+                  <Typography variant="body2" fontWeight={600} noWrap sx={{ flex: 1, mr: 1 }}>
+                    {league.lastRace.raceName}
+                  </Typography>
+                  <Chip
+                    label={`R${league.lastRace.round}`}
+                    size="small"
+                    sx={{ height: 20, fontSize: '0.7rem' }}
+                  />
+                </Stack>
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack direction="row" alignItems="center" spacing={0.5}>
+                    <CalendarToday sx={{ fontSize: 14, color: 'text.secondary' }} />
+                    <Typography variant="caption" color="text.secondary">
+                      {format(new Date(league.lastRace.raceDate), 'dd MMM yyyy', { locale: it })}
+                    </Typography>
+                  </Stack>
+
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="h6" color="success.main" fontWeight="bold">
+                      +{league.lastRace.points}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      punti
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Box>
+            </Box>
+          </>
+        )}
+
+        {/* Code Display - Solo per le mie leghe senza ultima gara */}
+        {isMyLeague && !league.lastRace && (
+          <Box
+            sx={{
+              mt: 2,
+              p: 1.5,
               backgroundColor: 'action.hover',
               borderRadius: 1,
               textAlign: 'center',
@@ -160,9 +222,9 @@ export function LeagueCard({
             <Typography variant="caption" color="text.secondary">
               Codice lega
             </Typography>
-            <Typography 
-              variant="h6" 
-              sx={{ 
+            <Typography
+              variant="h6"
+              sx={{
                 fontFamily: 'monospace',
                 letterSpacing: 2,
                 fontWeight: 600,

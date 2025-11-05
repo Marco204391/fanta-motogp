@@ -28,17 +28,56 @@ export const getMyLeagues = async (req: AuthRequest, res: Response) => {
           select: { teams: true }
         },
         teams: {
-          where: { userId },
           include: {
-            scores: true
+            user: {
+              select: { id: true, username: true }
+            },
+            scores: {
+              include: {
+                race: true
+              },
+              orderBy: {
+                race: {
+                  gpDate: 'desc'
+                }
+              }
+            }
           }
         }
       }
     });
 
-    const formattedLeagues = leagues.map(league => {
-      const userTeam = league.teams[0];
+    const formattedLeagues = await Promise.all(leagues.map(async league => {
+      const userTeam = league.teams.find(t => t.userId === userId);
       const userPoints = userTeam ? userTeam.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0) : 0;
+
+      // Calcola la classifica per determinare la posizione dell'utente
+      const standings = league.teams
+        .map(team => {
+          const totalRacePoints = team.scores.reduce((sum: number, s: TeamScore) => sum + s.totalPoints, 0);
+          const totalPoints = (team.startingPoints || 0) + totalRacePoints;
+
+          return {
+            teamId: team.id,
+            userId: team.userId,
+            totalPoints: totalPoints
+          };
+        })
+        .sort((a, b) => b.totalPoints - a.totalPoints);
+
+      const userPosition = userTeam ? standings.findIndex(s => s.userId === userId) + 1 : null;
+
+      // Ottieni info ultima gara completata
+      let lastRaceInfo = null;
+      if (userTeam && userTeam.scores.length > 0) {
+        const lastScore = userTeam.scores[0]; // Prima posizione perché ordinato DESC
+        lastRaceInfo = {
+          raceName: lastScore.race.name,
+          raceDate: lastScore.race.gpDate,
+          points: lastScore.totalPoints,
+          round: lastScore.race.round
+        };
+      }
 
       return {
         id: league.id,
@@ -49,9 +88,10 @@ export const getMyLeagues = async (req: AuthRequest, res: Response) => {
         budget: league.budget,
         currentTeams: league._count.teams,
         userPoints: userPoints,
-        userPosition: null
+        userPosition: userPosition,
+        lastRace: lastRaceInfo
       };
-    });
+    }));
 
     res.json({ leagues: formattedLeagues });
   } catch (error) {
