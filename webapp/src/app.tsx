@@ -90,7 +90,7 @@ function MainLayout() {
           <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: drawerOpen ? 'space-between' : 'center', px: [1] }}>
             {drawerOpen && (
               <Typography variant="h6" color="primary" fontWeight="bold" sx={{ ml: 2, letterSpacing: 1, fontStyle: 'italic' }}>
-                FANTA MotoGP
+                Fanta MotoGP
               </Typography>
             )}
             <IconButton onClick={toggleDrawer}>
@@ -158,7 +158,7 @@ function MainLayout() {
           <AppBar position="sticky" elevation={0} sx={{ bgcolor: 'background.default', mb: 2, top: 0, zIndex: 1100 }}>
             <Toolbar>
                <Typography variant="h6" color="primary" sx={{ flexGrow: 1, fontWeight: 800, fontStyle: 'italic' }}>
-                 FANTA MotoGP
+                 Fanta MotoGP
                </Typography>
                <IconButton onClick={() => navigate('/profile')}>
                   <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main', fontSize: 14 }}>
