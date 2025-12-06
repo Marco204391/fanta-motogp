@@ -27,7 +27,7 @@
     "expo-secure-store": "^14.2.3",
     "expo-splash-screen": "~0.27.5",
     "expo-status-bar": "~2.2.3",
-    "react": "19.0.0",
+    "react": "19.0.1",
     "react-hook-form": "^7.60.0",
     "react-native": "0.79.5",
     "react-native-chart-kit": "^6.12.0",
