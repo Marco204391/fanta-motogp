@@ -54,22 +54,26 @@ export default function HomePage() {
   if (isLoading) {
     return (
       <Grid container spacing={3}>
-        <Grid size={{ xs:12 }}><Skeleton variant="rectangular" height={300} sx={{ borderRadius: 4 }} /></Grid>
-        <Grid size={{ xs: 12, md: 6}}><Skeleton variant="rectangular" height={200} sx={{ borderRadius: 4 }} /></Grid>
-        <Grid size={{ xs: 12, md: 6}}><Skeleton variant="rectangular" height={200} sx={{ borderRadius: 4 }} /></Grid>
+        <Grid size={{ xs: 12 }}><Skeleton variant="rectangular" height={300} sx={{ borderRadius: 4 }} /></Grid>
+        <Grid size={{ xs: 12, md: 6 }}><Skeleton variant="rectangular" height={200} sx={{ borderRadius: 4 }} /></Grid>
+        <Grid size={{ xs: 12, md: 6 }}><Skeleton variant="rectangular" height={200} sx={{ borderRadius: 4 }} /></Grid>
       </Grid>
     );
   }
 
   return (
     <Box className="fade-in">
-      {/* Hero Section con Countdown */}
+      {/* Hero Section con Animazione e Texture */}
       <Paper
         sx={{
           p: 4,
           mb: 4,
           borderRadius: 4,
-          background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, #000000 100%)`,
+          // Texture animata sopra il gradiente
+          background: `
+            linear-gradient(135deg, ${theme.palette.primary.dark}cc 0%, #000000cc 100%),
+            url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")
+          `,
           color: 'white',
           position: 'relative',
           overflow: 'hidden',
@@ -77,7 +81,13 @@ export default function HomePage() {
           minHeight: 300,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          animation: 'pulse 3s infinite ease-in-out',
+          '@keyframes pulse': {
+            '0%': { boxShadow: '0 0 40px rgba(230, 0, 35, 0.2)' },
+            '50%': { boxShadow: '0 0 70px rgba(230, 0, 35, 0.5)' },
+            '100%': { boxShadow: '0 0 40px rgba(230, 0, 35, 0.2)' },
+          }
         }}
       >
         {/* Background element decorativo */}
@@ -89,20 +99,25 @@ export default function HomePage() {
         </Box>
 
         <Grid container alignItems="center" spacing={4}>
-          <Grid size={{ xs: 12, md: 7}}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Chip 
               label={nextRace ? `ROUND ${nextRace.round}` : "STAGIONE 2024"} 
               color="secondary" 
               size="small" 
               sx={{ mb: 2, fontWeight: 'bold' }} 
             />
+            {/* Titolo con effetto Gradiente */}
             <Typography variant="h2" sx={{ 
               fontWeight: 900, 
               textTransform: 'uppercase', 
               mb: 1, 
               fontSize: { xs: '2rem', md: '3.5rem' },
               lineHeight: 1,
-              fontStyle: 'italic'
+              fontStyle: 'italic',
+              background: 'linear-gradient(45deg, #FFFFFF 30%, #E60023 90%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 2px 10px rgba(230,0,35,0.3))'
             }}>
               {nextRace ? nextRace.name : "Prossimamente"}
             </Typography>
@@ -123,7 +138,7 @@ export default function HomePage() {
             )}
           </Grid>
           
-          <Grid size={{ xs: 12, md: 5}}>
+          <Grid size={{ xs: 12, md: 5 }}>
             {nextRace && (
               <Box sx={{ 
                 bgcolor: 'rgba(255,255,255,0.05)', 
@@ -161,7 +176,7 @@ export default function HomePage() {
 
       <Grid container spacing={3}>
         {/* Widget 1: Classifica Rapida */}
-          <Grid size={{ xs: 12, md: 6}}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                <Typography variant="h6" fontWeight="bold">Le Mie Leghe</Typography>
@@ -210,7 +225,7 @@ export default function HomePage() {
         </Grid>
 
         {/* Widget 2: Stato Team */}
-        <Grid size={{ xs: 12, md: 6}}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                <Typography variant="h6" fontWeight="bold">I Miei Team</Typography>

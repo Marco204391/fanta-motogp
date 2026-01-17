@@ -3,7 +3,7 @@ import { createTheme, responsiveFontSizes } from '@mui/material/styles';
 
 const baseTheme = createTheme({
   palette: {
-    mode: 'dark', // Forziamo il dark mode per il look "racing night"
+    mode: 'dark',
     primary: {
       main: '#E60023', // Rosso MotoGP
       light: '#FF4C4C',
@@ -17,8 +17,8 @@ const baseTheme = createTheme({
       contrastText: '#FFFFFF',
     },
     background: {
-      default: '#0f0f13', // Quasi nero, leggermente bluastro
-      paper: '#1a1a23',   // Grigio scuro per le card
+      default: '#0f0f13', 
+      paper: '#1a1a23',
     },
     text: {
       primary: '#EDEDED',
@@ -30,34 +30,59 @@ const baseTheme = createTheme({
     info: { main: '#2979FF' },
     action: {
       hover: 'rgba(255, 255, 255, 0.08)',
-      selected: 'rgba(230, 0, 35, 0.16)', // Rosso trasparente per selezione
+      selected: 'rgba(230, 0, 35, 0.16)',
     }
   },
   shape: {
-    borderRadius: 16, // Curve più morbide
+    borderRadius: 12, // Curve leggermente più squadrate per un look più tecnico
   }
 });
 
 let theme = createTheme(baseTheme, {
   typography: {
     fontFamily: '"Exo 2", "Roboto", "Helvetica", "Arial", sans-serif',
-    h1: { fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase' },
-    h2: { fontWeight: 700, letterSpacing: '-0.01em' },
-    h3: { fontWeight: 700 },
-    h4: { fontWeight: 600 },
+    h1: { 
+      fontWeight: 900, 
+      letterSpacing: '-0.02em', 
+      textTransform: 'uppercase',
+      fontStyle: 'italic', // Stile Racing
+    },
+    h2: { 
+      fontWeight: 800, 
+      letterSpacing: '-0.01em',
+      fontStyle: 'italic',
+    },
+    h3: { fontWeight: 700, fontStyle: 'italic' },
+    h4: { fontWeight: 700 },
     h5: { fontWeight: 600 },
-    h6: { fontWeight: 600, letterSpacing: '0.05em' },
-    button: { fontWeight: 700, letterSpacing: '0.05em', textTransform: 'none' },
+    h6: { 
+      fontWeight: 700, 
+      letterSpacing: '0.05em', 
+      textTransform: 'uppercase',
+      fontSize: '0.9rem' 
+    },
+    button: { 
+      fontWeight: 700, 
+      letterSpacing: '0.1em', 
+      textTransform: 'uppercase' 
+    },
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundImage: 'radial-gradient(circle at 50% 0%, #2a1a1a 0%, #0f0f13 60%)', // Sfondo radiale sottile
+          backgroundColor: '#0f0f13',
+          // Texture "Carbon Fiber" simulata
+          backgroundImage: `
+            radial-gradient(circle at 50% 0%, #2a1a1a 0%, transparent 80%),
+            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
+            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03))
+          `,
+          backgroundSize: '100% 100%, 20px 20px, 20px 20px',
+          backgroundPosition: '0 0, 0 0, 10px 10px',
           backgroundAttachment: 'fixed',
           minHeight: '100vh',
         },
-        /* Scrollbar personalizzata */
         '::-webkit-scrollbar': { width: '8px' },
         '::-webkit-scrollbar-track': { background: '#0f0f13' },
         '::-webkit-scrollbar-thumb': { background: '#333', borderRadius: '4px' },
@@ -75,14 +100,15 @@ let theme = createTheme(baseTheme, {
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          backgroundColor: 'rgba(26, 26, 35, 0.7)', // Semi-trasparente
-          backdropFilter: 'blur(12px)',
+          backgroundColor: 'rgba(26, 26, 35, 0.6)', // Più trasparente
+          backdropFilter: 'blur(16px) saturate(180%)', // Effetto vetro avanzato
           border: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
-          transition: 'transform 0.2s ease-in-out, border-color 0.2s ease',
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
-            borderColor: 'rgba(230, 0, 35, 0.5)', // Glow rosso al passaggio del mouse
-            transform: 'translateY(-4px)',
+            borderColor: '#E60023', // Bordo rosso vivo
+            boxShadow: '0 0 20px rgba(230, 0, 35, 0.4), 0 8px 32px 0 rgba(0, 0, 0, 0.6)', // Glow esterno
+            transform: 'translateY(-6px)',
           },
         },
       },
@@ -98,14 +124,15 @@ let theme = createTheme(baseTheme, {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          borderRadius: 8,
           padding: '10px 24px',
         },
         containedPrimary: {
-          background: 'linear-gradient(135deg, #E60023 0%, #FF4C4C 100%)',
+          background: 'linear-gradient(90deg, #E60023 0%, #FF4C4C 100%)',
           boxShadow: '0 4px 15px rgba(230, 0, 35, 0.4)',
           '&:hover': {
-            boxShadow: '0 6px 20px rgba(230, 0, 35, 0.6)',
+            background: 'linear-gradient(90deg, #A8001A 0%, #E60023 100%)',
+            boxShadow: '0 0 20px rgba(230, 0, 35, 0.6)', // Glow pulsante
             transform: 'scale(1.02)',
           },
         },
