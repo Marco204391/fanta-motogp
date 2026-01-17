@@ -139,6 +139,9 @@ export class MotoGPApiService {
 
       const allEvents = [...finishedEventsResponse.data, ...upcomingEventsResponse.data];
       
+      // AGGIUNGI QUESTO LOG:
+      console.log("🔍 EVENTI TROVATI DALL'API:", allEvents.map((e: any) => ({ name: e.name, test: e.test, date: e.date_start })));
+
       for (const event of allEvents) {
         if (event.test) {
           console.log(`🟡 SKIPPATO: ${event.name} (evento di test)`);
