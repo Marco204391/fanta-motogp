@@ -639,3 +639,95 @@ export const updateLeagueSettings = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Errore durante l\'aggiornamento delle impostazioni.' });
   }
 };
+
+// POST /api/leagues/:id/reset-season - Reset della stagione per una lega
+export const resetLeagueSeason = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const userId = req.userId!;
+  
+  // Opzionale: puoi passare nuove date per la stagione
+  const { startDate, endDate } = req.body; 
+
+  try {
+    // 1. Verifica che l'utente sia ADMIN della lega
+    const member = await prisma.leagueMember.findUnique({
+      where: { userId_leagueId: { userId, leagueId: id } },
+    });
+
+    if (!member || member.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Solo gli amministratori della lega possono resettare la stagione.' });
+    }
+
+    // 2. Esegui il reset in una transazione per garantire l'integrità dei dati
+    await prisma.$transaction(async (tx) => {
+      
+      // Trova tutti i team della lega
+      const leagueTeams = await tx.team.findMany({
+        where: { leagueId: id },
+        select: { id: true }
+      });
+      
+      const teamIds = leagueTeams.map(t => t.id);
+
+      if (teamIds.length > 0) {
+        // A. Elimina tutti i punteggi (TeamScore)
+        await tx.teamScore.deleteMany({
+          where: { teamId: { in: teamIds } }
+        });
+
+        // B. Elimina i dettagli delle formazioni (LineupRider)
+        // Dobbiamo trovare le lineup prima per cancellare i rider collegati
+        const lineups = await tx.raceLineup.findMany({
+          where: { teamId: { in: teamIds } },
+          select: { id: true }
+        });
+        const lineupIds = lineups.map(l => l.id);
+
+        if (lineupIds.length > 0) {
+            await tx.lineupRider.deleteMany({
+                where: { lineupId: { in: lineupIds } }
+            });
+        }
+
+        // C. Elimina le formazioni (RaceLineup)
+        await tx.raceLineup.deleteMany({
+          where: { teamId: { in: teamIds } }
+        });
+
+        // D. Svuota le rose (TeamRider) - Questo restituisce implicitamente il budget
+        await tx.teamRider.deleteMany({
+          where: { teamId: { in: teamIds } }
+        });
+
+        // E. Resetta i punti di partenza a 0 (se usati)
+        await tx.team.updateMany({
+          where: { leagueId: id },
+          data: { startingPoints: 0 }
+        });
+      }
+
+      // F. Se esistono regole di esclusività, libera i piloti per la lega
+      await tx.leagueRider.deleteMany({
+        where: { leagueId: id }
+      });
+
+      // G. Aggiorna le date della lega se fornite (per la nuova stagione)
+      if (startDate || endDate) {
+        await tx.league.update({
+          where: { id },
+          data: {
+            startDate: startDate ? new Date(startDate) : undefined,
+            endDate: endDate ? new Date(endDate) : undefined,
+            teamsLocked: false // Sblocca il mercato automaticamente
+          }
+        });
+      }
+    });
+
+    res.json({ success: true, message: 'Stagione resettata con successo. I team sono pronti per il nuovo anno.' });
+
+  } catch (error) {
+    console.error('Errore reset stagione:', error);
+    res.status(500).json({ error: 'Errore durante il reset della stagione.' });
+  }
+};

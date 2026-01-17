@@ -29,6 +29,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { ScoreBreakdownDialog } from '../components/ScoreBreakdownDialog';
 import { useRealTimeUpdates } from '../hooks/useRealTimeUpdates';
+import { LeagueSeasonReset } from '../components/LeagueSeasonReset';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -1178,6 +1179,15 @@ export default function LeagueDetailPage() {
                   </Stack>
                 </CardContent>
               </Card>
+            </Grid>
+
+            {/* NUOVA SEZIONE: RESET STAGIONE */}
+            {/* Questa è la parte nuova aggiunta in coda alle opzioni admin */}
+            <Grid size={12}>
+               <LeagueSeasonReset 
+                  leagueId={leagueId!} 
+                  onResetComplete={refetchLeague} 
+               />
             </Grid>
 
             {/* Info Lega */}
