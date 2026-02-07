@@ -11,15 +11,15 @@ interface MotoGPApiConfig {
 }
 
 const config: MotoGPApiConfig = {
-  baseUrl: 'https://api.motogp.pulselive.com/motogp/v1',
-  resultsApi: 'https://api.motogp.pulselive.com/motogp/v1/results',
-  broadcastApi: 'https://api.motogp.pulselive.com/motogp/v1'
+  baseUrl: 'https://api.pulselive.motogp.com/motogp/v1', 
+  resultsApi: 'https://api.pulselive.motogp.com/motogp/v1/results',
+  broadcastApi: 'https://api.pulselive.motogp.com/motogp/v1'
 };
 
 const CATEGORY_MAPPING: Record<string, Category> = {
-  'e8c110ad-64aa-4e8e-8a86-f2f152f6a942': Category.MOTOGP,
-  '549640b8-fd9c-4245-acfd-60e4bc38b25c': Category.MOTO2,
-  '954f7e65-2ef2-4423-b949-4961cc603e45': Category.MOTO3,
+  '93888447-8746-4161-882c-e08a1d48447e': Category.MOTOGP, // NUOVO UUID dal JSON 2026
+  'bc2b0143-1bfb-4ad0-9501-da2e474e3ea7': Category.MOTO2,  // NUOVO UUID dal JSON 2026
+  '7b0adf61-0a93-4e3d-a7ef-1fee93c2591f': Category.MOTO3   // NUOVO UUID dal JSON 2026
 };
 
 const getRiderType = (apiRider: any): RiderType => {
@@ -27,16 +27,12 @@ const getRiderType = (apiRider: any): RiderType => {
     if (!careerStep || !careerStep.type) return RiderType.TEST_RIDER;
 
     switch (careerStep.type.toUpperCase()) {
-        case 'OFFICIAL':
-            return RiderType.OFFICIAL;
-        case 'WILDCARD':
-            return RiderType.WILDCARD;
+        case 'OFFICIAL': return RiderType.OFFICIAL;
+        case 'WILDCARD': return RiderType.WILDCARD;
         case 'REPLACEMENT':
-        case 'SUBSTITUTE':
-            return RiderType.REPLACEMENT;
+        case 'SUBSTITUTE': return RiderType.REPLACEMENT;
         case 'TEST':
-        default:
-            return RiderType.TEST_RIDER;
+        default: return RiderType.TEST_RIDER;
     }
 };
 
@@ -122,80 +118,96 @@ export class MotoGPApiService {
 
   async syncRaceCalendar(season: number = new Date().getFullYear()) {
     try {
-      console.log(`📅 Sincronizzazione calendario ${season}...`);
+      console.log(`📅 Sincronizzazione calendario ${season} tramite nuova API...`);
       
-      const seasonsResponse = await this.axiosInstance.get('/results/seasons');
-      const seasonData = seasonsResponse.data.find((s: any) => s.year === season);
-      
-      if (!seasonData) throw new Error(`Stagione ${season} non trovata`);
+      // Chiamata unica che recupera tutto il calendario con dettagli
+      const response = await this.axiosInstance.get(`/events?seasonYear=${season}`);
+      const allEvents = response.data;
 
-      const finishedEventsUrl = `/results/events?seasonUuid=${seasonData.id}&isFinished=true`;
-      const upcomingEventsUrl = `/results/events?seasonUuid=${seasonData.id}&isFinished=false`;
+      if (!Array.isArray(allEvents)) {
+          throw new Error("Formato risposta API non valido (mi aspettavo un array)");
+      }
 
-      const [finishedEventsResponse, upcomingEventsResponse] = await Promise.all([
-        this.axiosInstance.get(finishedEventsUrl),
-        this.axiosInstance.get(upcomingEventsUrl)
-      ]);
+      console.log(`🔎 Trovati ${allEvents.length} eventi grezzi dall'API.`);
 
-      const allEvents = [...finishedEventsResponse.data, ...upcomingEventsResponse.data];
-      
-      // AGGIUNGI QUESTO LOG:
-      console.log("🔍 EVENTI TROVATI DALL'API:", allEvents.map((e: any) => ({ name: e.name, test: e.test, date: e.date_start })));
+      let processedCount = 0;
 
       for (const event of allEvents) {
-        if (event.test) {
-          console.log(`🟡 SKIPPATO: ${event.name} (evento di test)`);
+        // 1. Filtriamo solo i Gran Premi (Escludiamo TEST e MEDIA)
+        if (event.kind !== 'GP') {
+          console.log(`🟡 SKIPPATO: ${event.name} (Tipo: ${event.kind})`);
           continue;
         }
 
+        // 2. Estrazione dati base
+        const circuitName = event.circuit?.name || 'Circuito Sconosciuto';
+        // A volte il paese è in event.country (codice ISO) o event.circuit.country (Nome esteso)
+        const countryName = event.circuit?.country || event.country || 'N/A';
+        
+        // 3. Estrazione Layout Circuito (dal nuovo JSON path)
+        let trackLayoutUrl: string | null = null;
+        if (event.circuit?.track?.assets?.info?.path) {
+            trackLayoutUrl = event.circuit.track.assets.info.path;
+        }
+
+        // 4. Estrazione Date Sessioni (Sprint e Gara) dai 'broadcasts' interni
         let raceDate: Date | null = null;
         let sprintDate: Date | null = null;
-        let trackLayoutUrl: string | null = null;
+        const broadcasts = event.broadcasts || [];
 
-        try {
-          const eventDetailsResponse = await this.axiosInstance.get(`/events/${event.toad_api_uuid}`);
-          const eventData = eventDetailsResponse.data;
-          const broadcasts = eventData?.broadcasts || [];
-          
-          if (eventData?.circuit?.track?.assets?.info?.path) {
-            trackLayoutUrl = eventData.circuit.track.assets.info.path;
-          }
-          
-          const raceSession = broadcasts.find((s: any) => s.shortname === 'RAC' && s.category.acronym === 'MGP');
-          if (raceSession && raceSession.date_start) {
-            raceDate = new Date(raceSession.date_start);
-          }
-
-          const sprintSession = broadcasts.find((s: any) => s.shortname === 'SPR' && s.category.acronym === 'MGP');
-          if (sprintSession && sprintSession.date_start) {
-            sprintDate = new Date(sprintSession.date_start);
-          }
-        } catch (sessionError) {
-          console.warn(`⚠️ Impossibile recuperare i dettagli delle sessioni per ${event.name}, uso le date generali.`);
-        }
-        const roundNumber = event.sequence || event.number || 0; 
+        // Cerchiamo la Gara MotoGP
+        const raceSession = broadcasts.find((s: any) => 
+            (s.shortname === 'RAC' || s.kind === 'RACE') && 
+            s.category?.acronym === 'MGP' && 
+            s.type === 'SESSION' // Assicuriamoci sia una sessione
+        );
         
+        if (raceSession && raceSession.date_start) {
+            raceDate = new Date(raceSession.date_start);
+        }
+
+        // Cerchiamo la Sprint MotoGP
+        const sprintSession = broadcasts.find((s: any) => 
+            (s.shortname === 'SPR') && 
+            s.category?.acronym === 'MGP'
+        );
+
+        if (sprintSession && sprintSession.date_start) {
+            sprintDate = new Date(sprintSession.date_start);
+        }
+
+        // Se non troviamo la data specifica della gara, usiamo la fine dell'evento
+        const finalRaceDate = raceDate || new Date(event.date_end);
+
+        // 5. Determinazione Round (Sequence)
+        // Cerchiamo la sequenza specifica per la MotoGP nel JSON
+        const mgpCategory = event.event_categories?.find((c: any) => 
+            c.category_id === '93888447-8746-4161-882c-e08a1d48447e' // UUID MotoGP 2026
+        );
+        const roundNumber = mgpCategory?.sequence || event.sequence || 0;
+
+        // 6. Salvataggio nel DB
         await prisma.race.upsert({
           where: { apiEventId: event.id },
           update: {
-            name: event.name,
-            circuit: event.circuit.name,
-            country: event.country.name,
+            name: event.name || event.additional_name,
+            circuit: circuitName,
+            country: countryName,
             startDate: new Date(event.date_start),
             endDate: new Date(event.date_end),
-            gpDate: raceDate || new Date(event.date_end),
+            gpDate: finalRaceDate,
             sprintDate: sprintDate,
             round: roundNumber,
             season,
             trackLayoutUrl
           },
           create: {
-            name: event.name,
-            circuit: event.circuit.name,
-            country: event.country.name,
+            name: event.name || event.additional_name,
+            circuit: circuitName,
+            country: countryName,
             startDate: new Date(event.date_start),
             endDate: new Date(event.date_end),
-            gpDate: raceDate || new Date(event.date_end),
+            gpDate: finalRaceDate,
             sprintDate: sprintDate,
             round: roundNumber,
             season,
@@ -203,23 +215,28 @@ export class MotoGPApiService {
             trackLayoutUrl
           }
         });
-        console.log(`✅ Sincronizzato evento: ${event.name}`);
+        
+        console.log(`✅ Sincronizzato GP: ${event.name} (Round ${roundNumber})`);
+        processedCount++;
       }
 
-      console.log('🔄 Ricalcolo dei round in ordine cronologico...');
+      // Ricalcolo ordine cronologico di sicurezza (nel caso l'API abbia sequence null o errate)
+      console.log('🔄 Verifica ordinamento round...');
       const races = await prisma.race.findMany({
-        where: { season },
+        where: { season, name: { not: { contains: 'TEST' } } }, // Escludiamo test residui
         orderBy: { gpDate: 'asc' }
       });
 
       for (let i = 0; i < races.length; i++) {
-        await prisma.race.update({
-          where: { id: races[i].id },
-          data: { round: i + 1 }
-        });
+        if (races[i].round !== i + 1) {
+            await prisma.race.update({
+            where: { id: races[i].id },
+            data: { round: i + 1 }
+            });
+        }
       }
       
-      console.log(`🎉 Calendario per la stagione ${season} sincronizzato e ordinato!`);
+      console.log(`🎉 Calendario stagione ${season} completato! ${processedCount} GP importati.`);
     } catch (error) {
       console.error(`❌ Errore sincronizzazione calendario ${season}:`, error);
       throw error;
@@ -253,43 +270,43 @@ export class MotoGPApiService {
 
           // Salva i risultati solo per le sessioni terminate
           if (raceSession && raceSession.status === 'FINISHED') {
-            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${raceSession.id}&test=false`);
+            const resultsResponse = await axios.get(`https://api.pulselive.motogp.com/motogp/v2/results/classifications?session=${raceSession.id}&test=false`);
             if (resultsResponse.data?.classification) {
               await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.RACE);
             }
           }
           if (sprintSession && sprintSession.status === 'FINISHED') {
-            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${sprintSession.id}&test=false`);
+            const resultsResponse = await axios.get(`https://api.pulselive.motogp.com/motogp/v2/results/classifications?session=${sprintSession.id}&test=false`);
             if (resultsResponse.data?.classification) {
               await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.SPRINT);
             }
           }
           if (fp1Session && fp1Session.status === 'FINISHED') {
-            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${fp1Session.id}&test=false`);
+            const resultsResponse = await axios.get(`https://api.pulselive.motogp.com/motogp/v2/results/classifications?session=${fp1Session.id}&test=false`);
             if (resultsResponse.data?.classification) {
                 await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.FP1);
             }
           }
           if (fp2Session && fp2Session.status === 'FINISHED') {
-            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${fp2Session.id}&test=false`);
+            const resultsResponse = await axios.get(`https://api.pulselive.motogp.com/motogp/v2/results/classifications?session=${fp2Session.id}&test=false`);
             if (resultsResponse.data?.classification) {
                 await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.FP2);
             }
           }
           if (prSession && prSession.status === 'FINISHED') {
-            const resultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${prSession.id}&test=false`);
+            const resultsResponse = await axios.get(`https://api.pulselive.motogp.com/motogp/v2/results/classifications?session=${prSession.id}&test=false`);
             if (resultsResponse.data?.classification) {
                 await this.saveRaceResults(raceId, category, resultsResponse.data.classification, SessionType.PR);
             }
           }
 
           if (q2Session && q2Session.status === 'FINISHED') {
-            const q2ResultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${q2Session.id}&test=false`);
+            const q2ResultsResponse = await axios.get(`https://api.pulselive.motogp.com/motogp/v2/results/classifications?session=${q2Session.id}&test=false`);
             if (q2ResultsResponse.data?.classification) {
               let finalClassification = q2ResultsResponse.data.classification;
 
               if (q1Session && q1Session.status === 'FINISHED') {
-                const q1ResultsResponse = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${q1Session.id}&test=false`);
+                const q1ResultsResponse = await axios.get(`https://api.pulselive.motogp.com/motogp/v2/results/classifications?session=${q1Session.id}&test=false`);
                 if (q1ResultsResponse.data?.classification) {
                   const q1Results = q1ResultsResponse.data.classification;
                   const q2RiderIds = new Set(finalClassification.map((r: any) => r.rider.riders_api_uuid));
@@ -446,7 +463,7 @@ export class MotoGPApiService {
 
   private async fetchSessionResults(sessionId: string): Promise<any[] | null> {
       try {
-        const response = await axios.get(`https://api.motogp.pulselive.com/motogp/v2/results/classifications?session=${sessionId}&test=false`);
+        const response = await axios.get(`https://api.pulselive.motogp.com/motogp/v2/results/classifications?session=${sessionId}&test=false`);
         return response.data?.classification || null;
       } catch (error) {
         console.error(`Errore nel fetch dei risultati per la sessione ${sessionId}`, error);
