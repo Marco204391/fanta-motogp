@@ -8,7 +8,7 @@ import {
   Box, Typography, Grid, Paper, Button, Avatar, TextField, 
   Chip, Stack, Card, CardActionArea, Skeleton
 } from '@mui/material';
-import { CheckCircle, Save, AccessTime } from '@mui/icons-material';
+import { CheckCircle, Save } from '@mui/icons-material';
 
 // Helper per categoria
 const CATEGORIES = ['MOTOGP', 'MOTO2', 'MOTO3'];
@@ -49,11 +49,9 @@ export default function LineupPage() {
     onError: (err: any) => notify(err.response?.data?.error || 'Errore nel salvataggio.', 'error')
   });
 
-  // 1. Estraiamo in modo sicuro i dati PRIMA del caricamento e dell'uso nel useMemo
   const team = teamData?.team;
   const riders = team?.riders?.map((tr: any) => tr.rider) || [];
   
-  // 2. Mettiamo useMemo SEMPRE prima del return anticipato
   const stats = useMemo(() => {
     const counts = { MOTOGP: 0, MOTO2: 0, MOTO3: 0, total: 0 };
     let errors: string[] = [];
@@ -90,7 +88,6 @@ export default function LineupPage() {
     const isSelected = selection[riderId]?.selected;
     
     if (!isSelected) {
-      // Check limite categoria (max 2)
       const currentCatCount = Object.keys(selection).filter(id => 
         selection[id].selected && riders.find((r:any) => r.id === id)?.category === category
       ).length;
@@ -102,13 +99,11 @@ export default function LineupPage() {
     }
 
     setSelection(prev => {
-      // Se deseleziono, rimuovo l'entry o setto false
       if (isSelected) {
          const newState = { ...prev };
          delete newState[riderId];
          return newState;
       }
-      // Se seleziono
       return { ...prev, [riderId]: { selected: true, pos: prev[riderId]?.pos || '' } };
     });
   };
@@ -200,32 +195,38 @@ export default function LineupPage() {
                           borderWidth: isSelected ? '2px' : '1px'
                         }}
                       >
-                          <Box p={1.5} display="flex" alignItems="center" gap={2}>
+                          <Box p={{ xs: 1, sm: 1.5 }} display="flex" alignItems="center" gap={{ xs: 0.5, sm: 1 }}>
+                            
                             <CardActionArea 
                               onClick={() => handleToggle(rider.id, cat)}
-                              sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 2, p: 1, borderRadius: 1 }}
+                              sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 }, p: 1, borderRadius: 1, overflow: 'hidden' }}
                             >
                               <Avatar sx={{ bgcolor: isSelected ? CAT_COLORS[cat] : 'grey.700', fontWeight: 'bold', width: 32, height: 32, fontSize: 14 }}>
                                 {rider.number}
                               </Avatar>
-                              <Box flexGrow={1}>
-                                <Typography fontWeight="bold" variant="body2">{rider.name}</Typography>
-                                <Typography variant="caption" color="text.secondary">{rider.team}</Typography>
+                              
+                              {/* minWidth: 0 è fondamentale per far funzionare noWrap nei flexbox */}
+                              <Box flexGrow={1} sx={{ minWidth: 0 }}>
+                                <Typography fontWeight="bold" variant="body2" noWrap>{rider.name}</Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>{rider.team}</Typography>
                               </Box>
-                              {isSelected && <CheckCircle sx={{ ml: 'auto', color: CAT_COLORS[cat], fontSize: 20 }} />}
+                              
+                              {/* Nascondiamo la spunta su mobile se il pilota è selezionato (c'è già l'input) */}
+                              {isSelected && <CheckCircle sx={{ ml: 'auto', color: CAT_COLORS[cat], fontSize: 20, display: { xs: 'none', sm: 'block' } }} />}
                             </CardActionArea>
 
+                            {/* Larghezza dell'input adattiva: 70px su mobile, 90px su desktop */}
                             {isSelected && (
-                              <Box width={80}>
+                              <Box width={{ xs: 70, sm: 90 }} sx={{ flexShrink: 0, ml: { xs: 0, sm: 1 } }}>
                                 <TextField
                                   label="Pos."
                                   size="small"
                                   type="number"
-                                  variant="filled"
+                                  variant="outlined"
                                   value={selection[rider.id]?.pos}
                                   onChange={(e) => handlePosChange(rider.id, e.target.value)}
-                                  InputProps={{ disableUnderline: true, sx: { borderRadius: 1 } }}
-                                  inputProps={{ min: 1, max: 30, style: { textAlign: 'center', fontWeight: 'bold', padding: '8px' } }}
+                                  InputProps={{ sx: { borderRadius: 1 } }}
+                                  inputProps={{ min: 1, max: 30, style: { textAlign: 'center', fontWeight: 'bold', padding: '8px 4px' } }}
                                   error={!selection[rider.id]?.pos}
                                 />
                               </Box>
