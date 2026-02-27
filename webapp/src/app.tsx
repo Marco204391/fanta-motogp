@@ -8,7 +8,8 @@ import {
   AppBar, Box, Toolbar, IconButton, Typography, Drawer, List, 
   ListItem, ListItemButton, ListItemIcon, ListItemText, 
   Avatar, Container, useMediaQuery, BottomNavigation, 
-  BottomNavigationAction, Paper, Divider, CircularProgress, useTheme
+  BottomNavigationAction, Paper, Divider, CircularProgress, useTheme,
+  alpha
 } from '@mui/material';
 import {
   Menu as MenuIcon, Home, SportsMotorsports, Groups, 
@@ -107,10 +108,10 @@ function MainLayout() {
                     justifyContent: drawerOpen ? 'initial' : 'center',
                     px: 2.5,
                     mb: 0.5,
-                    bgcolor: location.pathname === item.path ? 'rgba(230, 0, 35, 0.08)' : 'transparent',
-                    borderLeft: location.pathname === item.path ? '4px solid #E60023' : '4px solid transparent',
+                    bgcolor: location.pathname === item.path ? alpha(theme.palette.primary.main, 0.12) : 'transparent',
+                    borderLeft: location.pathname === item.path ? `4px solid ${theme.palette.primary.main}` : '4px solid transparent',
                     '&:hover': {
-                       bgcolor: 'rgba(255, 255, 255, 0.05)',
+                       bgcolor: alpha(theme.palette.text.primary, 0.05),
                     }
                   }}
                   onClick={() => navigate(item.path)}
@@ -201,6 +202,7 @@ function AuthLayout() {
 
 function App() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -239,8 +241,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           
-          {/* Redirect di fallback per utenti NON loggati */}
-          <Route path="*" element={<Navigate to="/login" />} />
+          {/* <-- MODIFICA PUNTO 5: Salviamo da dove arrivava l'utente */}
+          <Route path="*" element={<Navigate to="/login" state={{ from: location.pathname }} replace />} />
         </Route>
       )}
     </Routes>

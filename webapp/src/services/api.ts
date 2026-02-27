@@ -1,7 +1,6 @@
 // webapp/src/services/api.ts
 import axios from 'axios';
 
-
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
@@ -230,9 +229,6 @@ export const getResultsTemplate = async (raceId: string, category: string) => {
 export const postRaceResults = async (data: { raceId: string; results: any[]; session: 'RACE' | 'SPRINT' }) => {
   const response = await api.post('/sync/results', data);
   return response.data;
-};
-export const alpha = (color: string, opacity: number): string => {
-  return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
 };
 
 export default api;

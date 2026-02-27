@@ -1,7 +1,7 @@
 // webapp/src/pages/LoginPage.tsx
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Container, TextField, Button, Typography, Box, Alert, CircularProgress, Paper, Avatar } from '@mui/material';
 import SportsMotorsportsIcon from '@mui/icons-material/SportsMotorsports';
 
@@ -12,6 +12,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation(); 
+  const from = location.state?.from || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +21,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await login(emailOrUsername, password);
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Credenziali non valide');
     } finally {
