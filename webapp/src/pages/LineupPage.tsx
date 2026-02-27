@@ -205,19 +205,16 @@ export default function LineupPage() {
                                 {rider.number}
                               </Avatar>
                               
-                              {/* minWidth: 0 è fondamentale per far funzionare noWrap nei flexbox */}
                               <Box flexGrow={1} sx={{ minWidth: 0 }}>
                                 <Typography fontWeight="bold" variant="body2" noWrap>{rider.name}</Typography>
                                 <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>{rider.team}</Typography>
                               </Box>
                               
-                              {/* Nascondiamo la spunta su mobile se il pilota è selezionato (c'è già l'input) */}
                               {isSelected && <CheckCircle sx={{ ml: 'auto', color: CAT_COLORS[cat], fontSize: 20, display: { xs: 'none', sm: 'block' } }} />}
                             </CardActionArea>
 
-                            {/* Larghezza dell'input adattiva: 70px su mobile, 90px su desktop */}
                             {isSelected && (
-                              <Box width={{ xs: 70, sm: 90 }} sx={{ flexShrink: 0, ml: { xs: 0, sm: 1 } }}>
+                              <Box width={{ xs: 80, sm: 90 }} sx={{ flexShrink: 0, ml: { xs: 0, sm: 1 } }}>
                                 <TextField
                                   label="Pos."
                                   size="small"
@@ -226,6 +223,7 @@ export default function LineupPage() {
                                   value={selection[rider.id]?.pos}
                                   onChange={(e) => handlePosChange(rider.id, e.target.value)}
                                   InputProps={{ sx: { borderRadius: 1 } }}
+                                  InputLabelProps={{ sx: { fontSize: { xs: '0.8rem', sm: '1rem' } } }}
                                   inputProps={{ min: 1, max: 30, style: { textAlign: 'center', fontWeight: 'bold', padding: '8px 4px' } }}
                                   error={!selection[rider.id]?.pos}
                                 />
