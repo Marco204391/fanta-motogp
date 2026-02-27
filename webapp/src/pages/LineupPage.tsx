@@ -49,19 +49,11 @@ export default function LineupPage() {
     onError: (err: any) => notify(err.response?.data?.error || 'Errore nel salvataggio.', 'error')
   });
 
-  if (l1 || l2 || l3) return (
-    <Box p={4}>
-        <Skeleton variant="text" height={60} width="40%" sx={{mb: 2}} />
-        <Grid container spacing={3}>
-            {[1,2,3].map(i => <Grid size={{ xs: 12, md: 4}} key={i}><Skeleton variant="rectangular" height={500} sx={{borderRadius: 2}}/></Grid>)}
-        </Grid>
-    </Box>
-  );
-
-  const team = teamData.team;
-  const riders = team.riders.map((tr: any) => tr.rider);
+  // 1. Estraiamo in modo sicuro i dati PRIMA del caricamento e dell'uso nel useMemo
+  const team = teamData?.team;
+  const riders = team?.riders?.map((tr: any) => tr.rider) || [];
   
-  // Validazione e Statistiche
+  // 2. Mettiamo useMemo SEMPRE prima del return anticipato
   const stats = useMemo(() => {
     const counts = { MOTOGP: 0, MOTO2: 0, MOTO3: 0, total: 0 };
     let errors: string[] = [];
@@ -84,6 +76,15 @@ export default function LineupPage() {
 
     return { counts, valid: errors.length === 0 && counts.total === 6, errors };
   }, [selection, riders]);
+
+  if (l1 || l2 || l3) return (
+    <Box p={4}>
+        <Skeleton variant="text" height={60} width="40%" sx={{mb: 2}} />
+        <Grid container spacing={3}>
+            {[1,2,3].map(i => <Grid size={{ xs: 12, md: 4}} key={i}><Skeleton variant="rectangular" height={500} sx={{borderRadius: 2}}/></Grid>)}
+        </Grid>
+    </Box>
+  );
 
   const handleToggle = (riderId: string, category: string) => {
     const isSelected = selection[riderId]?.selected;
@@ -131,9 +132,9 @@ export default function LineupPage() {
         borderRadius: 3
       }} elevation={4}>
         <Box>
-           <Typography variant="subtitle2" color="text.secondary">{team.name}</Typography>
+           <Typography variant="subtitle2" color="text.secondary">{team?.name}</Typography>
            <Stack direction="row" spacing={2} alignItems="center">
-             <Typography variant="h6" fontWeight="bold">{raceData.race.name}</Typography>
+             <Typography variant="h6" fontWeight="bold">{raceData?.race?.name}</Typography>
              <Chip 
                 label={`${stats.counts.total}/6 Selezionati`} 
                 color={stats.counts.total === 6 ? 'success' : 'warning'} 
