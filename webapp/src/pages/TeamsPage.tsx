@@ -107,7 +107,7 @@ export default function TeamsPage() {
       {/* Prossima Gara */}
       {nextRace && (
         <Paper sx={{ p: 2, mb: 3, bgcolor: 'primary.main', color: 'white' }}>
-          <Stack direction="row" alignItems="center" spacing={2} justifyContent="space-between">
+          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} justifyContent="space-between">
             <Stack direction="row" alignItems="center" spacing={2}>
               <CalendarToday />
               <Box>
@@ -120,12 +120,12 @@ export default function TeamsPage() {
               </Box>
             </Stack>
             {isLocked && (
-               <Chip 
-                 icon={<Flag />} 
-                 label="IN CORSO" 
-                 color="error" 
-                 sx={{ fontWeight: 'bold', bgcolor: 'white' }} 
-               />
+               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'error.main', px: 2, py: 0.5, borderRadius: 1 }}>
+                 <Flag fontSize="small" />
+                 <Typography variant="button" fontWeight="bold">
+                   Gara in Corso
+                 </Typography>
+               </Box>
             )}
           </Stack>
         </Paper>
@@ -278,7 +278,7 @@ export default function TeamsPage() {
                       ))}
                   </List>
                 </CardContent>
-                <CardActions>
+                <CardActions sx={{ px: 2, pb: 2 }}>
                   <Button
                     fullWidth={false}
                     variant="outlined"
@@ -291,22 +291,10 @@ export default function TeamsPage() {
                   </Button>
                   
                   {isLocked ? (
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      color="error"
-                      disabled
-                      startIcon={<Flag />}
-                      sx={{ 
-                        '&.Mui-disabled': {
-                          borderColor: 'error.main',
-                          color: 'error.main',
-                          opacity: 0.8
-                        }
-                      }}
-                    >
-                      Gara in Corso
-                    </Button>
+                    <Box sx={{ flex: 1, p: 1, bgcolor: 'error.main', color: 'white', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                      <Flag fontSize="small" />
+                      <Typography variant="button" fontWeight="bold">Gara in Corso</Typography>
+                    </Box>
                   ) : (
                     <Button
                       fullWidth

@@ -13,6 +13,8 @@ interface RaceEventCardProps {
     country: string;
     gpDate: string;
     sprintDate?: string;
+    startDate: string;
+    endDate: string;
     round: number;
     trackLayoutUrl?: string;
   };
@@ -21,13 +23,24 @@ interface RaceEventCardProps {
 export function RaceEventCard({ race }: RaceEventCardProps) {
   const navigate = useNavigate();
   const raceDate = new Date(race.gpDate);
+  const startDate = new Date(race.startDate);
+  const endDate = new Date(race.endDate);
   const now = new Date();
+  
+  // Una gara è passata solo dopo la fine dell'intero weekend
+  const isPast = isAfter(now, endDate);
+  
+  // Una gara è in corso dal momento dell'inizio ufficiale alla fine del weekend
+  const isInProgress = isAfter(now, startDate) && isBefore(now, endDate);
+  
+  const isUpcoming = isBefore(now, startDate);
+  
+  // Il countdown si basa sull'inizio della gara vera e propria (gpDate)
   const daysUntil = differenceInDays(raceDate, now);
-  const isUpcoming = isAfter(raceDate, now);
-  const isPast = isBefore(raceDate, now);
 
   const getStatusLabel = () => {
     if (isPast) return 'Conclusa';
+    if (isInProgress) return 'In Corso';
     if (daysUntil === 0) return 'Oggi';
     if (daysUntil === 1) return 'Domani';
     if (daysUntil <= 7) return `${daysUntil} giorni`;
@@ -36,7 +49,8 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
 
   const getStatusColor = () => {
     if (isPast) return 'default';
-    if (daysUntil === 0) return 'error';
+    if (isInProgress) return 'error';
+    if (daysUntil === 0) return 'warning';
     if (daysUntil <= 3) return 'warning';
     if (daysUntil <= 7) return 'info';
     return 'success';
@@ -76,8 +90,8 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
           />
       )}
     
-      {/* Header con Status Badge */}
-      {daysUntil === 0 && isUpcoming && (
+      {/* Header con Status Badge (Attivo durante tutto il weekend) */}
+      {isInProgress && (
         <Box sx={{
           bgcolor: 'error.main',
           color: 'white',
@@ -90,7 +104,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         }}>
           <SportsScore fontSize="small" />
           <Typography variant="caption" fontWeight="bold">
-            IN CORSO
+            RACE WEEKEND IN CORSO
           </Typography>
           <SportsScore
             fontSize="small"
@@ -182,7 +196,7 @@ export function RaceEventCard({ race }: RaceEventCardProps) {
         <Box sx={{ flexGrow: 1 }} />
 
         {/* Countdown */}
-        {isUpcoming && daysUntil > 0 ? (
+        {(isUpcoming || isInProgress) && daysUntil > 0 ? (
           <Box sx={{ pt: 1 }}>
             <Box display="flex" justifyContent="space-between" mb={1}>
               <Typography variant="caption">Countdown</Typography>
