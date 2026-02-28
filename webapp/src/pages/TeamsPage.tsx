@@ -1,5 +1,5 @@
 // src/pages/TeamsPage.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getMyTeams, getUpcomingRaces } from '../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,7 @@ import {
   Search,
   Lock,
   LockOpen,
+  Flag
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -54,6 +55,7 @@ const categoryColors = {
 export default function TeamsPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLocked, setIsLocked] = useState(false);
 
   const { data: teamsData, isLoading: loadingTeams } = useQuery({
     queryKey: ['myTeams'],
@@ -67,6 +69,16 @@ export default function TeamsPage() {
 
   const teams: Team[] = teamsData?.teams || [];
   const nextRace = racesData?.races?.[0];
+  const targetDate = nextRace ? new Date(nextRace.sprintDate || nextRace.gpDate) : null;
+
+  // Calcolo in tempo reale se la gara è in corso
+  useEffect(() => {
+    if (!targetDate) return;
+    const checkLocked = () => setIsLocked(new Date() >= targetDate);
+    checkLocked(); // Controllo immediato
+    const interval = setInterval(checkLocked, 60000); // Aggiorna ogni minuto
+    return () => clearInterval(interval);
+  }, [targetDate]);
 
   const filteredTeams = teams.filter(team =>
     team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -95,16 +107,26 @@ export default function TeamsPage() {
       {/* Prossima Gara */}
       {nextRace && (
         <Paper sx={{ p: 2, mb: 3, bgcolor: 'primary.main', color: 'white' }}>
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <CalendarToday />
-            <Box>
-              <Typography variant="h6">
-                Prossima Gara: {nextRace.name}
-              </Typography>
-              <Typography variant="body2">
-                {format(new Date(nextRace.gpDate), 'EEEE d MMMM yyyy', { locale: it })}
-              </Typography>
-            </Box>
+          <Stack direction="row" alignItems="center" spacing={2} justifyContent="space-between">
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <CalendarToday />
+              <Box>
+                <Typography variant="h6">
+                  Prossima Gara: {nextRace.name}
+                </Typography>
+                <Typography variant="body2">
+                  {format(new Date(nextRace.gpDate), 'EEEE d MMMM yyyy', { locale: it })}
+                </Typography>
+              </Box>
+            </Stack>
+            {isLocked && (
+               <Chip 
+                 icon={<Flag />} 
+                 label="IN CORSO" 
+                 color="error" 
+                 sx={{ fontWeight: 'bold', bgcolor: 'white' }} 
+               />
+            )}
           </Stack>
         </Paper>
       )}
@@ -267,16 +289,36 @@ export default function TeamsPage() {
                   >
                     Modifica
                   </Button>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    startIcon={<SportsMotorsports />}
-                    onClick={() => navigate(`/teams/${team.id}/lineup/${nextRace.id}`)}
-                    disabled={!nextRace}
-                  >
-                    {team.hasLineup ? 'Modifica Formazione' : 'Schiera Formazione'}
-                  </Button>
+                  
+                  {isLocked ? (
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      color="error"
+                      disabled
+                      startIcon={<Flag />}
+                      sx={{ 
+                        '&.Mui-disabled': {
+                          borderColor: 'error.main',
+                          color: 'error.main',
+                          opacity: 0.8
+                        }
+                      }}
+                    >
+                      Gara in Corso
+                    </Button>
+                  ) : (
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      color="primary"
+                      startIcon={<SportsMotorsports />}
+                      onClick={() => navigate(`/teams/${team.id}/lineup/${nextRace.id}`)}
+                      disabled={!nextRace}
+                    >
+                      {team.hasLineup ? 'Modifica Formazione' : 'Schiera Formazione'}
+                    </Button>
+                  )}
                 </CardActions>
               </Card>
             </Grid>

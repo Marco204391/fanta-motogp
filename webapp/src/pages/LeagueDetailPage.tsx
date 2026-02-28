@@ -13,7 +13,7 @@ import {
 import {
   TrendingUp, TrendingDown, Remove, Groups, Settings, Share, Lock,
   ContentCopy, NotificationsActive, EmojiEvents, WorkspacePremium,
-  BarChart, Refresh, SportsMotorsports, Timer, ExpandMore, ExpandLess, Info
+  BarChart, Refresh, SportsMotorsports, Timer, ExpandMore, ExpandLess, Info, Flag
 } from '@mui/icons-material';
 import { format, isPast, differenceInDays, differenceInHours } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -193,6 +193,7 @@ export default function LeagueDetailPage() {
   const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
   const [selectedLineup, setSelectedLineup] = useState<any>(null);
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
 
   // State per impostazioni lega
   const [teamsLocked, setTeamsLocked] = useState(false);
@@ -235,6 +236,16 @@ export default function LeagueDetailPage() {
   const allRaces = racesData?.races || [];
   const nextRace = allRaces.find((r: any) => !isPast(new Date(r.gpDate)));
   const myTeam = myTeamData?.team;
+  const deadline = nextRace ? new Date(nextRace.sprintDate || nextRace.gpDate) : null;
+
+  // Controllo in tempo reale per lo stato di blocco (gara in corso)
+  useEffect(() => {
+    if (!deadline) return;
+    const checkLocked = () => setIsLocked(new Date() >= deadline);
+    checkLocked(); // Controllo iniziale
+    const interval = setInterval(checkLocked, 60000); // Check ogni minuto
+    return () => clearInterval(interval);
+  }, [deadline]);
 
   const { data: nextRaceLineupData } = useQuery({
     queryKey: ['lineup', myTeam?.id, nextRace?.id],
@@ -296,7 +307,6 @@ export default function LeagueDetailPage() {
   const isAdmin = league?.isAdmin;
   const userHasTeam = !!myTeam;
   
-  const deadline = nextRace ? new Date(nextRace.sprintDate || nextRace.gpDate) : null;
   const daysUntilDeadline = deadline ? differenceInDays(deadline, new Date()) : null;
   const hoursUntilDeadline = deadline ? differenceInHours(deadline, new Date()) : null;
 
@@ -475,7 +485,7 @@ export default function LeagueDetailPage() {
 
       {/* Box Scadenza Gara - Responsive */}
       {nextRace && deadline && (
-        <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 2, bgcolor: 'action.hover' }}>
+        <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 2, bgcolor: isLocked ? 'error.light' : 'action.hover', border: isLocked ? '1px solid' : 'none', borderColor: 'error.main' }}>
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             alignItems={{ xs: 'stretch', sm: 'center' }}
@@ -485,14 +495,14 @@ export default function LeagueDetailPage() {
             <Box>
               <Typography
                 variant="overline"
-                color="text.secondary"
-                sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+                color={isLocked ? "error.dark" : "text.secondary"}
+                sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem', fontWeight: isLocked ? 'bold' : 'normal' }}
               >
                 Prossimo Evento
               </Typography>
               <Typography
                 variant={isMobile ? "subtitle1" : "h6"}
-                sx={{ fontWeight: 'bold' }}
+                sx={{ fontWeight: 'bold', color: isLocked ? "error.dark" : "text.primary" }}
               >
                 {nextRace.name}
               </Typography>
@@ -501,22 +511,22 @@ export default function LeagueDetailPage() {
             <Divider
               orientation="vertical"
               flexItem
-              sx={{ display: { xs: 'none', sm: 'block' } }}
+              sx={{ display: { xs: 'none', sm: 'block' }, borderColor: isLocked ? 'error.main' : 'divider' }}
             />
 
             <Box>
               <Typography
                 variant="overline"
-                color="text.secondary"
-                sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+                color={isLocked ? "error.main" : "text.secondary"}
+                sx={{ fontSize: isMobile ? '0.65rem' : '0.75rem', fontWeight: 'bold' }}
               >
-                Deadline Schieramento
+                {isLocked ? "SCADENZA TERMINATA" : "Deadline Schieramento"}
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Timer color="primary" fontSize={isMobile ? "small" : "medium"} />
+                <Timer color={isLocked ? "error" : "primary"} fontSize={isMobile ? "small" : "medium"} />
                 <Typography
                   variant={isMobile ? "body2" : "h6"}
-                  color="primary.main"
+                  color={isLocked ? "error.main" : "primary.main"}
                   sx={{ fontWeight: 'medium' }}
                 >
                   {format(deadline, isMobile ? 'dd MMM HH:mm' : 'eeee dd MMMM HH:mm', { locale: it })}
@@ -526,36 +536,47 @@ export default function LeagueDetailPage() {
 
             <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
 
-            {daysUntilDeadline !== null && daysUntilDeadline >= 0 && (
-              <Chip
-                label={
-                  daysUntilDeadline > 0
-                    ? `${daysUntilDeadline} giorni`
-                    : (hoursUntilDeadline != null && hoursUntilDeadline > 0)
-                    ? `${hoursUntilDeadline} ore`
-                    : 'In scadenza!'
-                }
-                color={
-                  daysUntilDeadline < 1
-                    ? 'error'
-                    : daysUntilDeadline <= 3
-                    ? 'warning'
-                    : 'success'
-                }
-                size={isMobile ? "small" : "medium"}
-                sx={{ fontWeight: 'bold' }}
-              />
+            {isLocked ? (
+              <Box display="flex" alignItems="center" gap={1} justifyContent={isMobile ? "center" : "flex-end"} py={isMobile ? 1 : 0}>
+                <Flag color="error" />
+                <Typography variant="h6" color="error" fontWeight="900" fontStyle="italic">
+                  GARA IN CORSO
+                </Typography>
+              </Box>
+            ) : (
+              <>
+                {daysUntilDeadline !== null && daysUntilDeadline >= 0 && (
+                  <Chip
+                    label={
+                      daysUntilDeadline > 0
+                        ? `${daysUntilDeadline} giorni`
+                        : (hoursUntilDeadline != null && hoursUntilDeadline > 0)
+                        ? `${hoursUntilDeadline} ore`
+                        : 'In scadenza!'
+                    }
+                    color={
+                      daysUntilDeadline < 1
+                        ? 'error'
+                        : daysUntilDeadline <= 3
+                        ? 'warning'
+                        : 'success'
+                    }
+                    size={isMobile ? "small" : "medium"}
+                    sx={{ fontWeight: 'bold' }}
+                  />
+                )}
+                
+                <Button
+                  variant="contained"
+                  onClick={handleManageLineup}
+                  disabled={!userHasTeam}
+                  fullWidth={isMobile}
+                  size={isMobile ? "small" : "medium"}
+                >
+                  {hasLineupForNextRace ? 'Aggiorna schieramento' : 'Schiera'}
+                </Button>
+              </>
             )}
-
-            <Button
-              variant="contained"
-              onClick={handleManageLineup}
-              disabled={!userHasTeam || isPast(deadline)}
-              fullWidth={isMobile}
-              size={isMobile ? "small" : "medium"}
-            >
-              {hasLineupForNextRace ? 'Aggiorna schieramento' : 'Schiera'}
-            </Button>
           </Stack>
         </Paper>
       )}
@@ -580,7 +601,7 @@ export default function LeagueDetailPage() {
       )}
 
       {/* Alert per lineup mancante */}
-      {userHasTeam && nextRace && !hasLineupForNextRace && !loadingLineups && (
+      {userHasTeam && nextRace && !hasLineupForNextRace && !loadingLineups && !isLocked && (
         <Alert
           severity="info"
           action={
@@ -1182,7 +1203,6 @@ export default function LeagueDetailPage() {
             </Grid>
 
             {/* NUOVA SEZIONE: RESET STAGIONE */}
-            {/* Questa è la parte nuova aggiunta in coda alle opzioni admin */}
             <Grid size={12}>
                <LeagueSeasonReset 
                   leagueId={leagueId!} 
