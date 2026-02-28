@@ -677,7 +677,7 @@ export class MotoGPApiService {
       const sprintBonusMap = new Map<string, number>();
       const sprintBonusPoints = [-10, -9, -8, -7, -6, -5, -4, -3, -2, -1]; // Dal 1° al 10°
       
-      // Filtra solo i piloti MotoGP dalla Sprint
+      // Filtra solo i piloti MotoGP per la Sprint
       const motogpSprintResults = await prisma.raceResult.findMany({
         where: { 
           raceId, 
