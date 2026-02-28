@@ -6,7 +6,7 @@ import {
   Box, Typography, Grid, Paper, Button, Stack, Chip, Skeleton, Avatar, useTheme
 } from '@mui/material';
 import {
-  SportsScore, ArrowForward, EmojiEvents, AccessTime
+  SportsScore, ArrowForward, EmojiEvents, AccessTime, Flag
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { differenceInDays, differenceInHours, differenceInMinutes } from 'date-fns';
@@ -25,15 +25,26 @@ export default function HomePage() {
   
   const isLoading = loadingRaces || loadingLeagues || loadingTeams;
 
+  // Calcolo della scadenza e dello stato "In Corso"
+  const targetDate = nextRace ? new Date(nextRace.sprintDate || nextRace.gpDate) : null;
+  const isLocked = targetDate ? new Date() >= targetDate : false;
+
   // Countdown Timer Logic
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
 
   useEffect(() => {
-    if (!nextRace) return;
-    const targetDate = new Date(nextRace.sprintDate || nextRace.gpDate);
+    if (!targetDate || isLocked) return;
     
     const timer = setInterval(() => {
       const now = new Date();
+      // Ricalcola se è diventato bloccato in questo esatto momento
+      if (now >= targetDate) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0 });
+        clearInterval(timer);
+        // Forza un re-render o lascia che il prossimo ciclo di react aggiorni isLocked
+        return;
+      }
+      
       const days = differenceInDays(targetDate, now);
       const hours = differenceInHours(targetDate, now) % 24;
       const minutes = differenceInMinutes(targetDate, now) % 60;
@@ -42,14 +53,16 @@ export default function HomePage() {
     
     // Init immediato
     const now = new Date();
-    setTimeLeft({
-      days: differenceInDays(targetDate, now),
-      hours: differenceInHours(targetDate, now) % 24,
-      minutes: differenceInMinutes(targetDate, now) % 60
-    });
+    if (now < targetDate) {
+      setTimeLeft({
+        days: differenceInDays(targetDate, now),
+        hours: differenceInHours(targetDate, now) % 24,
+        minutes: differenceInMinutes(targetDate, now) % 60
+      });
+    }
 
     return () => clearInterval(timer);
-  }, [nextRace]);
+  }, [targetDate, isLocked]);
 
   if (isLoading) {
     return (
@@ -69,7 +82,6 @@ export default function HomePage() {
           p: 4,
           mb: 4,
           borderRadius: 4,
-          // Texture animata sopra il gradiente
           background: `
             linear-gradient(135deg, ${theme.palette.primary.dark}cc 0%, #000000cc 100%),
             url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")
@@ -90,7 +102,6 @@ export default function HomePage() {
           }
         }}
       >
-        {/* Background element decorativo */}
         <Box sx={{
           position: 'absolute', right: -50, top: -50, opacity: 0.1,
           transform: 'rotate(15deg)'
@@ -106,7 +117,6 @@ export default function HomePage() {
               size="small" 
               sx={{ mb: 2, fontWeight: 'bold' }} 
             />
-            {/* Titolo con effetto Gradiente */}
             <Typography variant="h2" sx={{ 
               fontWeight: 900, 
               textTransform: 'uppercase', 
@@ -145,29 +155,39 @@ export default function HomePage() {
                 backdropFilter: 'blur(10px)', 
                 p: 3, 
                 borderRadius: 3,
-                border: '1px solid rgba(255,255,255,0.1)',
+                border: isLocked ? '1px solid rgba(230,0,35,0.5)' : '1px solid rgba(255,255,255,0.1)',
                 textAlign: 'center'
               }}>
                 <Stack direction="row" alignItems="center" justifyContent="center" spacing={1} mb={2}>
-                   <AccessTime fontSize="small" color="primary" />
-                   <Typography variant="overline" color="text.secondary" fontWeight="bold">
-                     SCADENZA FORMAZIONE
+                   <AccessTime fontSize="small" color={isLocked ? "error" : "primary"} />
+                   <Typography variant="overline" color={isLocked ? "error.main" : "text.secondary"} fontWeight="bold">
+                     {isLocked ? "SCADENZA TERMINATA" : "SCADENZA FORMAZIONE"}
                    </Typography>
                 </Stack>
-                <Stack direction="row" justifyContent="center" spacing={2} divider={<Typography variant="h4" sx={{opacity: 0.3}}>:</Typography>}>
-                  <Box>
-                    <Typography variant="h3" fontWeight="bold" color="white">{Math.max(0, timeLeft.days)}</Typography>
-                    <Typography variant="caption" color="text.secondary">GIORNI</Typography>
+                
+                {isLocked ? (
+                  <Box py={2}>
+                    <Typography variant="h5" fontWeight="900" color="error.main" sx={{ fontStyle: 'italic', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                      <Flag /> GARA IN CORSO
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">Formazioni bloccate</Typography>
                   </Box>
-                  <Box>
-                    <Typography variant="h3" fontWeight="bold" color="white">{Math.max(0, timeLeft.hours)}</Typography>
-                    <Typography variant="caption" color="text.secondary">ORE</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="h3" fontWeight="bold" color="primary.main">{Math.max(0, timeLeft.minutes)}</Typography>
-                    <Typography variant="caption" color="text.secondary">MIN</Typography>
-                  </Box>
-                </Stack>
+                ) : (
+                  <Stack direction="row" justifyContent="center" spacing={2} divider={<Typography variant="h4" sx={{opacity: 0.3}}>:</Typography>}>
+                    <Box>
+                      <Typography variant="h3" fontWeight="bold" color="white">{Math.max(0, timeLeft.days)}</Typography>
+                      <Typography variant="caption" color="text.secondary">GIORNI</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="h3" fontWeight="bold" color="white">{Math.max(0, timeLeft.hours)}</Typography>
+                      <Typography variant="caption" color="text.secondary">ORE</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="h3" fontWeight="bold" color="primary.main">{Math.max(0, timeLeft.minutes)}</Typography>
+                      <Typography variant="caption" color="text.secondary">MIN</Typography>
+                    </Box>
+                  </Stack>
+                )}
               </Box>
             )}
           </Grid>
@@ -238,14 +258,14 @@ export default function HomePage() {
                   <Box sx={{ 
                       p: 2, 
                       border: '1px solid',
-                      borderColor: !team.hasLineup && nextRace ? 'warning.main' : 'rgba(255,255,255,0.1)',
+                      borderColor: (!team.hasLineup && nextRace && !isLocked) ? 'warning.main' : 'rgba(255,255,255,0.1)',
                       borderRadius: 2,
                       position: 'relative',
                       overflow: 'hidden',
                       bgcolor: 'background.default'
                     }}
                   >
-                     {!team.hasLineup && nextRace && (
+                     {!team.hasLineup && nextRace && !isLocked && (
                        <Box sx={{ 
                          position: 'absolute', top: 0, left: 0, bottom: 0, width: 4, bgcolor: 'warning.main' 
                        }} />
@@ -266,14 +286,25 @@ export default function HomePage() {
                      
                      <Box mt={2} display="flex" justifyContent="flex-end">
                         {nextRace && (
-                          <Button 
-                            size="small" 
-                            variant={!team.hasLineup ? "contained" : "outlined"}
-                            color={!team.hasLineup ? "warning" : "primary"}
-                            onClick={() => navigate(`/teams/${team.id}/lineup/${nextRace.id}`)}
-                          >
-                            {!team.hasLineup ? "Schiera Formazione" : "Modifica"}
-                          </Button>
+                          isLocked ? (
+                            <Chip 
+                              icon={<Flag />} 
+                              label="In Corso" 
+                              color="error" 
+                              variant="outlined" 
+                              size="small" 
+                              sx={{ fontWeight: 'bold' }}
+                            />
+                          ) : (
+                            <Button 
+                              size="small" 
+                              variant={!team.hasLineup ? "contained" : "outlined"}
+                              color={!team.hasLineup ? "warning" : "primary"}
+                              onClick={() => navigate(`/teams/${team.id}/lineup/${nextRace.id}`)}
+                            >
+                              {!team.hasLineup ? "Schiera Formazione" : "Modifica"}
+                            </Button>
+                          )
                         )}
                      </Box>
                   </Box>

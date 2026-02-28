@@ -10,7 +10,8 @@ export const getUpcomingRaces = async (req: Request, res: Response) => {
   try {
     const races = await prisma.race.findMany({
       where: {
-        gpDate: {
+        // Usa endDate per mantenere la gara "futura" per tutto il weekend
+        endDate: {
           gte: new Date(),
         },
       },
@@ -31,7 +32,8 @@ export const getPastRaces = async (req: Request, res: Response) => {
   try {
     const races = await prisma.race.findMany({
       where: {
-        gpDate: {
+        // Considera la gara "passata" solo dopo la fine effettiva del weekend
+        endDate: {
           lt: new Date(),
         },
       },
@@ -257,12 +259,14 @@ export const getLatestRace = async (req: Request, res: Response) => {
     const now = new Date();
 
     const lastRace = await prisma.race.findFirst({
-      where: { gpDate: { lte: now } },
+      // Uso endDate
+      where: { endDate: { lte: now } },
       orderBy: { gpDate: 'desc' },
     });
 
     const nextRace = await prisma.race.findFirst({
-      where: { gpDate: { gte: now } },
+      // Uso endDate
+      where: { endDate: { gte: now } },
       orderBy: { gpDate: 'asc' },
     });
 
@@ -289,7 +293,8 @@ export const getLatestRace = async (req: Request, res: Response) => {
 
 export const getLastCompletedRace = async (req: Request, res: Response) => {
   const lastRace = await prisma.race.findFirst({
-    where: { gpDate: { lt: new Date() } },
+    // Uso endDate
+    where: { endDate: { lt: new Date() } },
     orderBy: { gpDate: 'desc' },
   });
   
