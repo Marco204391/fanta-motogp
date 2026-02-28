@@ -17,9 +17,9 @@ const config: MotoGPApiConfig = {
 };
 
 const CATEGORY_MAPPING: Record<string, Category> = {
-  '93888447-8746-4161-882c-e08a1d48447e': Category.MOTOGP, // NUOVO UUID dal JSON 2026
-  'bc2b0143-1bfb-4ad0-9501-da2e474e3ea7': Category.MOTO2,  // NUOVO UUID dal JSON 2026
-  '7b0adf61-0a93-4e3d-a7ef-1fee93c2591f': Category.MOTO3   // NUOVO UUID dal JSON 2026
+  'e8c110ad-64aa-4e8e-8a86-f2f152f6a942': Category.MOTOGP,
+  '549640b8-fd9c-4245-acfd-60e4bc38b25c': Category.MOTO2,
+  '954f7e65-2ef2-4423-b949-4961cc603e45': Category.MOTO3
 };
 
 const getRiderType = (apiRider: any): RiderType => {
@@ -248,11 +248,13 @@ export class MotoGPApiService {
       const race = await prisma.race.findUnique({ where: { id: raceId } });
       if (!race || !race.apiEventId) throw new Error('Gara non trovata o mancano dati API');
 
+      const resultsApiEventUuid = await this.getResultsApiEventUuid(race.apiEventId);
+
       let allCategoriesRaceFinished = true;
 
       for (const [categoryId, category] of Object.entries(CATEGORY_MAPPING)) {
         try {
-          const sessionsResponse = await this.axiosInstance.get(`/results/sessions?eventUuid=${race.apiEventId}&categoryUuid=${categoryId}`);
+          const sessionsResponse = await this.axiosInstance.get(`/results/sessions?eventUuid=${resultsApiEventUuid}&categoryUuid=${categoryId}`);
           const sessions = sessionsResponse.data;
           
           const raceSession = sessions.find((s: any) => s.type === 'RAC');
@@ -511,14 +513,31 @@ export class MotoGPApiService {
     return Object.keys(CATEGORY_MAPPING).find(key => CATEGORY_MAPPING[key] === category);
   }
   
+  // 🔴 Metodo modificato per utilizzare l'UUID dei risultati
   private async getAllApiSessions(eventUuid: string, categoryUuid: string): Promise<any[]> {
-    const response = await this.axiosInstance.get(`/results/sessions?eventUuid=${eventUuid}&categoryUuid=${categoryUuid}`);
+    const resultsApiEventUuid = await this.getResultsApiEventUuid(eventUuid);
+    const response = await this.axiosInstance.get(`/results/sessions?eventUuid=${resultsApiEventUuid}&categoryUuid=${categoryUuid}`);
     return response.data;
   }
   
   private async findApiSession(eventUuid: string, categoryUuid: string, filter: (s: any) => boolean): Promise<any | null> {
     const sessions = await this.getAllApiSessions(eventUuid, categoryUuid);
     return sessions.find(filter) || null;
+  }
+
+  private async getResultsApiEventUuid(apiEventId: string): Promise<string> {
+    try {
+      const response = await this.axiosInstance.get(`/events/${apiEventId}`);
+      
+      if (response.data && response.data['results-api-event-uuid']) {
+        return response.data['results-api-event-uuid'];
+      }
+      
+      return apiEventId; 
+    } catch (error) {
+      console.warn(`[API] Impossibile recuperare i dettagli dell'evento (ID: ${apiEventId}). Uso l'ID base.`, error);
+      return apiEventId;
+    }
   }
 
   private async saveRaceResults(raceId: string, category: Category, classification: any[], session: SessionType) {
